@@ -34,17 +34,17 @@ function arg(name, env) {
 const git = (cwd, ...args) =>
 	execFileSync('/usr/bin/git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim();
 
-function gitShow(cwd, spec) {
-	try {
-		return execFileSync('/usr/bin/git', ['show', spec], {
-			cwd,
-			encoding: 'utf8',
-			maxBuffer: 64 * 1024 * 1024,
-			stdio: ['ignore', 'pipe', 'ignore']
-		});
-	} catch {
-		return undefined;
-	}
+// Read a file at a revision. Absent is benign (the config source does not
+// exist there); every other git failure propagates loudly — a corrupt or
+// unreadable base must never masquerade as an empty policy.
+function readAtRevision(cwd, revision, name) {
+	const listed = git(cwd, 'ls-tree', '--name-only', revision, '--', name);
+	if (listed !== name) return undefined;
+	return execFileSync('/usr/bin/git', ['show', `${revision}:${name}`], {
+		cwd,
+		encoding: 'utf8',
+		maxBuffer: 64 * 1024 * 1024
+	});
 }
 
 // Resolve the effective config a revision presents, using the pinned tool's own
@@ -54,7 +54,7 @@ export function effectiveConfigAtRevision(loadConfig, cwd, revision) {
 	const root = mkdtempSync(resolve(tmpdir(), 'testtrust-base-config-'));
 	try {
 		for (const name of CONFIG_SOURCES) {
-			const text = gitShow(cwd, `${revision}:${name}`);
+			const text = readAtRevision(cwd, revision, name);
 			if (text !== undefined) writeFileSync(resolve(root, name), text);
 		}
 		return loadConfig(root);
@@ -100,10 +100,13 @@ function requireInputs() {
 }
 
 function rejectPolicyDelta(candidate, trusted) {
-	console.error(REJECTION_HEADER);
-	console.error(`::error::candidate config: ${candidate}`);
-	console.error(`::error::base config:      ${trusted}`);
-	console.error(REJECTION_GUIDANCE);
+	const lines = [
+		REJECTION_HEADER,
+		`::error::candidate config: ${candidate}`,
+		`::error::base config:      ${trusted}`,
+		REJECTION_GUIDANCE
+	];
+	for (const line of lines) console.error(line);
 	process.exitCode = 1;
 }
 

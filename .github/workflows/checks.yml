@@ -84,9 +84,22 @@ jobs:
             echo "::error::TestTrust base commit $TESTTRUST_BASE_SHA is unavailable; refusing to skip the audit."
             exit 1
           fi
+      - name: Rebuild the pinned TestTrust CLI from reviewed source
+        run: |
+          # The candidate-controlled probe step ran with a writable tool
+          # checkout: a hostile PR could have replaced dist/core/config.js,
+          # package.json, or the TypeScript sources so the policy check's
+          # loadConfig import is forged. Re-materialize the pinned tree into a
+          # fresh, unpredictable directory — git archive reads commit objects
+          # by SHA, so working-tree edits, staged changes, and flag tricks are
+          # irrelevant — and build the enforcer's loader from that.
+          pristine="$(mktemp -d)"
+          git -C testtrust-tool archive 5f468c50285cab751f7756f76e4b8f305c50e2de | tar -x -C "$pristine"
+          cd "$pristine" && npm ci --ignore-scripts --no-audit --no-fund && npm run build
+          echo "TESTTRUST_POLICY_CLI=$pristine/dist/cli.js" >> "$GITHUB_ENV"
       - name: Reject candidate-controlled TestTrust policy changes
         env:
-          TESTTRUST_CLI: ${{ github.workspace }}/testtrust-tool/dist/cli.js
+          TESTTRUST_CLI: ${{ env.TESTTRUST_POLICY_CLI }}
           TESTTRUST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           # The gate's enforcer must not be editable by the PR it gates: run

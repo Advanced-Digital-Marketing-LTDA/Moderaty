@@ -127,7 +127,7 @@ try {
 		} else {
 			assert.notEqual(policyRun.status, 0,
 				`${item.name}: policy check must reject a candidate-changed config`);
-			assert.match(policyRun.stderr + policyRun.stdout, /policy check failed|effective TestTrust configuration/i,
+			assert.match(policyRun.stderr + policyRun.stdout, /policy check failed/,
 				`${item.name}: policy rejection must name the policy violation`);
 		}
 
