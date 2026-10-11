@@ -15,12 +15,14 @@ export type LegalDoc = {
 	toc: LegalTocEntry[];
 };
 
-export const LEGAL_EFFECTIVE_DATE = '5 October 2026';
+export const LEGAL_EFFECTIVE_DATE = '11 October 2026';
 // 1.20: LIFETIME PLACES — Terms §6.1(c) corrected to match the billing
 // implementation: the US$49 offer caps a pool of 1,000 reusable lifetime
 // places (a place released by a refund may be sold again), not the first
 // 1,000 cumulative purchasers. Material change: users without a 1.20
-// consent row are routed back through /consent.
+// consent row are routed back through /consent. Effective 11 October
+// 2026 — the owner-approved publication date; the 5 October date below
+// records 1.19's prepared publication, not this version.
 // 1.19: PUBLIC AUDIENCE MEASUREMENT — conditional Umami disclosure, visitor
 // controls, IP/UA processing and a separate assessment awaiting completion.
 // The operator confirmed there are no users to notify; prepared publication

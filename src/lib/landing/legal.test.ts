@@ -91,7 +91,7 @@ describe('public audience measurement disclosure', () => {
 			expect(body).toContain(phrase);
 		}
 		expect(body).not.toMatch(/guaranteed anonym|automatically LGPD compliant|audience measurement[^.]*assessment is complete/i);
-		expect(LEGAL_EFFECTIVE_DATE).toBe('5 October 2026');
+		expect(LEGAL_EFFECTIVE_DATE).toBe('11 October 2026');
 	});
 	it('preserves prominent advance notice and email commitments', () => {
 		const body = render(Privacy).body;
