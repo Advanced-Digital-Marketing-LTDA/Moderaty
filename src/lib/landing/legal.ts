@@ -16,6 +16,11 @@ export type LegalDoc = {
 };
 
 export const LEGAL_EFFECTIVE_DATE = '5 October 2026';
+// 1.20: LIFETIME PLACES — Terms §6.1(c) corrected to match the billing
+// implementation: the US$49 offer caps a pool of 1,000 reusable lifetime
+// places (a place released by a refund may be sold again), not the first
+// 1,000 cumulative purchasers. Material change: users without a 1.20
+// consent row are routed back through /consent.
 // 1.19: PUBLIC AUDIENCE MEASUREMENT — conditional Umami disclosure, visitor
 // controls, IP/UA processing and a separate assessment awaiting completion.
 // The operator confirmed there are no users to notify; prepared publication
@@ -89,7 +94,7 @@ export const LEGAL_EFFECTIVE_DATE = '5 October 2026';
 // previously named only name, e-mail, purchase history, and tax ID.
 // Material change: users without a 1.17 consent row are routed back
 // through /consent.
-export const LEGAL_VERSION = '1.19';
+export const LEGAL_VERSION = '1.20';
 export const LEGAL_KICKER = 'YouTube Comment Moderation Service';
 
 /**

@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
 import Pricing from '../components/landing/Pricing.svelte';
@@ -23,6 +23,15 @@ test('homepage and pricing describe reusable lifetime places and shared AI class
 		expect(text).toContain('1,000 lifetime places');
 	}
 	expect(home).toContain('100 AI classifications');
+});
+
+test('blog pricing mentions use reusable lifetime places', () => {
+	const blog = readFileSync(
+		new URL('../../routes/blogs/how-to-stop-spam-and-scam-comments-on-youtube/+page.svelte', import.meta.url),
+		'utf8'
+	);
+	expect(blog).not.toMatch(/first 1,000 (?:users|purchases|purchasers)|100 comments included/i);
+	expect(blog).toContain('1,000 lifetime places');
 });
 
 test('all bundle offers derive prices from the shared pricing calculation', () => {
