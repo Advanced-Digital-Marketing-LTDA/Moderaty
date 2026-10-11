@@ -72,12 +72,24 @@ jobs:
         run: node scripts/testtrust/probe.mjs
       - name: Test the fail-closed output verifier
         run: node --test scripts/testtrust/verify-output-checks.mjs
+      - name: Verify TestTrust base commit is available
+        env:
+          TESTTRUST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [[ ! "$TESTTRUST_BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::TestTrust base SHA is missing or invalid."
+            exit 1
+          fi
+          if ! git cat-file -e "${TESTTRUST_BASE_SHA}^{commit}"; then
+            echo "::error::TestTrust base commit $TESTTRUST_BASE_SHA is unavailable; refusing to skip the audit."
+            exit 1
+          fi
       - name: TestTrust diff gate
         id: testtrust_action
         uses: corgu1995/testtrust@5f468c50285cab751f7756f76e4b8f305c50e2de # v0.1.9
         with:
-          base: origin/${{ github.base_ref }}
-          fail-under: '85'
+          base: ${{ github.event.pull_request.base.sha }}
+          fail-under: '86'
           comment: 'false'
       - name: Require valid TestTrust evidence and enforce its threshold
         if: always()

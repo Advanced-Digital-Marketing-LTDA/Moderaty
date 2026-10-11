@@ -44,10 +44,13 @@ try {
 		write('src/add.test.ts', item.before);
 		git(cwd, 'add', '.');
 		git(cwd, 'commit', '-qm', 'baseline');
+		const baseSha = git(cwd, 'rev-parse', 'HEAD');
 		write('src/add.test.ts', item.after);
 		git(cwd, 'add', '.');
 		git(cwd, 'commit', '-qm', item.name);
-		const run = spawnSync(process.execPath, [cli, '--base', 'HEAD^', '--format', 'json', '--fail-under', '85'], {
+		// Move the branch ref after the PR base was recorded. The explicit base SHA must remain authoritative.
+		git(cwd, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+		const run = spawnSync(process.execPath, [cli, '--base', baseSha, '--format', 'json', '--fail-under', '86'], {
 			cwd, encoding: 'utf8', timeout: 30_000
 		});
 		assert(run.stdout.trim(), `${item.name}: TestTrust produced empty output: ${run.stderr}`);
