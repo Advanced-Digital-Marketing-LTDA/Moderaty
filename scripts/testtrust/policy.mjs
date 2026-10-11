@@ -68,7 +68,9 @@ export function effectiveConfigAtRevision(loadConfig, cwd, revision) {
 function canon(value) {
 	if (Array.isArray(value)) return value.map(canon);
 	if (value && typeof value === 'object') {
-		return Object.fromEntries(Object.keys(value).sort().map((k) => [k, canon(value[k])]));
+		return Object.fromEntries(
+			Object.keys(value).sort((a, b) => a.localeCompare(b)).map((k) => [k, canon(value[k])])
+		);
 	}
 	return value;
 }
@@ -84,13 +86,13 @@ async function main() {
 	} catch {
 		throw new Error(`TestTrust policy check cannot read base commit ${base}; refusing to gate on an unverifiable policy`);
 	}
-	if (!cli || !cli.endsWith('/dist/cli.js')) {
+	if (!cli?.endsWith('/dist/cli.js')) {
 		throw new Error('TestTrust policy check requires --cli or TESTTRUST_CLI pointing at the pinned dist/cli.js');
 	}
 
 	const { loadConfig } = await import(pathToFileURL(resolve(dirname(cli), 'core', 'config.js')).href);
 	if (typeof loadConfig !== 'function') {
-		throw new Error('Pinned TestTrust build does not export loadConfig; refusing to gate on an unverifiable policy');
+		throw new TypeError('Pinned TestTrust build does not export loadConfig; refusing to gate on an unverifiable policy');
 	}
 
 	const candidate = effectiveConfigAtRevision(loadConfig, cwd);
