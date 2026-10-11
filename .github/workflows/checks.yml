@@ -43,3 +43,45 @@ jobs:
       - run: npm run check:e2e
       - run: node node_modules/playwright/cli.js install --with-deps chromium
       - run: npm run test:e2e
+
+  testtrust:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out pinned TestTrust source for adversarial probes
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: corgu1995/testtrust
+          ref: 5f468c50285cab751f7756f76e4b8f305c50e2de
+          path: testtrust-tool
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.19.0'
+      - name: Build the pinned TestTrust CLI from reviewed source
+        working-directory: testtrust-tool
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
+      - name: Prove detection and check a legitimate test addition
+        env:
+          TESTTRUST_CLI: ${{ github.workspace }}/testtrust-tool/dist/cli.js
+        run: node scripts/testtrust/probe.mjs
+      - name: Test the fail-closed output verifier
+        run: node --test scripts/testtrust/verify-output-checks.mjs
+      - name: TestTrust diff gate
+        id: testtrust_action
+        uses: corgu1995/testtrust@5f468c50285cab751f7756f76e4b8f305c50e2de # v0.1.9
+        with:
+          base: origin/${{ github.base_ref }}
+          fail-under: '85'
+          comment: 'false'
+      - name: Require valid TestTrust evidence and enforce its threshold
+        if: always()
+        env:
+          TESTTRUST_SCORE: ${{ steps.testtrust_action.outputs.score }}
+          TESTTRUST_VERDICT: ${{ steps.testtrust_action.outputs.verdict }}
+        run: node scripts/testtrust/verify-output.mjs
