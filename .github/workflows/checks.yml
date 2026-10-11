@@ -45,6 +45,11 @@ jobs:
       - run: npm run test:e2e
 
   testtrust:
+    # Trusted gate job: no candidate-authored code ever executes here, so the
+    # environment (PATH, NODE_OPTIONS, GITHUB_ENV, git state) cannot be
+    # poisoned by the PR under audit. The candidate-executed probe and its
+    # unit tests live in the separate testtrust-probe job — environment
+    # variables cannot cross a job boundary.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -53,7 +58,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Check out pinned TestTrust source for adversarial probes
+      - name: Check out pinned TestTrust source for the trusted build
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: corgu1995/testtrust
@@ -66,12 +71,6 @@ jobs:
       - name: Build the pinned TestTrust CLI from reviewed source
         working-directory: testtrust-tool
         run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
-      - name: Prove detection and check a legitimate test addition
-        env:
-          TESTTRUST_CLI: ${{ github.workspace }}/testtrust-tool/dist/cli.js
-        run: node scripts/testtrust/probe.mjs
-      - name: Test the fail-closed output verifier
-        run: node --test scripts/testtrust/verify-output-checks.mjs
       - name: Verify TestTrust base commit is available
         env:
           TESTTRUST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -84,22 +83,9 @@ jobs:
             echo "::error::TestTrust base commit $TESTTRUST_BASE_SHA is unavailable; refusing to skip the audit."
             exit 1
           fi
-      - name: Rebuild the pinned TestTrust CLI from reviewed source
-        run: |
-          # The candidate-controlled probe step ran with a writable tool
-          # checkout: a hostile PR could have replaced dist/core/config.js,
-          # package.json, or the TypeScript sources so the policy check's
-          # loadConfig import is forged. Re-materialize the pinned tree into a
-          # fresh, unpredictable directory — git archive reads commit objects
-          # by SHA, so working-tree edits, staged changes, and flag tricks are
-          # irrelevant — and build the enforcer's loader from that.
-          pristine="$(mktemp -d)"
-          git -C testtrust-tool archive 5f468c50285cab751f7756f76e4b8f305c50e2de | tar -x -C "$pristine"
-          cd "$pristine" && npm ci --ignore-scripts --no-audit --no-fund && npm run build
-          echo "TESTTRUST_POLICY_CLI=$pristine/dist/cli.js" >> "$GITHUB_ENV"
       - name: Reject candidate-controlled TestTrust policy changes
         env:
-          TESTTRUST_CLI: ${{ env.TESTTRUST_POLICY_CLI }}
+          TESTTRUST_CLI: ${{ github.workspace }}/testtrust-tool/dist/cli.js
           TESTTRUST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           # The gate's enforcer must not be editable by the PR it gates: run
@@ -129,4 +115,46 @@ jobs:
         env:
           TESTTRUST_SCORE: ${{ steps.testtrust_action.outputs.score }}
           TESTTRUST_VERDICT: ${{ steps.testtrust_action.outputs.verdict }}
-        run: node scripts/testtrust/verify-output.mjs
+          TESTTRUST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Same trust rule as the enforcer: the base revision's verifier
+          # runs once it exists there, so a PR cannot rubber-stamp evidence
+          # by rewriting the check.
+          if git cat-file -e "$TESTTRUST_BASE_SHA:scripts/testtrust/verify-output.mjs" 2>/dev/null; then
+            git show "$TESTTRUST_BASE_SHA:scripts/testtrust/verify-output.mjs" > "$RUNNER_TEMP/verify-output.mjs"
+          else
+            cp scripts/testtrust/verify-output.mjs "$RUNNER_TEMP/verify-output.mjs"
+          fi
+          node "$RUNNER_TEMP/verify-output.mjs"
+  testtrust-probe:
+    # Candidate-executed evidence harness. This job intentionally runs the
+    # PR's own probe and verifier tests; its results are evidence, not the
+    # gate — a hostile probe that weakens itself fails red here and cannot
+    # reach the trusted testtrust job's environment.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out pinned TestTrust source for adversarial probes
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: corgu1995/testtrust
+          ref: 5f468c50285cab751f7756f76e4b8f305c50e2de
+          path: testtrust-tool
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.19.0'
+      - name: Build the pinned TestTrust CLI from reviewed source
+        working-directory: testtrust-tool
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
+      - name: Prove detection and check a legitimate test addition
+        env:
+          TESTTRUST_CLI: ${{ github.workspace }}/testtrust-tool/dist/cli.js
+        run: node scripts/testtrust/probe.mjs
+      - name: Test the fail-closed output verifier
+        run: node --test scripts/testtrust/verify-output-checks.mjs
