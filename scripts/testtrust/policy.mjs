@@ -63,49 +63,63 @@ export function effectiveConfigAtRevision(loadConfig, cwd, revision) {
 	}
 }
 
-// Canonicalize for comparison: object key order in a hand-written config file
-// must not produce a false delta.
+const REJECTION_HEADER =
+	'::error::TestTrust policy check failed: the PR changes the effective TestTrust configuration.';
+const REJECTION_GUIDANCE =
+	'::error::The integrity gate only runs under the policy the base revision shipped. ' +
+	'Remove .testtrustrc/.testtrustrc.json/package.json "testtrust" changes from this diff.';
+
+// Canonicalize for comparison: serialize with sorted keys so key order in a
+// hand-written config file cannot produce a false delta.
 function canon(value) {
-	if (Array.isArray(value)) return value.map(canon);
+	if (Array.isArray(value)) return `[${value.map(canon).join(',')}]`;
 	if (value && typeof value === 'object') {
-		return Object.fromEntries(
-			Object.keys(value).sort((a, b) => a.localeCompare(b)).map((k) => [k, canon(value[k])])
-		);
+		const entries = Object.keys(value)
+			.sort((a, b) => a.localeCompare(b))
+			.map((key) => `${JSON.stringify(key)}:${canon(value[key])}`);
+		return `{${entries.join(',')}}`;
 	}
-	return value;
+	return JSON.stringify(value);
 }
 
-async function main() {
+function requireInputs() {
 	const cwd = arg('cwd') ?? process.cwd();
 	const base = arg('base', process.env.TESTTRUST_BASE_SHA);
 	const cli = arg('cli', process.env.TESTTRUST_CLI);
 	if (!base) throw new Error('TestTrust policy check requires --base <sha> or TESTTRUST_BASE_SHA');
 	if (!/^[0-9a-f]{40}$/.test(base)) throw new Error(`TestTrust policy check got a malformed base SHA: ${base}`);
 	try {
-		execFileSync('/usr/bin/git', ['cat-file', '-e', `${base}^{commit}`], { cwd, stdio: 'ignore' });
+		execFileSync('/usr/bin/git', ['cat-file', '-e', base + '^{commit}'], { cwd, stdio: 'ignore' });
 	} catch {
 		throw new Error(`TestTrust policy check cannot read base commit ${base}; refusing to gate on an unverifiable policy`);
 	}
 	if (!cli?.endsWith('/dist/cli.js')) {
 		throw new Error('TestTrust policy check requires --cli or TESTTRUST_CLI pointing at the pinned dist/cli.js');
 	}
+	return { cwd, base, cli };
+}
 
+function rejectPolicyDelta(candidate, trusted) {
+	console.error(REJECTION_HEADER);
+	console.error(`::error::candidate config: ${candidate}`);
+	console.error(`::error::base config:      ${trusted}`);
+	console.error(REJECTION_GUIDANCE);
+	process.exitCode = 1;
+}
+
+async function main() {
+	const { cwd, base, cli } = requireInputs();
 	const { loadConfig } = await import(pathToFileURL(resolve(dirname(cli), 'core', 'config.js')).href);
 	if (typeof loadConfig !== 'function') {
 		throw new TypeError('Pinned TestTrust build does not export loadConfig; refusing to gate on an unverifiable policy');
 	}
-
-	const candidate = effectiveConfigAtRevision(loadConfig, cwd);
-	const trusted = effectiveConfigAtRevision(loadConfig, cwd, base);
-	if (JSON.stringify(canon(candidate)) !== JSON.stringify(canon(trusted))) {
-		console.error('::error::TestTrust policy check failed: the PR changes the effective TestTrust configuration.');
-		console.error(`::error::candidate config: ${JSON.stringify(candidate)}`);
-		console.error(`::error::base config:      ${JSON.stringify(trusted)}`);
-		console.error('::error::The integrity gate only runs under the policy the base revision shipped. Remove .testtrustrc/.testtrustrc.json/package.json "testtrust" changes from this diff.');
-		process.exitCode = 1;
+	const candidate = canon(effectiveConfigAtRevision(loadConfig, cwd));
+	const trusted = canon(effectiveConfigAtRevision(loadConfig, cwd, base));
+	if (candidate !== trusted) {
+		rejectPolicyDelta(candidate, trusted);
 		return;
 	}
-	console.info(`testtrust policy: candidate config matches base revision (${JSON.stringify(trusted)})`);
+	console.info(`testtrust policy: candidate config matches base revision (${trusted})`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
