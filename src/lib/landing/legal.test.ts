@@ -33,12 +33,14 @@ describe('LEGAL_DOCS', () => {
 		// the owner-selected credit bundles; 1.16 corrects the transactional
 		// e-mail provider disclosure to Proton AG (Mailjet was disclosed since
 		// 1.9 but never provisioned); 1.17 adds the billing address Stripe
-		// Checkout now requires (MOD-236) to Privacy §2's billing row.
+		// Checkout now requires (MOD-236) to Privacy §2's billing row; 1.20
+		// corrects the Terms §6.1(c) lifetime cap to the implemented reusable
+		// places (refunded places are resold).
 		// Material changes must bump LEGAL_VERSION
 		// so the re-consent gate (hasCurrentConsent) routes every user back
 		// through /consent. Never let legal changes ride along under an old
 		// version.
-		expect(LEGAL_VERSION).toBe('1.19');
+		expect(LEGAL_VERSION).toBe('1.20');
 	});
 
 	it('lists exactly the three published legal documents', () => {
@@ -700,6 +702,19 @@ describe('lifetime BYOK disclosure matches the required-key Terms', () => {
 		for (const pattern of FALSE) {
 			expect(lifetimeFaq?.a ?? '', `lifetime FAQ still claims ${pattern}`).not.toMatch(pattern);
 		}
+	});
+
+	it('Terms §6.1 clause (c) caps the offer at reusable lifetime places, not cumulative purchasers', () => {
+		// Refunded places return to the pool and are resold
+		// (releaseLifetimeForPayment), so the cap binds concurrent places —
+		// the 1,001st purchaser can buy a released place. A "first 1,000
+		// purchasers" clause would forbid sales the checkout permits (codex
+		// P2 / coderabbit on PR #230).
+		const terms = readComponent('terms');
+		const s61 = terms.slice(terms.indexOf('<strong>6.1</strong>'));
+		const clause = s61.slice(0, s61.indexOf('</p>'));
+		expect(clause).toMatch(/\(c\)[^;]*1,000 lifetime places/i);
+		expect(clause).not.toMatch(/first 1,000 purchasers/i);
 	});
 
 	it('Terms §6.1 clause (c) states the lifetime plan scores on the buyer’s own key', () => {
