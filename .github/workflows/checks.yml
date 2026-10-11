@@ -84,6 +84,26 @@ jobs:
             echo "::error::TestTrust base commit $TESTTRUST_BASE_SHA is unavailable; refusing to skip the audit."
             exit 1
           fi
+      - name: Reject candidate-controlled TestTrust policy changes
+        env:
+          TESTTRUST_CLI: ${{ github.workspace }}/testtrust-tool/dist/cli.js
+          TESTTRUST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # The gate's enforcer must not be editable by the PR it gates: run
+          # the base revision's copy once the script has landed. On the
+          # introducing PR the base has no copy, so the reviewed candidate
+          # file runs — every later PR is bound by the trusted base version.
+          if git cat-file -e "$TESTTRUST_BASE_SHA:scripts/testtrust/policy.mjs" 2>/dev/null; then
+            git show "$TESTTRUST_BASE_SHA:scripts/testtrust/policy.mjs" > "$RUNNER_TEMP/policy.mjs"
+          else
+            cp scripts/testtrust/policy.mjs "$RUNNER_TEMP/policy.mjs"
+          fi
+          for f in scripts/testtrust/policy.mjs scripts/testtrust/probe.mjs \
+                   scripts/testtrust/verify-output.mjs scripts/testtrust/verify-output-checks.mjs; do
+            git diff --quiet "$TESTTRUST_BASE_SHA" HEAD -- "$f" 2>/dev/null || \
+              echo "::warning::integrity-gate script $f differs from the base revision; review the change deliberately"
+          done
+          node "$RUNNER_TEMP/policy.mjs" --cwd "$GITHUB_WORKSPACE" --base "$TESTTRUST_BASE_SHA" --cli "$TESTTRUST_CLI"
       - name: TestTrust diff gate
         id: testtrust_action
         uses: corgu1995/testtrust@5f468c50285cab751f7756f76e4b8f305c50e2de # v0.1.9
