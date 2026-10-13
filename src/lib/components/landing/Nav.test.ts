@@ -13,7 +13,7 @@ const source = readFileSync(new URL('./Nav.svelte', import.meta.url), 'utf8');
 const style = source.split('<style>')[1].split('</style>')[0];
 const baseStyle = style.split('@media')[0];
 const destinations = [
-	'/#how-it-works', '/#digest', '/#regulars', '/#numbers',
+	'/#how-it-works', '/#moderation-preview', '/#digest', '/#scope',
 	'/pricing', '/#faq', GITHUB_URL, FEEDBACK_URL, LOGIN_URL
 ];
 
