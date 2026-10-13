@@ -5,8 +5,8 @@ import { TICKS_SELF_HOSTED, TICKS_SELF_HOSTED_DETAILED } from './plans';
 import { SCRIPT } from './queue-script';
 
 describe('landing copy guardrails', () => {
-	it('ships exactly the 12 FAQ pairs, each a real question with a real answer', () => {
-		expect(FAQ_ENTRIES).toHaveLength(12);
+	it('ships exactly the 5 approved homepage FAQ pairs, each a real question with a real answer', () => {
+		expect(FAQ_ENTRIES).toHaveLength(5);
 		for (const { q, a } of FAQ_ENTRIES) {
 			expect(q.endsWith('?')).toBe(true);
 			expect(a.length).toBeGreaterThan(40);
@@ -25,9 +25,9 @@ describe('landing copy guardrails', () => {
 	});
 
 	it('states separate one-time moderation and first-page feedback previews accurately', () => {
-		const previewFaq = FAQ_ENTRIES.find(({ q }) => q === 'Can I test Moderaty without changing anything on my channel?');
-		expect(previewFaq?.a).toContain('Each channel gets 1 free moderation dry run and 1 free feedback dry run. Neither spends credits.');
-		expect(previewFaq?.a).toContain('Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.');
+		const undoFaq = FAQ_ENTRIES.find(({ q }) => q === 'Can I undo a moderation action?');
+		expect(undoFaq?.a).toMatch(/deletions are permanent/i);
+		expect(undoFaq?.a).toMatch(/cannot lift an author ban/i);
 		expect(TICKS_SELF_HOSTED.join(' ')).toContain('1 free dry run per feature per channel');
 		expect(TICKS_SELF_HOSTED_DETAILED.join(' ')).toContain('1 free dry run per feature per channel');
 		const howItWorks = readFileSync(new URL('../components/landing/HowItWorks.svelte', import.meta.url), 'utf8').replace(/\s+/g, ' ');
