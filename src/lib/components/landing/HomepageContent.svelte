@@ -80,6 +80,10 @@
 	<p class="eyebrow">Proof of process</p>
 	<h2 id="preview-title" class="section-title">Review example moderation decisions</h2>
 	<p class="lede">
+		<strong>Important:</strong> A dry run does not change YouTube comments or pause
+		live moderation. On an active connected channel, live actions may continue while you preview.
+	</p>
+	<p class="lede">
 		The comments and decisions below are <strong>Illustrative examples</strong>, not
 		real viewers, measured accuracy results, or a live scan. They show how
 		creator-selected rules and review can work together.
