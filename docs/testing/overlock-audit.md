@@ -54,6 +54,22 @@ the run. High-severity deleted-test findings also block. Medium deleted-test
 findings, such as a complete relocation, remain visible for review. Expected
 literal changes and other medium/low findings also remain visible.
 
+Two narrowly scoped copy-test exceptions are recorded in
+`.github/overlock/approved-exceptions.json` for PRs #235 and #236. An
+exception applies only to `ASSERTION_NARROWED` in
+`src/routes/blogs/blogs.test.ts`, and only when the runner's pull request
+number, the complete patch SHA-256, and the finding ID all match. The adapter
+reads this registry from the exact PR base commit with `git show`; it never
+reads an exception supplied by the candidate. The event number comes from the
+runner's `GITHUB_EVENT_PATH`. Any patch change invalidates the hash and needs a
+separately reviewed base change before the exception can apply.
+
+Accepted findings remain in the raw `findings` list and are also named in
+`allowed` with their review basis. They are not hidden or downgraded. Every
+other rule, file, finding ID, PR number, or patch hash continues to block at
+the configured high threshold. The registry does not waive deleted-test
+findings or change functional, security, suite-scope, or test-gate checks.
+
 The adapter aliases only the patch headers for `vite.config.ts` to a recognized
 Vitest config path, then restores the real path in findings. Upstream already
 checks Vite thresholds through its generic config fallback; the alias adds
