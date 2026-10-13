@@ -4,9 +4,9 @@
 
 	const LINKS = [
 		{ label: 'How it works', href: '/#how-it-works' },
-		{ label: 'The digest', href: '/#digest' },
-		{ label: 'Who gets bonked', href: '/#regulars' },
-		{ label: 'The numbers', href: '/#numbers' },
+		{ label: 'Moderation preview', href: '/#moderation-preview' },
+		{ label: 'Feedback digest', href: '/#digest' },
+		{ label: 'Coverage', href: '/#scope' },
 		{ label: 'Pricing', href: '/pricing' },
 		{ label: 'FAQ', href: '/#faq' }
 	];
