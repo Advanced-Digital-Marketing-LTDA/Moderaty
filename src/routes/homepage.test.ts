@@ -1,6 +1,6 @@
 import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
-import { FAQ_ENTRIES } from '$lib/landing/faq';
+import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 import Homepage from './+page.svelte';
 
 vi.mock('$app/state', () => ({
@@ -56,13 +56,13 @@ test('MC-3 states what is and is not moderated and explains access without overp
 
 test('MC-3 shows the approved five FAQs and matching structured data', () => {
 	const { body, head } = render(Homepage);
-	expect(FAQ_ENTRIES).toHaveLength(5);
-	for (const { q } of FAQ_ENTRIES) expect(body).toContain(q);
+	expect(HOMEPAGE_FAQ_ENTRIES).toHaveLength(5);
+	for (const { q } of HOMEPAGE_FAQ_ENTRIES) expect(body).toContain(q);
 	const scripts = [...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((match) =>
 		JSON.parse(match[1]) as { '@type': string; mainEntity?: unknown }
 	);
 	const faq = scripts.find((entry) => entry['@type'] === 'FAQPage');
-	expect(faq?.mainEntity).toEqual(FAQ_ENTRIES.map(({ q, a }) => ({
+	expect(faq?.mainEntity).toEqual(HOMEPAGE_FAQ_ENTRIES.map(({ q, a }) => ({
 		'@type': 'Question',
 		name: q,
 		acceptedAnswer: { '@type': 'Answer', text: a }
