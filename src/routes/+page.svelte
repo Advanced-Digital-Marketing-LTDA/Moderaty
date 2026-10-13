@@ -5,7 +5,7 @@
 	import Faq from '$lib/components/landing/Faq.svelte';
 	import FinalCta from '$lib/components/landing/FinalCta.svelte';
 	import Footer from '$lib/components/landing/Footer.svelte';
-	import { FAQ_ENTRIES } from '$lib/landing/faq';
+	import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 	import { jsonLd } from '$lib/landing/json-ld';
 
 	const productDescription =
@@ -25,7 +25,7 @@
 	const faqPage = {
 		'@context': 'https://schema.org',
 		'@type': 'FAQPage',
-		mainEntity: FAQ_ENTRIES.map((f) => ({
+		mainEntity: HOMEPAGE_FAQ_ENTRIES.map((f) => ({
 			'@type': 'Question',
 			name: f.q,
 			acceptedAnswer: { '@type': 'Answer', text: f.a }
