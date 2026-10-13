@@ -78,8 +78,8 @@
 
 	<h2 id={sections.preview.id} tabindex="-1">{sections.preview.title}</h2>
 	<p>YouTube&#x27;s built-in controls may be enough. If you want automated comment decisions, <a href="/">Moderaty</a> uses AI scoring and sends uncertain decisions to a human review queue. Any rules you add apply before AI scoring.</p>
-	<p>You can first try <a href="/#faq">Moderaty&#x27;s free moderation dry run</a> to preview decisions without changing comments. Review the preview for mistakes, including criticism it would remove or abuse it would leave up. Check that the preview includes cases that matter to your channel. Deleted comments cannot be restored, and Moderaty cannot lift an author ban.</p>
-	<p>Before enabling automatic actions, confirm which comment types and history window the tool covers. Keep reviewing replies and YouTube&#x27;s own held queue until you have confirmed coverage. Test the setup against examples you want to keep and examples you want to remove.</p>
+	<p><a href="/#moderation-preview">Moderaty&#x27;s free moderation dry run</a> previews decisions without changing comments. A dry run does not pause live moderation. If your connected channel is active, live actions may continue while you preview. Check the preview for mistakes, including criticism it would remove or abuse it would leave up. Deleted comments cannot be restored, and Moderaty cannot lift an author ban.</p>
+	<p>Confirm which comment types and history window the tool covers before relying on automatic actions. Keep reviewing replies and YouTube&#x27;s own held queue until you have confirmed coverage. Test the setup against examples you want to keep and examples you want to remove.</p>
 
 	<h2 id={sections.faq.id} tabindex="-1">{sections.faq.title}</h2>
 	<h3>Is every negative YouTube comment hate?</h3>
