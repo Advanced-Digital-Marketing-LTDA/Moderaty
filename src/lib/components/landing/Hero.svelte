@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Reveal from './Reveal.svelte';
-	import BonkQueue from './BonkQueue.svelte';
 	import { LOGIN_URL } from '$lib/landing/links';
 </script>
 
@@ -8,26 +7,37 @@
 	<div class="hero-grid">
 		<div class="hero-copy">
 			<Reveal amount={0.1}>
-				<p class="eyebrow"><span class="eyebrow-mark">{'//'}</span> Comment protection for YouTube creators</p>
+				<p class="eyebrow"><span class="eyebrow-mark">{'//'}</span> AI comment moderation for YouTube creators</p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.08}>
-				<h1>Protect your <span class="marker">comment section.</span></h1>
+				<h1>AI YouTube comment moderation. <span class="marker">Your rules come first.</span></h1>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.16}>
 				<p class="sub">
-					Moderaty checks new top-level comments on connected channels. Your rules and AI scoring
-					help you handle abuse, with uncertain decisions queued for review.
+					Your comment section shouldn't require another full-time job. Moderaty checks
+					published top-level comments on your connected YouTube channels, applies your
+					rules first, uses AI scoring for the rest, and sends uncertain decisions to
+					a review queue. No automated replies. No posting as you.
 				</p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.24}>
 				<div class="cta-row">
-					<a href={LOGIN_URL} data-moderaty-event="connect_click" data-moderaty-placement="hero" class="btn-press cta-primary">Connect YouTube channel</a>
-					<a href="#regulars" class="btn-press cta-ghost">See who gets bonked</a>
+					<a href={LOGIN_URL} data-moderaty-event="connect_click" data-moderaty-placement="hero" class="btn-press cta-primary">Connect your YouTube channel</a>
+					<a href="/pricing" class="btn-press cta-ghost">See pricing</a>
 				</div>
+					<p class="reassurance">Each connected channel gets one free moderation dry run and one free feedback dry run; neither uses credits. Live moderation may start as soon as you connect a channel if your plan permits it. Previews do not change YouTube comments or pause live moderation.</p>
 			</Reveal>
 		</div>
 		<Reveal class="hero-queue" amount={0.1} delay={0.2}>
-			<BonkQueue />
+			<div class="workflow-example">
+				<p class="example-heading">Illustrative moderation workflow</p>
+				<ol>
+					<li><strong>1. Your rules</strong><span>Match the patterns you define.</span></li>
+					<li><strong>2. AI scoring</strong><span>Assess other eligible comments.</span></li>
+					<li><strong>3. Your review</strong><span>Check uncertain decisions.</span></li>
+				</ol>
+				<p class="example-note">Illustrative workflow only. A preview does not pause an active channel or stop live moderation.</p>
+			</div>
 		</Reveal>
 	</div>
 </section>
@@ -65,7 +75,7 @@
 	}
 	h1 {
 		margin: 20px 0 0;
-		max-width: 14ch;
+		max-width: 20ch;
 		text-wrap: balance;
 		font-family: var(--font-display);
 		font-size: 48px;
@@ -113,6 +123,43 @@
 	:global(.hero-queue) {
 		min-width: 0;
 	}
+	.reassurance {
+		margin: 24px 0 0;
+		max-width: 60ch;
+		color: rgb(244 244 248 / 0.55);
+		font-family: var(--font-mono);
+		font-size: 12px;
+		line-height: 1.7;
+	}
+	.workflow-example {
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		background: var(--surface);
+		padding: 28px;
+	}
+	.example-heading {
+		margin: 0;
+		font: 11px var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.16em;
+		color: var(--mint);
+	}
+	.workflow-example ol {
+		list-style: none;
+		padding: 0;
+		margin: 20px 0 0;
+	}
+	.workflow-example li {
+		border-top: 1px solid var(--line);
+		padding: 20px 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		line-height: 1.5;
+	}
+	.workflow-example li strong { color: var(--paper); }
+	.workflow-example li span, .example-note { color: rgb(244 244 248 / 0.60); }
+	.example-note { font-size: 12px; line-height: 1.6; }
 	@media (min-width: 768px) {
 		h1 {
 			font-size: 60px;

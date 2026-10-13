@@ -39,8 +39,25 @@ const COMPONENT_SURFACES = [
 	'../components/landing/pricing/PricingHero.svelte',
 	'../components/landing/pricing/CostMath.svelte',
 	'../../routes/pricing/+page.svelte',
-	'../../routes/+page.svelte'
+	'../../routes/+page.svelte',
+	'../components/landing/HomepageContent.svelte'
 ];
+
+// Guard the actual pricing component rendered by src/routes/+page.svelte.
+it('includes homepage pricing and disclosure copy in the claim-surface guardrail', () => {
+	expect(COMPONENT_SURFACES).toContain('../components/landing/HomepageContent.svelte');
+});
+
+it('discloses irreversible actions in the live homepage copy', () => {
+	const content = readFileSync(
+		new URL('../components/landing/HomepageContent.svelte', import.meta.url),
+		'utf8'
+	).replace(/\s+/g, ' ');
+	expect(content).toMatch(/You can restore held and rejected comments/i);
+	expect(content).toMatch(/Deleted comments cannot be restored/i);
+	expect(content).toMatch(/Author bans cannot be reversed inside Moderaty/i);
+	expect(content).not.toMatch(/every action reversible|reversible, always/i);
+});
 
 const COMPONENT_CLAIM_LINES = COMPONENT_SURFACES.flatMap((path) =>
 	readFileSync(new URL(path, import.meta.url), 'utf8').split('\n')

@@ -56,3 +56,30 @@ const FAQ_COPY: [question: string, answer: string][] = [
 ];
 
 export const FAQ_ENTRIES: FaqEntry[] = FAQ_COPY.map(([q, a]) => ({ q, a }));
+
+
+// The concise MC-3 commercial homepage questions. Legacy FAQ_ENTRIES is retained
+// for the existing legal/product guardrails, and the visible page + JSON-LD
+// deliberately share this approved subset.
+export const HOMEPAGE_FAQ_ENTRIES: FaqEntry[] = [
+	{
+		q: 'Does Moderaty replace YouTube Studio?',
+		a: 'No. YouTube Studio already offers AI-based Basic and Strict filters, blocked words, and Hold all. Moderaty adds configurable rules, automated decisions for eligible published top-level comments, its own review queue, and an audit trail.'
+	},
+	{
+		q: 'Can Moderaty remove old comments?',
+		a: "Yes, for published top-level comments in supported history windows. A live history moderation scan can take actions on YouTube and requires purchased credits, an available paid subscription allowance, or, for lifetime teams, a usable OpenAI key. It does not include reply threads or YouTube's separate Held queue."
+	},
+	{
+		q: "What if AI can't decide?",
+		a: 'Uncertain comments and scoring failures go to your review queue. A comment can remain publicly visible until YouTube confirms a requested hold.'
+	},
+	{
+		q: 'Does Moderaty reply to comments for me?',
+		a: 'No. Moderaty does not generate replies, post comments, or automate engagement.'
+	},
+	{
+		q: 'Can I undo a moderation action?',
+		a: 'Held and rejected comments can be restored. Deletions are permanent, and Moderaty cannot lift an author ban inside the app.'
+	}
+];
