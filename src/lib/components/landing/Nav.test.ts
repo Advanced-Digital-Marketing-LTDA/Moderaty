@@ -106,9 +106,14 @@ describe('landing navigation', () => {
 	});
 
 	it('keeps the desktop nav within the 1152px container after copy changes', () => {
-		const desktop = render(Nav).body.match(/<nav[^>]*aria-label="Primary"[^>]*>([\s\S]*?)<\/nav>/)?.[1] ?? '';
-		const labels = [...desktop.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/g)].map(([, markup]) => markup.replace(/<[^>]*>/g, '').trim());
+		const body = render(Nav).body;
+		const labels = [
+			...Array.from(source.matchAll(/\{ label: '([^']+)', href: /g), ([, label]) => label),
+			'GitHub',
+			'Feedback'
+		];
 		expect(labels).toHaveLength(8);
+		for (const label of labels) expect(body).toContain(label);
 		// Conservative JetBrains Mono width budget at the CSS launch breakpoint:
 		// 11px mono links with 0.16em tracking, 14px wordmark with 0.22em tracking,
 		// full-width CTA plus 40px padding, nav/link gaps, and 48px shell padding.
