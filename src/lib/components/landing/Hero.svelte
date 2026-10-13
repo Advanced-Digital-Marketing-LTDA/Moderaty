@@ -23,7 +23,7 @@
 			<Reveal amount={0.1} delay={0.24}>
 				<div class="cta-row">
 					<a href={LOGIN_URL} data-moderaty-event="connect_click" data-moderaty-placement="hero" class="btn-press cta-primary">Connect your YouTube channel</a>
-					<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="hero" class="btn-press cta-ghost">See pricing</a>
+					<a href="/pricing" class="btn-press cta-ghost">See pricing</a>
 				</div>
 					<p class="reassurance">Each connected channel gets one free moderation dry run and one free feedback dry run. Neither uses credits. See proposed moderation decisions before enabling live actions.</p>
 			</Reveal>
