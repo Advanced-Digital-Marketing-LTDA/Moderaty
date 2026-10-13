@@ -7,6 +7,11 @@
 	import Footer from '$lib/components/landing/Footer.svelte';
 	import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 	import { jsonLd } from '$lib/landing/json-ld';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+	const canonical = $derived(new URL('/', data.siteOrigin).href);
+	const socialImage = $derived(new URL('/og.png', data.siteOrigin).href);
 
 	const productDescription =
 		'Moderate YouTube comments with custom rules, AI scoring, human review, and an audit log. Try Moderaty with a free moderation preview.';
@@ -36,16 +41,16 @@
 <svelte:head>
 	<title>AI YouTube Comment Moderation Software | Moderaty</title>
 	<meta name="description" content={productDescription} />
-	<link rel="canonical" href="https://moderaty.com/" />
+	<link rel="canonical" href={canonical} />
 	<meta property="og:type" content="website" />
-	<meta property="og:url" content="https://moderaty.com/" />
+	<meta property="og:url" content={canonical} />
 	<meta property="og:title" content="AI YouTube Comment Moderation Software | Moderaty" />
 	<meta property="og:description" content={productDescription} />
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="AI YouTube Comment Moderation Software | Moderaty" />
 	<meta name="twitter:description" content={productDescription} />
-	<meta property="og:image" content="https://moderaty.com/og.png" />
-	<meta name="twitter:image" content="https://moderaty.com/og.png" />
+	<meta property="og:image" content={socialImage} />
+	<meta name="twitter:image" content={socialImage} />
 	{@html jsonLd(softwareApplication)}
 	{@html jsonLd(faqPage)}
 </svelte:head>
