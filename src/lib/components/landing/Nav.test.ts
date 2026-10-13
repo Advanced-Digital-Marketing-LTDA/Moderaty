@@ -105,6 +105,21 @@ describe('landing navigation', () => {
 		}
 	});
 
+	it('keeps the desktop nav within the 1152px container after copy changes', () => {
+		const desktop = render(Nav).body.match(/<nav[^>]*aria-label="Primary"[^>]*>([\s\S]*?)<\/nav>/)?.[1] ?? '';
+		const labels = [...desktop.matchAll(/<a\b[^>]*>([^<]*)<\/a>/g)].map(([, label]) => label.trim());
+		expect(labels).toHaveLength(8);
+		// Conservative JetBrains Mono width budget at the CSS launch breakpoint:
+		// 11px mono links with 0.16em tracking, 14px wordmark with 0.22em tracking,
+		// full-width CTA plus 40px padding, nav/link gaps, and 48px shell padding.
+		// Leave a 36px margin for font rasterization and browser differences.
+		const navWidth = labels.join('').length * 11 * (0.62 + 0.16) + (labels.length - 1) * 20;
+		const brandWidth = 'Moderaty'.length * 14 * (0.62 + 0.22);
+		const ctaWidth = 'Connect YouTube channel'.length * 14 * 0.62 + 40;
+		const required = navWidth + brandWidth + ctaWidth + 2 * 24;
+		expect(required).toBeLessThanOrEqual(1152 - 48 - 36);
+	});
+
 	it('uses the compact menu until the single-line desktop navigation fits', () => {
 		expect(style).toMatch(/@media\s*\(min-width:\s*1152px\)/);
 		expect(style).not.toMatch(/@media\s*\(min-width:\s*1024px\)/);
