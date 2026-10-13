@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 	sweepWelcomeEmails: vi.fn(async (_deadline: number) => ({ scanned: 0, queued: 0, enrollmentErrors: 0, accepted: 0, errors: 0, ambiguous: 0, suppressed: 0 })),
 	retryContactNotifications: vi.fn(async (_deadline: number) => ({ sent: 0, errors: 0 })),
 	runFeedbackPreview: vi.fn(),
+	releaseCronWorkload: vi.fn(),
 	paymentIntentsRetrieve: vi.fn(),
 	paymentIntentsCancel: vi.fn(),
 	retryStripeCustomerDeletions: vi.fn(async (_limit: number, _deadline: number) => 0),
@@ -29,6 +30,11 @@ vi.mock('$lib/server/stripe/client', () => ({ getStripe: vi.fn().mockReturnValue
 vi.mock('$lib/server/feedbackDigest', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/server/feedbackDigest')>();
 	return { ...actual, generateFeedbackDigest: mocks.generateFeedbackDigest, runFeedbackPreview: mocks.runFeedbackPreview };
+});
+vi.mock('$lib/server/cronWorkload', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/server/cronWorkload')>();
+	mocks.releaseCronWorkload.mockImplementation(actual.releaseCronWorkload);
+	return { ...actual, releaseCronWorkload: mocks.releaseCronWorkload };
 });
 vi.mock('$lib/server/deletion', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/server/deletion')>();
@@ -1225,6 +1231,24 @@ test('drains the oldest pending feedback preview under a fresh lease — the rot
 	// tick's channel work — a rotation claim would inherit a spent deadline
 	// and log a fake timeout for a channel never moderated (gitar+cubic+codex).
 	expect(mocks.runChannel).not.toHaveBeenCalled();
+});
+
+test('a lease release failure after a successful preview marks the cron tick failed', async () => {
+	await seedChannel('UC-release-failed');
+	await seedPendingPreview('UC-release-failed');
+	mocks.releaseCronWorkload.mockRejectedValueOnce(new Error('private lease detail'));
+	const errorLog = mockConsoleError();
+
+	const body = await callBody();
+
+	expect(body).toMatchObject({
+		ok: true,
+		bookkeepingError: true,
+		feedbackPreview: { commentsClassified: 0 }
+	});
+	expectResponseDiagnostic(body, 'leaseRelease', 'lease_release', { provider: 'turso', service: 'database' });
+	expectCronLog(errorLog, 'leaseRelease', 'lease_release');
+	expect(JSON.stringify(body)).not.toContain('private lease detail');
 });
 
 test('a pending preview on a leased channel is not drained — the plant lease covers its window', async () => {
