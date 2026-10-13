@@ -92,3 +92,10 @@ test('external citations open safely and the privacy claim links directly to its
 	}
 	expect(body).toContain('href="https://support.google.com/youtube/answer/142443"');
 });
+
+test('hate-comment dry-run link targets the homepage moderation preview, not the unrelated FAQ', async () => {
+	const Article = (await import('./how-to-deal-with-hate-comments-on-youtube/+page.svelte')).default;
+	const { body } = render(Article, { props: { data: pageData } });
+	expect(body).toMatch(/href="\/#moderation-preview"[^>]*>Moderaty&#x27;s free moderation dry run<\/a>/);
+	expect(body).not.toMatch(/href="\/#faq"[^>]*>Moderaty&#x27;s free moderation dry run<\/a>/);
+});
