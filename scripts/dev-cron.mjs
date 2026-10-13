@@ -81,7 +81,12 @@ function failureDetail(payload, field) {
  */
 export function formatTickFailure(payload, problems, fallback = '') {
 	const diagnostics = tickDiagnostics(payload);
-	const details = diagnostics.map((item) => `${item.sweep}: ${formatCronFailure(item)}`);
+	const leaseReleaseIndex = diagnostics.findIndex((item) => item.operation === 'lease_release');
+	// The terminal release failure changes the tick verdict; keep it ahead of details that may be truncated.
+	const orderedDiagnostics = leaseReleaseIndex > 0
+		? [diagnostics[leaseReleaseIndex], ...diagnostics.slice(0, leaseReleaseIndex), ...diagnostics.slice(leaseReleaseIndex + 1)]
+		: diagnostics;
+	const details = orderedDiagnostics.map((item) => `${item.sweep}: ${formatCronFailure(item)}`);
 	details.push(...problems.filter((problem) => !diagnostics.some((item) => problem.startsWith(`${item.sweep}:`))));
 	let summary = details.map((detail) => detail.replace(/[\r\n\u2028\u2029]/g, ' ').slice(0, 500)).join('; ') || fallback;
 	const id = sanitizeCronFailure({ cronRunId: payload?.cronRunId }).cronRunId;
