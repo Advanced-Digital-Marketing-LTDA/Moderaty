@@ -1,4 +1,5 @@
 import { render } from 'svelte/server';
+import type { Component } from 'svelte';
 import { expect, test, vi } from 'vitest';
 import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 import Homepage from './+page.svelte';
@@ -8,7 +9,7 @@ vi.mock('$app/state', () => ({
 }));
 
 const renderHomepage = (siteOrigin = 'https://moderaty.com') =>
-	render(Homepage, { props: { data: { siteOrigin } } });
+	render(Homepage as unknown as Component<{ data: { siteOrigin: string } }>, { props: { data: { siteOrigin } } });
 
 
 test('MC-3 homepage owns the commercial query, metadata, and canonical URL', () => {
