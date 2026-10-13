@@ -6,11 +6,13 @@
 <section class="final-cta">
 	<div class="inner">
 		<Reveal>
-			<h2 class="title">Protect your <span class="marker">comment section.</span></h2>
+			<h2 class="title">Less comment cleanup. <span class="marker">More control over your channel.</span></h2>
 		</Reveal>
 		<Reveal delay={0.08}>
-			<a href={LOGIN_URL} data-moderaty-event="connect_click" data-moderaty-placement="final_cta" class="btn-press cta">Connect YouTube channel</a>
-			<p class="microcopy">Google asks for standard YouTube access. Moderaty uses it for channel setup, comment moderation, and video titles and descriptions for context. Source-available under PolyForm Shield, self-hosting costs $0 from Moderaty. Infrastructure and OpenAI charges are separate.</p>
+			<p class="intro">Set your boundaries, preview the decisions, and choose what deserves your attention.</p>
+			<a href={LOGIN_URL} data-moderaty-event="connect_click" data-moderaty-placement="final_cta" class="btn-press cta">Connect your YouTube channel</a>
+			<a href="/pricing" class="secondary">Explore all pricing options</a>
+			<p class="microcopy">Google asks for standard YouTube access. Moderaty uses it for channel setup, comment moderation, and video titles and descriptions for context. Read the Privacy Policy for details.</p>
 		</Reveal>
 	</div>
 </section>
@@ -38,6 +40,19 @@
 		letter-spacing: -0.02em;
 		color: var(--paper);
 		margin: 0;
+	}
+	.intro {
+		margin: 24px 0 0;
+		max-width: 54ch;
+		line-height: 1.6;
+		color: rgb(244 244 248 / 0.7);
+	}
+	.secondary {
+		display: block;
+		margin-top: 18px;
+		color: var(--paper);
+		text-underline-offset: 5px;
+		text-decoration-color: var(--ban);
 	}
 	.cta {
 		margin-top: 40px;
