@@ -11,7 +11,7 @@
 		<Reveal delay={0.08}>
 			<p class="intro">Set your boundaries, preview the decisions, and choose what deserves your attention.</p>
 			<a href={LOGIN_URL} data-moderaty-event="connect_click" data-moderaty-placement="final_cta" class="btn-press cta">Connect your YouTube channel</a>
-			<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="final_cta" class="secondary">Explore all pricing options</a>
+			<a href="/pricing" class="secondary">Explore all pricing options</a>
 			<p class="microcopy">Google asks for standard YouTube access. Moderaty uses it for channel setup, comment moderation, and video titles and descriptions for context. Read the Privacy Policy for details.</p>
 		</Reveal>
 	</div>
