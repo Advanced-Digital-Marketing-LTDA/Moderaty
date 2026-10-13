@@ -6,7 +6,7 @@
 
 <section id="faq" class="section">
 	<Reveal>
-		<h2 class="section-title">Asked, answered.</h2>
+		<h2 class="section-title">Common questions</h2>
 	</Reveal>
 	<Reveal delay={0.05}>
 		<div class="faq-list">
