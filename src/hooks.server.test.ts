@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import { error } from '@sveltejs/kit';
 import { DrizzleQueryError } from 'drizzle-orm';
+import errorTemplate from './error.html?raw';
 
 const mocks = vi.hoisted(() => ({
 	getSessionUser: vi.fn(),
@@ -624,7 +625,7 @@ test('unexpected resolve errors retain a generic outcome and correlated event ev
 	expect(response.status).toBe(500);
 	const body = await response.json();
 	expect(body).toEqual({ message: 'Internal Error', supportReference: response.headers.get('x-request-id') });
-	expect(JSON.parse(errorLog.mock.calls[0][0])).toMatchObject({ requestId: body.supportReference, type: 'unexpected_server_error', category: 'unexpected' });
+	expect(JSON.parse(errorLog.mock.calls[0][0])).toMatchObject({ requestId: response.headers.get('x-request-id'), type: 'unexpected_server_error', category: 'unexpected' });
 	expect(JSON.stringify(errorLog.mock.calls)).not.toContain('synthetic-private-value');
 });
 
@@ -637,8 +638,17 @@ test('unexpected HTML errors show the same opaque support reference without expo
 	const reference = response.headers.get('x-request-id');
 	expect(reference).toMatch(/^[0-9a-f-]{36}$/);
 	expect(html).toContain(reference);
+	expect(html).not.toContain('<!-- support-reference -->');
 	expect(html).not.toContain(privateError.message);
 	expect(JSON.parse(errorLog.mock.calls[0][0])).toMatchObject({ requestId: reference, type: 'unexpected_server_error' });
+});
+
+test('the static SvelteKit fallback uses only native placeholders and an inert support-reference marker', () => {
+	expect([...new Set([...errorTemplate.matchAll(/%sveltekit[^%]*%/g)].map(([placeholder]) => placeholder))].sort()).toEqual([
+		'%sveltekit.status%',
+		'%sveltekit.error.message%'
+	].sort());
+	expect(errorTemplate).toContain('<!-- support-reference -->');
 });
 
 test.each(['/login', '/account-deleted'])('English fallback errors on %s keep English language and escape messages', async (path) => {
@@ -785,8 +795,10 @@ test.each([503, 500])('enhanced form hook failures return usable ActionResults (
 	if (status === 503) {
 		expect(result).toEqual({ type: 'error', error: { message: 'Deployment requires migrations' } });
 	} else {
-		expect(result).toMatchObject({ type: 'error', error: { supportReference: response.headers.get('x-request-id') } });
-		expect(result.error.message).toBe('Internal Error');
+		expect(result).toEqual({
+			type: 'error',
+			error: { message: 'Internal Error', supportReference: response.headers.get('x-request-id') }
+		});
 	}
 	expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
 	expect(JSON.stringify(result)).not.toContain('synthetic-private-value');

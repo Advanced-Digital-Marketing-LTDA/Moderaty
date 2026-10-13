@@ -96,7 +96,7 @@ export const handle: Handle = async (input) => {
 		const html = errorPage
 			.split('%sveltekit.status%').join(String(status))
 			.split('%sveltekit.error.message%').join(escapeHtml(body.message ?? 'Internal Error'))
-			.split('%sveltekit.error.reference%').join(body.supportReference ? `<p>Support reference: <code>${escapeHtml(body.supportReference)}</code></p>` : '');
+			.split('<!-- support-reference -->').join(body.supportReference ? `<p>Support reference: <code>${escapeHtml(body.supportReference)}</code></p>` : '');
 		return correlate(new Response(html, { status, headers: { 'content-type': 'text/html; charset=utf-8' } }), event);
 	}
 };
