@@ -78,7 +78,7 @@
 
 <section id="moderation-preview" class="section preview-section" aria-labelledby="preview-title">
 	<p class="eyebrow">Proof of process</p>
-	<h2 id="preview-title" class="section-title">See the decisions before they go live</h2>
+	<h2 id="preview-title" class="section-title">Review example moderation decisions</h2>
 	<p class="lede">
 		The comments and decisions below are <strong>Illustrative examples</strong>, not
 		real viewers, measured accuracy results, or a live scan. They show how
@@ -124,7 +124,7 @@
 	<p class="lede">
 		You can restore held and rejected comments.
 		<strong>Deleted comments cannot be restored. Author bans cannot be reversed inside Moderaty.</strong>
-		Check the preview and your rules before allowing irreversible actions.
+		Review your rules carefully: active channels can apply irreversible moderation actions automatically.
 	</p>
 </section>
 
