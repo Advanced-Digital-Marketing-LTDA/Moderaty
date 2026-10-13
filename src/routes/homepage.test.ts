@@ -110,7 +110,7 @@ test('explains that connecting an eligible channel may start live moderation bef
 });
 
 test('direct preview links disclose that an active channel can keep moderating', () => {
-	const { body } = render(Homepage);
+	const { body } = renderHomepage();
 	const preview = body.split('id="moderation-preview"')[1]?.split('</section>')[0];
 	expect(preview).toBeDefined();
 	expect(preview).toContain('A dry run does not change YouTube comments or pause live moderation.');
