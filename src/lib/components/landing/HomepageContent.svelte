@@ -264,7 +264,7 @@
 		color: rgb(244 244 248 / 0.73);
 	}
 	.lede { max-width: 76ch; margin: 16px 0 0; }
-	.lede strong, .panel strong { color: var(--paper); }
+	.lede strong { color: var(--paper); }
 	.steps, .plans { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 48px; }
 	.panel {
 		border: 1px solid var(--line);
