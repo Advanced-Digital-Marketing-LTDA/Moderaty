@@ -148,6 +148,28 @@ describe('dev cron tick', () => {
 		expect(cronTransportError(new Error('test-secret'), { status: Object(503) }).message).not.toMatch(/HTTP|test-secret/);
 	});
 
+	it('keeps the terminal lease-release cause in a capped summary after 19 long diagnostics', () => {
+		const longDiagnostic = {
+			sweep: 'autoTopupSweepError', operation: 'auto_topup.lifetime_reconciliation', category: 'authentication',
+			code: 'DEPTH_ZERO_SELF_SIGNED_CERT', syscall: 'getaddrinfo', httpStatus: 599,
+			provider: 'proton', service: 'monitoring', cronRunId: '11111111-1111-4111-8111-111111111111',
+			causes: Array.from({ length: 8 }, () => ({ code: 'DEPTH_ZERO_SELF_SIGNED_CERT', message: 'test-secret' }))
+		};
+		const releaseDiagnostic = {
+			...longDiagnostic, sweep: 'leaseRelease', operation: 'lease_release', service: 'database', provider: 'turso'
+		};
+		const summary = formatTickFailure({
+			ok: true, bookkeepingError: true, results: {},
+			failureDiagnostics: [...Array(19).fill(longDiagnostic), releaseDiagnostic]
+		}, ['lease release failed']);
+
+		expect(summary).toContain('leaseRelease:');
+		expect(summary).toContain('operation=lease_release');
+		expect(summary).toContain('details truncated');
+		expect(summary.length).toBeLessThanOrEqual(5500);
+		expect(summary).not.toContain('test-secret');
+	});
+
 	it.each([200, 503])('distinguishes a failed HTTP %s body read from an unanswered endpoint', async (status) => {
 		const root = Object.assign(new Error('private URL test-secret'), { code: 'ECONNRESET' });
 		vi.stubGlobal('fetch', vi.fn(async () => new Response(new ReadableStream({ start(controller) { controller.error(root); } }), { status })));
@@ -334,8 +356,10 @@ describe('dev cron tick', () => {
 			payload: { ok: false, results: { UC1: { error: 'token' } }, digest: { error: 'error' } } },
 		{ label: 'sweeps spent the run budget', status: 200, expected: 'budget',
 			payload: { ok: true, budgetExhausted: true, results: {} } },
-		{ label: 'lost run-health bookkeeping', status: 200, expected: 'bookkeeping',
+		{ label: 'lost run-health bookkeeping', status: 200, expected: 'run-health bookkeeping write failed',
 			payload: { ok: true, bookkeepingError: true, results: { UC1: { fetched: 1 } } } },
+		{ label: 'failed preview lease release', status: 200, expected: 'lease release failed',
+			payload: { ok: true, bookkeepingError: true, failureDiagnostics: [{ operation: 'lease_release', sweep: 'leaseRelease' }], results: {} } },
 		{ label: 'per-account zero-credit errors on an otherwise healthy tick', status: 200, expected: 'zeroCreditItemErrors',
 			payload: { ok: true, zeroCreditItemErrors: 2, results: {} } },
 		{ label: 'per-account zero-credit errors alongside owner error', status: 500, expected: 'zeroCreditItemErrors',
