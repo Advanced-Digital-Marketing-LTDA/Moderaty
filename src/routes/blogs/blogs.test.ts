@@ -92,3 +92,11 @@ test('external citations open safely and the privacy claim links directly to its
 	}
 	expect(body).toContain('href="https://support.google.com/youtube/answer/142443"');
 });
+
+test('the hate-comments guide links its free preview to the current homepage section and explains activation', async () => {
+	const Article = (await import('./how-to-deal-with-hate-comments-on-youtube/+page.svelte')).default;
+	const { body } = render(Article, { props: { data: pageData } });
+	expect(body).toMatch(/<a href="\/#moderation-preview">Moderaty[^<]*free moderation dry run<\/a>/);
+	expect(body).not.toMatch(/<a href="\/#faq">Moderaty[^<]*free moderation dry run<\/a>/);
+	expect(body).toContain('Live moderation may start when you connect a channel');
+});

@@ -13,7 +13,7 @@ const source = readFileSync(new URL('./Nav.svelte', import.meta.url), 'utf8');
 const style = source.split('<style>')[1].split('</style>')[0];
 const baseStyle = style.split('@media')[0];
 const destinations = [
-	'/#how-it-works', '/#digest', '/#regulars', '/#numbers',
+	'/#how-it-works', '/#moderation-preview', '/#digest', '/#scope',
 	'/pricing', '/#faq', GITHUB_URL, FEEDBACK_URL, LOGIN_URL
 ];
 
@@ -103,6 +103,26 @@ describe('landing navigation', () => {
 		for (const selector of ['.wordmark', '.links', '.nav-actions']) {
 			expect(declarations(selector)).toMatch(/flex-shrink:\s*0;/);
 		}
+	});
+
+	it('keeps the desktop nav within the 1152px container after copy changes', () => {
+		const body = render(Nav).body;
+		const labels = [
+			...Array.from(source.matchAll(/\{ label: '([^']+)', href: /g), ([, label]) => label),
+			'GitHub',
+			'Feedback'
+		];
+		expect(labels).toHaveLength(8);
+		for (const label of labels) expect(body).toContain(label);
+		// Conservative JetBrains Mono width budget at the CSS launch breakpoint:
+		// 11px mono links with 0.16em tracking, 14px wordmark with 0.22em tracking,
+		// full-width CTA plus 40px padding, nav/link gaps, and 48px shell padding.
+		// Leave a 36px margin for font rasterization and browser differences.
+		const navWidth = labels.join('').length * 11 * (0.62 + 0.16) + (labels.length - 1) * 20;
+		const brandWidth = 'Moderaty'.length * 14 * (0.62 + 0.22);
+		const ctaWidth = 'Connect YouTube channel'.length * 14 * 0.62 + 40;
+		const required = navWidth + brandWidth + ctaWidth + 2 * 24;
+		expect(required).toBeLessThanOrEqual(1152 - 48 - 36);
 	});
 
 	it('uses the compact menu until the single-line desktop navigation fits', () => {
