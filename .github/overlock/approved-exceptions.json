@@ -1,0 +1,21 @@
+{
+	"schema": 1,
+	"exceptions": [
+		{
+			"pull_request": 235,
+			"patch_sha256": "dcdd4152af3d163b9ec826387ce05c06f1ea2cd849074d592df68cbededb5e10",
+			"finding_id": "ASSERTION_NARROWED:src/routes/blogs/blogs.test.ts:100",
+			"rule": "ASSERTION_NARROWED",
+			"file": "src/routes/blogs/blogs.test.ts",
+			"review_basis": "Maintainer instruction prohibits website-copy assertions; the exact patch retains structural preview-link checks."
+		},
+		{
+			"pull_request": 236,
+			"patch_sha256": "cd106c22ab75f10661b643a0e7f7e10d31084172f1841e1a746d9885de75342d",
+			"finding_id": "ASSERTION_NARROWED:src/routes/blogs/blogs.test.ts:100",
+			"rule": "ASSERTION_NARROWED",
+			"file": "src/routes/blogs/blogs.test.ts",
+			"review_basis": "Maintainer instruction prohibits website-copy assertions; the exact patch retains structural preview-link checks."
+		}
+	]
+}
