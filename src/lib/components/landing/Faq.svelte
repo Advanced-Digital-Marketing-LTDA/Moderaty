@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Reveal from './Reveal.svelte';
 	import Icon from './Icon.svelte';
-	import { FAQ_ENTRIES } from '$lib/landing/faq';
+	import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 </script>
 
 <section id="faq" class="section">
@@ -10,7 +10,7 @@
 	</Reveal>
 	<Reveal delay={0.05}>
 		<div class="faq-list">
-			{#each FAQ_ENTRIES as f}
+			{#each HOMEPAGE_FAQ_ENTRIES as f}
 				<details class="faq-item">
 					<summary class="faq-q">
 						<span class="faq-q-text">{f.q}</span>
