@@ -73,7 +73,7 @@
 			</p>
 		</article>
 	</div>
-	<a href={LOGIN_URL} class="inline-link" data-moderaty-event="connect_click" data-moderaty-placement="how_it_works">Preview moderation on your channel <span aria-hidden="true">→</span></a>
+	<a href={LOGIN_URL} class="inline-link">Preview moderation on your channel <span aria-hidden="true">→</span></a>
 </section>
 
 <section id="moderation-preview" class="section preview-section" aria-labelledby="preview-title">
@@ -110,7 +110,7 @@
 		requested actions. Preview your own comments to check both false positives and
 		comments that might be missed.
 	</p>
-	<a href={LOGIN_URL} class="inline-link" data-moderaty-event="connect_click" data-moderaty-placement="moderation_preview">Run your free moderation preview <span aria-hidden="true">→</span></a>
+	<a href={LOGIN_URL} class="inline-link">Run your free moderation preview <span aria-hidden="true">→</span></a>
 </section>
 
 <section id="history" class="section" aria-labelledby="history-title">
@@ -143,7 +143,7 @@
 				does not reply to viewers, post comments, or change moderation decisions.
 				It can run weekly, after 100 new comments, or when you request it.
 			</p>
-			<a href={LOGIN_URL} class="inline-link" data-moderaty-event="connect_click" data-moderaty-placement="digest">Connect a channel to preview the feedback digest <span aria-hidden="true">→</span></a>
+			<a href={LOGIN_URL} class="inline-link">Connect a channel to preview the feedback digest <span aria-hidden="true">→</span></a>
 		</div>
 		<div class="digest-example">
 			<p class="example-label">Illustrative feedback themes</p>
@@ -169,7 +169,7 @@
 				PolyForm Shield 1.0.0 license. Supply your own OpenAI API key for AI
 				features. Infrastructure and API costs are separate.
 			</p>
-			<a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" data-moderaty-event="source_click" data-moderaty-placement="home_pricing">View the source on GitHub <span aria-hidden="true">↗</span></a>
+			<a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" data-moderaty-event="source_click" data-moderaty-placement="plan_self_hosted">View the source on GitHub <span aria-hidden="true">↗</span></a>
 		</article>
 		<article class="plan panel">
 			<p class="plan-tag">Hosted</p>
@@ -190,10 +190,10 @@
 				subscription or per-comment meter under this offer. You supply and
 				pay for your own OpenAI API key.
 			</p>
-			<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="home_lifetime">Check offer availability <span aria-hidden="true">→</span></a>
+			<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="home_pricing">Check offer availability <span aria-hidden="true">→</span></a>
 		</article>
 	</div>
-	<a href="/pricing" class="inline-link" data-moderaty-event="pricing_click" data-moderaty-placement="pricing_summary">Compare plans and estimate usage <span aria-hidden="true">→</span></a>
+	<a href="/pricing" class="inline-link" data-moderaty-event="pricing_click" data-moderaty-placement="home_pricing">Compare plans and estimate usage <span aria-hidden="true">→</span></a>
 </section>
 
 <section id="scope" class="section scope-section" aria-labelledby="scope-title">
