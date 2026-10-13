@@ -39,7 +39,8 @@ const COMPONENT_SURFACES = [
 	'../components/landing/pricing/PricingHero.svelte',
 	'../components/landing/pricing/CostMath.svelte',
 	'../../routes/pricing/+page.svelte',
-	'../../routes/+page.svelte'
+	'../../routes/+page.svelte',
+	'../components/landing/HomepageContent.svelte'
 ];
 
 // Guard the actual pricing component rendered by src/routes/+page.svelte.
