@@ -197,7 +197,7 @@ async function runClaimedFeedbackPreview(
 	deadline: number,
 	staleFailed: number,
 	diagnostics: CronDiagnostics
-	): Promise<Record<string, unknown>> {
+): Promise<Record<string, unknown>> {
 	const stalePayload = staleFailed ? { staleFailed } : {};
 	const lease = pending.leaseExpiresAt;
 	let outcome: Record<string, unknown>;

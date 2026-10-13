@@ -153,7 +153,12 @@ function detailProblems(payload) {
 		if (payload[field]) problems.push(`${field}: ${failureDetail(payload, field)}`);
 	}
 	if (payload.budgetExhausted) problems.push('sweeps consumed the run budget — no channel claimed');
-	if (payload.bookkeepingError) problems.push('run-health bookkeeping write failed');
+	if (payload.bookkeepingError) {
+		const operations = new Set(tickDiagnostics(payload).map(({ operation }) => operation));
+		if (operations.has('lease_release')) problems.push('lease release failed');
+		if (operations.has('run_health_write')) problems.push('run-health bookkeeping write failed');
+		if (!operations.has('lease_release') && !operations.has('run_health_write')) problems.push('run-health bookkeeping write failed');
+	}
 	// The dry-run drain, feedback digest, and pending-preview drain ride the
 	// same 200 as top-level fields; all catch their failures into `{ error }`
 	// so a broken aux job must not read as a healthy tick (codex). Success
