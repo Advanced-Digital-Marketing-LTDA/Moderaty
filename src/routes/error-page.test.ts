@@ -11,6 +11,6 @@ test('unexpected error UI uses the shared error state and keeps its private deta
 	expect(body).toMatch(/<div class="error-box[^\"]*"/);
 	expect(body).toContain('role="alert"');
 	expect(body).toContain('support-123');
-	expect(body).not.toContain('<script>private server detail</script>');
+	expect(body).not.toContain('private server detail');
 	expect(body).toContain('aria-labelledby="error-title"');
 });
