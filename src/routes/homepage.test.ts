@@ -101,3 +101,10 @@ test('history-scan FAQ includes monthly paid allowances, purchased credits and l
 	expect(answer).toContain('purchased credits');
 	expect(answer).toContain('usable OpenAI key');
 });
+
+test('explains that connecting an eligible channel may start live moderation before any preview', () => {
+	const { body } = renderHomepage();
+	expect(body).toContain('Live moderation may start as soon as you connect a channel');
+	expect(body).toContain('Previews do not change YouTube comments or pause live moderation');
+	expect(body).not.toMatch(/before enabling live actions|before they go live|before taking action|before allowing irreversible actions/i);
+});
