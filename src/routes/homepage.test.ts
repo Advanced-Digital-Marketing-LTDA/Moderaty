@@ -7,15 +7,19 @@ vi.mock('$app/state', () => ({
 	page: { data: { locale: 'en' }, url: new URL('https://moderaty.com/') }
 }));
 
+const renderHomepage = (siteOrigin = 'https://moderaty.com') =>
+	render(Homepage, { props: { data: { siteOrigin } } });
+
+
 test('MC-3 homepage owns the commercial query, metadata, and canonical URL', () => {
-	const { head } = render(Homepage);
+	const { head } = renderHomepage();
 	expect(head).toContain('AI YouTube Comment Moderation Software | Moderaty');
 	expect(head).toContain('Moderate YouTube comments with custom rules, AI scoring, human review, and an audit log.');
 	expect(head).toContain('rel="canonical" href="https://moderaty.com/"');
 });
 
 test('MC-3 renders the approved rules-first hero and working conversion paths', () => {
-	const { body } = render(Homepage);
+	const { body } = renderHomepage();
 	expect(body).toContain('AI YouTube comment moderation.');
 	expect(body).toContain('Your rules come first.');
 	expect(body).toContain('Connect your YouTube channel');
@@ -24,7 +28,7 @@ test('MC-3 renders the approved rules-first hero and working conversion paths', 
 });
 
 test('MC-3 supplies an explicitly synthetic moderation example, not invented performance claims', () => {
-	const { body } = render(Homepage);
+	const { body } = renderHomepage();
 	for (const phrase of [
 		'See the decisions before they go live',
 		'Could you explain step two in another video?',
@@ -39,7 +43,7 @@ test('MC-3 supplies an explicitly synthetic moderation example, not invented per
 });
 
 test('MC-3 states what is and is not moderated and explains access without overpromising', () => {
-	const { body } = render(Homepage);
+	const { body } = renderHomepage();
 	for (const phrase of [
 		'published top-level YouTube comments',
 		'reply threads',
@@ -55,7 +59,7 @@ test('MC-3 states what is and is not moderated and explains access without overp
 });
 
 test('MC-3 shows the approved five FAQs and matching structured data', () => {
-	const { body, head } = render(Homepage);
+	const { body, head } = renderHomepage();
 	expect(HOMEPAGE_FAQ_ENTRIES).toHaveLength(5);
 	for (const { q } of HOMEPAGE_FAQ_ENTRIES) expect(body).toContain(q);
 	const scripts = [...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((match) =>
@@ -70,9 +74,30 @@ test('MC-3 shows the approved five FAQs and matching structured data', () => {
 });
 
 test('MC-3 primary navigation anchors resolve on the homepage', () => {
-	const { body } = render(Homepage);
+	const { body } = renderHomepage();
 	for (const anchor of ['how-it-works', 'moderation-preview', 'digest', 'scope', 'faq']) {
 		expect(body).toContain('href="/#' + anchor + '"');
 		expect(body).toContain('id="' + anchor + '"');
 	}
+});
+
+test.each(['https://moderaty.com', 'https://selfhost.example', 'http://localhost:5173'])(
+	'homepage metadata follows configured origin %s, not the Moderaty production domain',
+	(siteOrigin) => {
+		const { head } = renderHomepage(siteOrigin);
+		const home = new URL('/', siteOrigin).href;
+		const image = new URL('/og.png', siteOrigin).href;
+		expect(head).toContain(`rel="canonical" href="${home}"`);
+		expect(head).toContain(`property="og:url" content="${home}"`);
+		expect(head).toContain(`property="og:image" content="${image}"`);
+		expect(head).toContain(`name="twitter:image" content="${image}"`);
+		if (siteOrigin !== 'https://moderaty.com') expect(head).not.toContain('https://moderaty.com');
+	}
+);
+
+test('history-scan FAQ includes monthly paid allowances, purchased credits and lifetime BYOK', () => {
+	const answer = HOMEPAGE_FAQ_ENTRIES.find(({ q }) => q === 'Can Moderaty remove old comments?')?.a;
+	expect(answer).toContain('available paid subscription allowance');
+	expect(answer).toContain('purchased credits');
+	expect(answer).toContain('usable OpenAI key');
 });
