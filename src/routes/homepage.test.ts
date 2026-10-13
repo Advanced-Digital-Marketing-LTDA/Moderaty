@@ -30,7 +30,7 @@ test('MC-3 renders the approved rules-first hero and working conversion paths', 
 test('MC-3 supplies an explicitly synthetic moderation example, not invented performance claims', () => {
 	const { body } = renderHomepage();
 	for (const phrase of [
-		'See the decisions before they go live',
+		'Review example moderation decisions',
 		'Could you explain step two in another video?',
 		'Subscribe to my channel for prizes!',
 		'The music is too loud in the first minute.',
