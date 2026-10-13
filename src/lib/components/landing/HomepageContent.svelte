@@ -186,7 +186,7 @@
 			<p class="plan-tag">Lifetime hosting</p>
 			<p class="plan-price">$49 <span>one-time</span></p>
 			<p>
-				For the first 1,000 users, subject to availability. No Moderaty monthly
+				Limited to 1,000 lifetime places, subject to availability. No Moderaty monthly
 				subscription or per-comment meter under this offer. You supply and
 				pay for your own OpenAI API key.
 			</p>
