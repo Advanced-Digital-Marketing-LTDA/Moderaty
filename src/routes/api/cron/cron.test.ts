@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
 	sweepWelcomeEmails: vi.fn(async (_deadline: number) => ({ scanned: 0, queued: 0, enrollmentErrors: 0, accepted: 0, errors: 0, ambiguous: 0, suppressed: 0 })),
 	retryContactNotifications: vi.fn(async (_deadline: number) => ({ sent: 0, errors: 0 })),
 	runFeedbackPreview: vi.fn(),
-	releaseCronWorkload: vi.fn(),
 	paymentIntentsRetrieve: vi.fn(),
 	paymentIntentsCancel: vi.fn(),
 	retryStripeCustomerDeletions: vi.fn(async (_limit: number, _deadline: number) => 0),
@@ -30,11 +29,6 @@ vi.mock('$lib/server/stripe/client', () => ({ getStripe: vi.fn().mockReturnValue
 vi.mock('$lib/server/feedbackDigest', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/server/feedbackDigest')>();
 	return { ...actual, generateFeedbackDigest: mocks.generateFeedbackDigest, runFeedbackPreview: mocks.runFeedbackPreview };
-});
-vi.mock('$lib/server/cronWorkload', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$lib/server/cronWorkload')>();
-	mocks.releaseCronWorkload.mockImplementation(actual.releaseCronWorkload);
-	return { ...actual, releaseCronWorkload: mocks.releaseCronWorkload };
 });
 vi.mock('$lib/server/deletion', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/server/deletion')>();
@@ -1233,24 +1227,6 @@ test('drains the oldest pending feedback preview under a fresh lease — the rot
 	expect(mocks.runChannel).not.toHaveBeenCalled();
 });
 
-test('a lease release failure after a successful preview marks the cron tick failed', async () => {
-	await seedChannel('UC-release-failed');
-	await seedPendingPreview('UC-release-failed');
-	mocks.releaseCronWorkload.mockRejectedValueOnce(new Error('private lease detail'));
-	const errorLog = mockConsoleError();
-
-	const body = await callBody();
-
-	expect(body).toMatchObject({
-		ok: true,
-		bookkeepingError: true,
-		feedbackPreview: { commentsClassified: 0 }
-	});
-	expectResponseDiagnostic(body, 'leaseRelease', 'lease_release', { provider: 'turso', service: 'database' });
-	expectCronLog(errorLog, 'leaseRelease', 'lease_release');
-	expect(JSON.stringify(body)).not.toContain('private lease detail');
-});
-
 test('a pending preview on a leased channel is not drained — the plant lease covers its window', async () => {
 	// The dryRun action leaves the claim's 60s lease on the channel; the
 	// kicked runner (or that lease's expiry) owns it — the drainer must wait
@@ -1490,7 +1466,7 @@ test('a deadline-aborted preview still gets its retry tick on the documented */1
 	expect((await res.json()).feedbackPreview).toMatchObject({ commentsClassified: 1 });
 });
 
-test('a lease-release failure after a drained preview still counts the tick as worked', async () => {
+test('a lease-release failure after a drained preview marks the tick failed but keeps the lease bounded', async () => {
 	// The finally's UPDATE can transiently reject; if the rejection escaped
 	// it would override `{ ran: true }`, letting the handler claim a second
 	// channel's remote work on the spent deadline (codex, PR #178). The
@@ -1528,7 +1504,7 @@ test('a lease-release failure after a drained preview still counts the tick as w
 	expect(mocks.runFeedbackPreview).toHaveBeenCalledTimes(1);
 	// `ran` survived the release failure — no second workload this tick.
 	expect(mocks.runChannel).not.toHaveBeenCalled();
-	expect(body).toMatchObject({ ok: true, results: {} });
+	expect(body).toMatchObject({ ok: true, bookkeepingError: true, results: {} });
 	expect(body.feedbackPreview).toMatchObject({ commentsClassified: 1 });
 	expectResponseDiagnostic(body, 'leaseRelease', 'lease_release');
 	// Loud, not silent — and the failed release leaves the lease in place
