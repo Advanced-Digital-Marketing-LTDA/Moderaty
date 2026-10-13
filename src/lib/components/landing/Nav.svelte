@@ -4,8 +4,8 @@
 
 	const LINKS = [
 		{ label: 'How it works', href: '/#how-it-works' },
-		{ label: 'Moderation preview', href: '/#moderation-preview' },
-		{ label: 'Feedback digest', href: '/#digest' },
+		{ label: 'Preview', href: '/#moderation-preview' },
+		{ label: 'Digest', href: '/#digest' },
 		{ label: 'Coverage', href: '/#scope' },
 		{ label: 'Pricing', href: '/pricing' },
 		{ label: 'FAQ', href: '/#faq' }
