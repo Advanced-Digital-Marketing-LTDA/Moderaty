@@ -93,9 +93,10 @@ test('external citations open safely and the privacy claim links directly to its
 	expect(body).toContain('href="https://support.google.com/youtube/answer/142443"');
 });
 
-test('the hate-comments guide links the preview to its current homepage section, not the FAQ', async () => {
+test('the hate-comments guide links its free preview to the current homepage section and explains activation', async () => {
 	const Article = (await import('./how-to-deal-with-hate-comments-on-youtube/+page.svelte')).default;
 	const { body } = render(Article, { props: { data: pageData } });
-	expect(body).toMatch(/<a\b[^>]*href="\/#moderation-preview"[^>]*>/);
+	expect(body.match(/<a\b[^>]*href="\/#moderation-preview"[^>]*>/g)).toHaveLength(1);
+	expect(body).toMatch(/<p\b[^>]*>(?:(?!<\/p>).)*<a\b[^>]*href="\/#moderation-preview"[^>]*>(?:(?!<\/p>).)*<\/p>/s);
 	expect(body).not.toMatch(/<a\b[^>]*href="\/#faq"[^>]*>/);
 });

@@ -792,14 +792,12 @@ test.each([503, 500])('enhanced form hook failures return usable ActionResults (
 	const response = await handle({ event, resolve: async () => { throw failure; } } as never);
 	const result = await response.json();
 	expect(response.status).toBe(status);
-	if (status === 503) {
-		expect(result).toEqual({ type: 'error', error: { message: 'Deployment requires migrations' } });
-	} else {
-		expect(result).toEqual({
-			type: 'error',
-			error: { message: 'Internal Error', supportReference: response.headers.get('x-request-id') }
-		});
-	}
+	expect(result).toEqual({
+		type: 'error',
+		error: status === 503
+			? { message: 'Deployment requires migrations' }
+			: { message: 'Internal Error', supportReference: response.headers.get('x-request-id') }
+	});
 	expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
 	expect(JSON.stringify(result)).not.toContain('synthetic-private-value');
 });
