@@ -51,7 +51,7 @@
 {/each}
 
 <h2>Protected handles</h2>
-<p class="page-sub">Comments from these handles are always approved — they skip rules and AI scanning.</p>
+<p class="page-sub">Handles are verified with YouTube. Protection follows the handle: whichever account currently holds it is protected.</p>
 <p class="page-sub">{data.handles.length}/100 protected handles</p>
 
 <div class="card">
@@ -71,7 +71,10 @@
 
 {#each data.handles as h}
 	<div class="card" style="display:flex; justify-content:space-between; align-items:center">
-		<div><code>@{h.handle}</code></div>
+		<div>
+			<code>@{h.handle}</code>
+			<p>Protection follows this handle. Its current owner is verified during each check.</p>
+		</div>
 		<form class="inline" method="POST" action="?/removeHandle">
 			<input type="hidden" name="handleId" value={h.id} />
 			<button class="btn danger small" type="submit" aria-label="Remove protected handle {h.handle}">Remove</button>

@@ -129,7 +129,10 @@ describe('createPlanCheckout', () => {
 			mode: 'subscription',
 			line_items: [{ price: 'price_hosted', quantity: 1 }],
 			metadata: { org_id: 'org-1', product: 'hosted' },
-			subscription_data: { metadata: { org_id: 'org-1', product: 'hosted' } }
+			subscription_data: { metadata: { org_id: 'org-1', product: 'hosted' } },
+			billing_address_collection: 'required',
+			tax_id_collection: { enabled: true },
+			customer_update: { name: 'auto', address: 'auto' }
 		}), { idempotencyKey: expect.stringMatching(/^checkout:attempt-hosted:/) });
 	});
 
@@ -212,13 +215,32 @@ describe('createPlanCheckout', () => {
 		expect(mocks.sessionsCreate).toHaveBeenCalledWith(expect.objectContaining({
 			mode: 'payment',
 			line_items: [{ price: 'price_lifetime', quantity: 1 }],
-			metadata: { org_id: 'org-1', product: 'lifetime' }
+			metadata: { org_id: 'org-1', product: 'lifetime' },
+			billing_address_collection: 'required',
+			tax_id_collection: { enabled: true },
+			customer_update: { name: 'auto', address: 'auto' }
 		}), { idempotencyKey: expect.stringMatching(/^checkout:attempt-lifetime:/) });
 		expect(mocks.sessionsCreate.mock.calls[0][0].payment_intent_data).toBeUndefined();
 	});
 });
 
 describe('createCreditCheckout', () => {
+	test.each(['paid', 'unpaid'])('a complete %s session does not mark an unfulfilled retry as fulfilled', async (paymentStatus) => {
+		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', creditsRemaining: 0 });
+		await createCreditCheckout('org-1', owner(), 'credits_500', 'attempt-complete');
+		const before = await testDb().db.select().from(stripeCheckoutAttempts).where(eq(stripeCheckoutAttempts.attemptId, 'attempt-complete')).get();
+		mocks.sessionsRetrieve.mockResolvedValue({ id: 'cs_1', status: 'complete', payment_status: paymentStatus });
+
+		await expect(createCreditCheckout('org-1', owner(), 'credits_500', 'attempt-complete')).rejects.toThrow('checkout attempt has already completed');
+
+		// Provider completion is not a local credit grant. Only fulfillment
+		// may release the attempt's account-deletion protection.
+		expect(await testDb().db.select().from(stripeCheckoutAttempts).where(eq(stripeCheckoutAttempts.attemptId, 'attempt-complete')).get()).toEqual(before);
+		expect(before?.status).toBe('open');
+		expect((await testDb().db.select().from(organizations).where(eq(organizations.id, 'org-1')).get())?.creditsRemaining).toBe(0);
+		expect(mocks.sessionsCreate).toHaveBeenCalledTimes(1);
+	});
+
 	test('creates the session for the org with bundle metadata and new-URL-built redirects', async () => {
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org' });
 
@@ -230,6 +252,9 @@ describe('createCreditCheckout', () => {
 				mode: 'payment',
 				customer: 'cus_1',
 				metadata: { org_id: 'org-1', bundle: 'credits_500', credits: '500' },
+				billing_address_collection: 'required',
+				tax_id_collection: { enabled: true },
+				customer_update: { name: 'auto', address: 'auto' },
 				success_url: 'https://app.example/usage/success?session_id={CHECKOUT_SESSION_ID}',
 				cancel_url: 'https://app.example/usage'
 			}),
@@ -327,6 +352,9 @@ describe('createTestCheckout', () => {
 			success_url: 'https://app.example/usage/success?session_id={CHECKOUT_SESSION_ID}',
 			cancel_url: 'https://app.example/usage'
 		}), { idempotencyKey: expect.stringMatching(/^checkout:attempt-test:/) });
+		// The operator smoke test is not a sale — fiscal collection stays off.
+		expect(mocks.sessionsCreate.mock.calls[0][0].billing_address_collection).toBeUndefined();
+		expect(mocks.sessionsCreate.mock.calls[0][0].tax_id_collection).toBeUndefined();
 	});
 
 	test('resolves a Product id through its default price', async () => {

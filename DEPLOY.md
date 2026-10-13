@@ -12,7 +12,7 @@
 The repo is deploy-ready: `netlify.toml` pins the build
 (`node scripts/netlify-migrate.mjs && npm run build`, publish `build`,
 Node 24) and `netlify/functions/cron.mjs` is a Netlify
-Scheduled Function that triggers one bounded moderation run every minute
+Scheduled Function that calls the bounded cron endpoint every minute
 (during early operation; raise to `*/15 * * * *` when user volume grows).
 Scheduled functions only fire on the published production deploy — branch
 deploys and Deploy Previews never trigger them — so non-production
@@ -31,6 +31,13 @@ per-context database); Deploy Previews skip the step loudly, because previews
 execute untrusted PR code that must never run SQL against a shared database.
 The manual `npm run db:migrate` below remains for initial DB setup (before
 the site exists), local work, and outage recovery.
+
+`npm run db:migrate` and the deploy gate use `scripts/db-migrate.mjs`, which
+calls the Drizzle ORM migrator and reports database errors, nested causes,
+and the batch statement index when available. If preflight passes but migration
+fails, use that error to diagnose the SQL or schema problem. The former
+drizzle-kit progress renderer hid these errors behind an exit code. Keep
+`db:verify` enabled and leave applied migration files unchanged.
 
 - Create the production Turso database and note its URL and auth token.
 - Apply migrations once from a checkout with the production values sourced:
@@ -138,17 +145,16 @@ the site exists), local work, and outage recovery.
   | `TURSO_AUTH_TOKEN` | from step 1 |
   | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud OAuth client (Web) |
   | `OPENAI_API_KEY` | for AI scoring |
-  | `OPENAI_JAILBREAK_MODEL` | optional prompt-injection detector model; defaults to `gpt-4.1-mini` |
+  | `OPENAI_JAILBREAK_MODEL` | optional prompt-injection detector model; defaults to `gpt-6-luna` |
   | `STRIPE_SECRET_KEY` | Stripe API secret key (live mode) |
   | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-  | `STRIPE_PRICE_CREDITS_100` / `STRIPE_PRICE_CREDITS_500` / `STRIPE_PRICE_CREDITS_2000` | Stripe Price IDs for the three credit bundles (active, one-time, USD — auto top-up validates all three) |
+  | `STRIPE_PRICE_CREDITS_100` / `STRIPE_PRICE_CREDITS_500` / `STRIPE_PRICE_CREDITS_2000` | Stripe Price IDs (active, one-time, USD); 500/2,000 are offered for purchases and owner-selected auto top-ups; 100 is retained for historical fulfillment |
   | `STRIPE_PRICE_HOSTED_MONTHLY` / `STRIPE_PRICE_LIFETIME` | Stripe Price IDs for the hosted monthly plan (recurring, USD 5) and the lifetime plan (one-time, USD 49) |
   | `STRIPE_TEST_PRODUCT` | optional — a Stripe Product (`prod_…`) or Price (`price_…`) id; when set, a "Test checkout" card on the usage page runs a real purchase end-to-end and grants 1 credit — visible only to the operator account hardcoded in `src/lib/server/billing/checkout.ts` (`TEST_CHECKOUT_OPERATOR_EMAIL`), never to other users |
   | `ENCRYPTION_KEY` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
   | `CRON_SECRET` | any long random string; also used to trigger cron manually |
-  | `MJ_APIKEY_PUBLIC` / `MJ_APIKEY_PRIVATE` | MailJet REST API key and secret key (contact-form verification e-mails) |
-  | `MAILJET_FROM_EMAIL` | sender of the verification e-mails — must be verified in the Mailjet account (`https://app.mailjet.com/account/sender`) |
-  | `MAILJET_FROM_NAME` | sender display name, e.g. `Moderaty` |
+  | `PROTON_SMTP_USERNAME` / `PROTON_SMTP_TOKEN` | Proton Mail SMTP credentials for transactional e-mail (contact-form verification and service notices, including zero-credit account warnings). The username is the custom-domain sender address and doubles as the From address; the token comes from Proton → **Settings → All settings → IMAP/SMTP → SMTP tokens** — never the mailbox password. Mint a separate token per environment |
+  | `PROTON_FROM_NAME` | optional sender display name; defaults to `Moderaty` |
   | `APP_URL` | the deployed site URL, e.g. `https://moderaty.netlify.app` |
   | `DRY_RUN` | start with `true`; flip to `false` after verifying a dry run |
 
@@ -171,7 +177,7 @@ the site exists), local work, and outage recovery.
   `src/lib/server/stripe/client.ts`) — event payloads follow the endpoint's
   pinned version — and subscribe it to: `checkout.session.completed`,
   `checkout.session.async_payment_succeeded`,
-  `checkout.session.async_payment_failed`, `invoice.paid`,
+  `checkout.session.async_payment_failed`, `checkout.session.expired`, `invoice.paid`,
   `invoice.payment_failed`, `customer.subscription.created`,
   `customer.subscription.updated`, `customer.subscription.deleted`,
   `payment_intent.succeeded`, `payment_intent.payment_failed`,
@@ -186,6 +192,48 @@ the site exists), local work, and outage recovery.
   doesn't match the endpoint, `500 webhook not configured`/`stripe not
   configured` means the env vars never reached the deployment, and `500
   handler failed` is an application bug (check the server log).
+- **Transactional e-mail — Proton Mail SMTP.** The transport is hardcoded
+  to `smtp.protonmail.ch:587` with mandatory STARTTLS
+  (`src/lib/server/protonMail.ts`); there are no host/port variables.
+  - *Prerequisites:* a Proton business account with an **active
+    custom-domain sending address** (the `PROTON_SMTP_USERNAME` mailbox)
+    and sender authentication (SPF/DKIM/DMARC) verified for that domain in
+    Proton. Generate the token at **Settings → All settings → IMAP/SMTP →
+    SMTP tokens** — never use the mailbox password, and never Proton Mail
+    Bridge.
+  - *Ordering:* set `PROTON_SMTP_USERNAME` and `PROTON_SMTP_TOKEN` on the
+    environment BEFORE deploying a build that sends e-mail. The transport
+    fails loudly with a variable-specific `is not configured` error until
+    both exist, so env-before-code ordering makes cutover a config step
+    rather than an outage.
+  - *Egress:* the app opens outbound TCP 587 — on Netlify, verify the
+    functions runtime permits it before relying on delivery: submit the
+    contact form once and expect either the verification e-mail or a loud
+    `500 e-mail could not be sent (...)`. If egress is blocked, e-mail
+    cannot work on that target and the failure must stay loud.
+  - *Failure modes:* every failure is loud and generic to the client —
+    missing env, `authentication failure` (bad/absent token — rotate or
+    check the token), `TLS failure` (STARTTLS/cert negotiation — check
+    interception middleboxes), `provider throttled the request` (every
+    Proton 4xx maps to this label — check the logged response code before
+    assuming a send limit; Proton is a mailbox service, not a bulk-mail
+    platform, and paid-account send limits apply), `provider
+    rejected the request` (5xx), and `send timed out`. Sanitized codes land
+    in the server log only.
+  - *Staged delivery check:* after configuring, submit the contact form
+    and confirm the verification e-mail arrives; a copy lands in the
+    Proton mailbox's **Sent** folder, which is the submission record (there
+    are no delivery webhooks or an analytics dashboard on this transport —
+    SMTP acceptance is not recipient delivery, and Sent retention is the
+    audit trail).
+  - *Token rotation:* generate the replacement token first, update the env
+    var and redeploy, verify a send, THEN revoke the old token — revoking
+    first guarantees an authentication-failure window.
+  - *Rollback:* redeploy the previous release and remove the `PROTON_*`
+    variables. No Mailjet env was ever provisioned on this codebase, so
+    rollback restores the unconfigured-transport state — e-mail sends fail
+    loudly until transport is configured again; there is no Mailjet side
+    to retire.
 
 ## 3. Mercado Pago (optional BRL prepaid credits)
 
@@ -225,12 +273,24 @@ the site exists), local work, and outage recovery.
 
 - `netlify/functions/cron.mjs` runs on a `* * * * *` schedule and calls
   `GET $APP_URL/api/cron` with the secret in an `Authorization: Bearer` header
-  (never in the URL). Each invocation processes exactly
-  one channel (least-recently-run first), so with N connected channels the
-  per-channel scan cadence is N minutes at `* * * * *` (e.g. 5 channels ⇒ each
-  scanned every 5 minutes). Raise the schedule frequency if N × interval grows
-  past an acceptable cadence. A failed run throws and appears as a failed
-  invocation in **Netlify → Functions → cron** logs.
+  (never in the URL). Each invocation processes at most
+  one workload. Live moderation rotates least-recently-run channels and
+  alternates with feedback previews when both are ready. For N eligible live
+  channels, scans rotate about every N schedule intervals without pending
+  previews, or 2N schedule intervals under sustained preview contention. See
+  [cron workload fairness](docs/cron-workload-fairness.md) for leases, retry
+  expiry, and examples at different schedule intervals. Keep the schedule fast
+  enough for an acceptable live scan cadence. No eligible work, an exhausted
+  budget, or a lost claim can result in zero workload runs.
+- **Invocation failures:** configuration or transport errors, non-suppressed
+  HTTP failures, invalid response bodies, and operator-actionable tick problems
+  throw and appear as failed invocations in **Netlify → Functions → cron** logs.
+  Tick problems include failed sweeps or auxiliary jobs, exhausted budgets,
+  lost bookkeeping writes, and channel errors the owner cannot fix. A non-OK
+  response whose channel failures are all `credits` (top-up needed) or `token`
+  (reconnect needed), with no operator problems, logs a warning without failing
+  the invocation; those states are already shown on the dashboard. Both
+  schedulers share the classifier in [`scripts/dev-cron.mjs`](scripts/dev-cron.mjs).
 - **Function timeout:** Netlify's default is 10s, below the trigger's 25s
   abort and the endpoint's 20s run budget. Raise it to 26s (Site settings →
   Functions) so the graceful-timeout path can fire; on a 10s limit the
@@ -261,25 +321,18 @@ the site exists), local work, and outage recovery.
   top-up" — or "A card is saved" while details are still resolving).
 - Watch the next scheduled invocation succeed in the Netlify function logs.
 
-## 7. Backups
+## 7. Turso backups and recovery
 
-- **Automated:** `.github/workflows/db-backup.yml` dumps the production
-  database daily at 03:23 UTC and keeps the gzipped SQL dump as a workflow
-  artifact for 30 days. One-time setup: mint a Turso platform API token
-  (`turso auth api-tokens mint <name>`) and add it to the repo as the
-  `TURSO_API_TOKEN` secret (Settings → Secrets and variables → Actions).
-  A run without the secret, or one that produces no dump, fails loudly.
-- **Manual:** with the turso CLI logged in,
-  `node scripts/backup-db.mjs moderaty backups` writes
-  `backups/moderaty-<timestamp>.sql.gz` (the `backups/` dir is gitignored).
-  The script is read-only against the database and refuses to write an empty
-  or schema-less dump.
-- **Restore:** create a fresh Turso database, then load the dump:
-  `gunzip -c backups/moderaty-<timestamp>.sql.gz | turso db shell <new-db>`.
-  Point `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` at the new database in
-  Netlify env vars, redeploy, and re-run `npm run db:migrate` only if the
-  dump predates a newer migration (the dump includes `__drizzle_migrations`,
-  so drizzle-kit applies just the gap). Verify per §1 afterwards.
+Use Turso's automatic commit-time backups and native point-in-time recovery.
+No custom backup schedule, export script or workflow artifact is required.
+The owner confirmed Free, with a 24-hour recovery window, on 2026-10-02.
+Usable recovery points and an isolated restore still need verification. Free
+PITR cannot recover a deleted database; no paid upgrade is part of this change.
+
+[docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md) covers entitlement checks,
+isolated restore drills, billing reconciliation and human-approved cutover.
+The former scheduled dump/artifact workflow is retired in this change. Normal
+CI checks the repository only; it does not prove a usable native recovery point.
 
 ## 8. Database outage runbook
 

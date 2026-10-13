@@ -1,20 +1,20 @@
 <script lang="ts">
 	import Nav from '$lib/components/landing/Nav.svelte';
 	import Hero from '$lib/components/landing/Hero.svelte';
-	import TrustBar from '$lib/components/landing/TrustBar.svelte';
-	import Benefits from '$lib/components/landing/Benefits.svelte';
-	import HowItWorks from '$lib/components/landing/HowItWorks.svelte';
-	import Digest from '$lib/components/landing/Digest.svelte';
-	import Numbers from '$lib/components/landing/Numbers.svelte';
-	import Regulars from '$lib/components/landing/Regulars.svelte';
-	import Manifesto from '$lib/components/landing/Manifesto.svelte';
-	import Pricing from '$lib/components/landing/Pricing.svelte';
-	import CostMath from '$lib/components/landing/pricing/CostMath.svelte';
+	import HomepageContent from '$lib/components/landing/HomepageContent.svelte';
 	import Faq from '$lib/components/landing/Faq.svelte';
 	import FinalCta from '$lib/components/landing/FinalCta.svelte';
 	import Footer from '$lib/components/landing/Footer.svelte';
-	import { FAQ_ENTRIES } from '$lib/landing/faq';
+	import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 	import { jsonLd } from '$lib/landing/json-ld';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+	const canonical = $derived(new URL('/', data.siteOrigin).href);
+	const socialImage = $derived(new URL('/og.png', data.siteOrigin).href);
+
+	const productDescription =
+		'Moderate YouTube comments with custom rules, AI scoring, human review, and an audit log. Try Moderaty with a free moderation preview.';
 
 	const softwareApplication = {
 		'@context': 'https://schema.org',
@@ -22,8 +22,7 @@
 		name: 'Moderaty',
 		applicationCategory: 'SecurityApplication',
 		operatingSystem: 'Web',
-		description:
-			'Comment protection for YouTube creators. Reads every comment, enforces your rules instantly, scores the rest with AI across 13 toxicity categories, holds the borderline for one-click review, and digests the themes your viewers keep raising.',
+		description: productDescription,
 		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 		license: 'https://polyformproject.org/licenses/shield/1.0.0'
 	};
@@ -31,7 +30,7 @@
 	const faqPage = {
 		'@context': 'https://schema.org',
 		'@type': 'FAQPage',
-		mainEntity: FAQ_ENTRIES.map((f) => ({
+		mainEntity: HOMEPAGE_FAQ_ENTRIES.map((f) => ({
 			'@type': 'Question',
 			name: f.q,
 			acceptedAnswer: { '@type': 'Answer', text: f.a }
@@ -40,21 +39,18 @@
 </script>
 
 <svelte:head>
-	<title>Moderaty | Comment Protection for YouTube Creators</title>
-	<meta
-		name="description"
-		content="Moderaty reads every YouTube comment so you never have to. Your rules plus AI enforce your norms around the clock, hold the borderline, log everything, and digest the themes your viewers keep raising. Free, open source."
-	/>
+	<title>AI YouTube Comment Moderation Software | Moderaty</title>
+	<meta name="description" content={productDescription} />
+	<link rel="canonical" href={canonical} />
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content="Never read another hate comment." />
-	<meta
-		property="og:description"
-		content="Comment protection for YouTube creators. Your community's norms, enforced while you sleep."
-	/>
+	<meta property="og:url" content={canonical} />
+	<meta property="og:title" content="AI YouTube Comment Moderation Software | Moderaty" />
+	<meta property="og:description" content={productDescription} />
 	<meta name="twitter:card" content="summary_large_image" />
-	<!-- relative for now — must become an absolute URL at deploy time -->
-	<meta property="og:image" content="/og.png" />
-	<meta name="twitter:image" content="/og.png" />
+	<meta name="twitter:title" content="AI YouTube Comment Moderation Software | Moderaty" />
+	<meta name="twitter:description" content={productDescription} />
+	<meta property="og:image" content={socialImage} />
+	<meta name="twitter:image" content={socialImage} />
 	{@html jsonLd(softwareApplication)}
 	{@html jsonLd(faqPage)}
 </svelte:head>
@@ -62,15 +58,7 @@
 <Nav />
 <main>
 	<Hero />
-	<TrustBar />
-	<Benefits />
-	<HowItWorks />
-	<Digest />
-	<Numbers />
-	<Regulars />
-	<Manifesto />
-	<Pricing />
-	<CostMath />
+	<HomepageContent />
 	<Faq />
 	<FinalCta />
 </main>

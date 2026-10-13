@@ -1,15 +1,22 @@
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import { maybeTriggerAutoTopUp } from '$lib/server/billing/autotopup';
+import { loadProtectedIdentities, loadProtectedAuthors, type ProtectedIdentities } from '$lib/server/allowlist';
+import { hasHumanClaim } from './human-claims';
 import { db } from '$lib/server/db';
 import { auditLog, channels, comments, moderationActions } from '$lib/server/db/schema';
-import { assertBeforeDeadline, DeadlineExceededError } from '$lib/server/http';
+import { assertBeforeDeadline, DeadlineExceededError, RequestNotSentError } from '$lib/server/http';
 import {
 	CommentNotFoundError,
 	deleteComment,
+	fetchCommentAuthorIds,
+	fetchAuthorHandles,
+	resolveHandleChannelId,
 	setModerationStatus,
 	YOUTUBE_ID_BATCH_SIZE
 } from '$lib/server/youtube';
 import type { OutstandingAction, YoutubeAction } from './types';
+import { executeDecidedDispatch, executeHumanDispatch, reserveDecidedDispatch, reserveHumanDispatch } from './human-dispatch';
 
 /** Thrown when account deletion deactivates (or removes) the channel mid-run. */
 export class ChannelDeactivatedError extends Error {}
@@ -20,8 +27,9 @@ export class ChannelDeactivatedError extends Error {}
  * in-flight run, so the run must stop at the next boundary instead of writing
  * rows or moderating comments for a deleted account.
  */
-export type ChannelIdentity = Pick<typeof channels.$inferSelect, 'userId' | 'refreshTokenEnc'>;
+export type ChannelIdentity = Pick<typeof channels.$inferSelect, 'userId' | 'refreshTokenEnc'> & { leaseExpiresAt?: string | null };
 type ChannelGuardHandle = Pick<typeof db, 'update'>;
+type ProtectionTransaction = Pick<typeof db, 'select' | 'update' | 'insert'>;
 type OutstandingState = 'pending' | 'dispatched' | 'cancelling';
 
 /**
@@ -218,6 +226,11 @@ const ACTION_OUTCOME: Record<YoutubeAction, 'held' | 'rejected' | 'deleted'> = {
  */
 const CONTESTED_STATUSES = new Set(['approved', 'rejected', 'deleted', 'restoring']);
 
+/** The decided intent a comment's current status re-asserts, if any. */
+function decidedIntentFor(status: string | undefined, mayHaveLanded: boolean): 'approve' | 'reject' | 'delete' | undefined {
+	return status === undefined || !mayHaveLanded ? undefined : DECIDED_INTENT[status];
+}
+
 async function convergeHolds(
 	actions: OutstandingAction[],
 	accessToken: string,
@@ -237,8 +250,7 @@ async function convergeHolds(
 		const status = statusById.get(action.commentId);
 		// A row that was only ever 'pending' never reached YouTube — the
 		// deciding path already wrote remotely, so nothing needs re-applying.
-		const mayHaveLanded = applied || action.state !== 'pending';
-		const intent = status === undefined || !mayHaveLanded ? undefined : DECIDED_INTENT[status];
+		const intent = decidedIntentFor(status, applied || action.state !== 'pending');
 		if (!intent) {
 			// 'restoring' belongs to the human flow: reconcile replays the
 			// recorded intent and finalizeHumanIntent commits the decided
@@ -249,48 +261,7 @@ async function convergeHolds(
 			continue;
 		}
 		try {
-			await assertChannelActive(action.channelId, db, expected);
-			const outcome = await applyHumanIntent(action.commentId, intent, accessToken, deadline);
-			if (outcome === 'missing' && intent !== 'delete') {
-				// The corrective write 404'd: YouTube has no comment to publish
-				// or reject — a dispatched delete already landed (or the owner
-				// removed it) before this verdict. 'approved'/'rejected' can
-				// never be true remotely, so the local row converges to the
-				// REAL outcome ('deleted') instead of superseding the action
-				// over a local-approved/remote-deleted lie (codex). The
-				// status guard keeps a mid-flight 'restoring' claim owned by
-				// the human flow — no match leaves the action outstanding.
-				const flipped = await db
-					.update(comments)
-					.set({ status: 'deleted' })
-					.where(and(eq(comments.id, action.commentId), inArray(comments.status, ['approved', 'rejected'])))
-					.returning({ id: comments.id });
-				if (!flipped.length) continue;
-			} else {
-				// The corrective write landed — but the status this loop read was
-				// taken BEFORE it. A concurrent decider moving the comment while
-				// the write was in flight (a 'restoring' claim, or a rescan's fresh
-				// verdict) makes its ordering unprovable: terminalizing here leaves
-				// remote truth diverged with nothing outstanding to reconcile it
-				// (codex). A changed status keeps the row 'cancelling' so the next
-				// sweep converges the CURRENT decision; a vanished row has nothing
-				// left to protect, so it still converges.
-				const current = await db
-					.select({ status: comments.status })
-					.from(comments)
-					.where(inArray(comments.id, [action.commentId]))
-					.all();
-				if (current[0] !== undefined && current[0].status !== status) {
-					console.warn(
-						'convergence for comment %s superseded mid-write (status %s → %s) — action stays outstanding',
-						action.commentId,
-						status,
-						current[0].status
-					);
-					continue;
-				}
-			}
-			converged.add(action.commentId);
+			if (await convergeOneHold(action, status, intent, accessToken, deadline, expected)) converged.add(action.commentId);
 		} catch (error) {
 			if (error instanceof DeadlineExceededError || error instanceof ChannelDeactivatedError) throw error;
 			// Loud per-item failure (I1): the row stays outstanding so a later
@@ -299,6 +270,67 @@ async function convergeHolds(
 		}
 	}
 	return converged;
+}
+
+/**
+ * Applies one corrective write and proves its ordering: the comment's local
+ * status is re-read after the remote call because a concurrent decider moving
+ * it mid-write makes ordering unprovable (codex).
+ *
+ * @returns `true` when the action's comment converged to its real outcome.
+ */
+async function convergeOneHold(
+	action: OutstandingAction,
+	status: string | undefined,
+	intent: 'approve' | 'reject' | 'delete',
+	accessToken: string,
+	deadline: number | undefined,
+	expected?: ChannelIdentity
+): Promise<boolean> {
+	await assertChannelActive(action.channelId, db, expected);
+	if (status === undefined) return false;
+	const dispatch = await reserveDecidedDispatch(action.channelId, action.commentId, status, expected);
+	if (!dispatch) return false;
+	const outcome = await executeDecidedDispatch(dispatch, intent, accessToken, expected, deadline);
+	if (outcome === 'missing' && intent !== 'delete') {
+		// The corrective write 404'd: YouTube has no comment to publish
+		// or reject — a dispatched delete already landed (or the owner
+		// removed it) before this verdict. 'approved'/'rejected' can
+		// never be true remotely, so the local row converges to the
+		// REAL outcome ('deleted') instead of superseding the action
+		// over a local-approved/remote-deleted lie (codex). The
+		// status guard keeps a mid-flight 'restoring' claim owned by
+		// the human flow — no match leaves the action outstanding.
+		const flipped = await db
+			.update(comments)
+			.set({ status: 'deleted' })
+			.where(and(eq(comments.id, action.commentId), inArray(comments.status, ['approved', 'rejected'])))
+			.returning({ id: comments.id });
+		return flipped.length > 0;
+	}
+	// The corrective write landed — but the status this loop read was
+	// taken BEFORE it. A concurrent decider moving the comment while
+	// the write was in flight (a 'restoring' claim, or a rescan's fresh
+	// verdict) makes its ordering unprovable: terminalizing here leaves
+	// remote truth diverged with nothing outstanding to reconcile it
+	// (codex). A changed status keeps the row 'cancelling' so the next
+	// sweep converges the CURRENT decision; a vanished row has nothing
+	// left to protect, so it still converges.
+	const current = await db
+		.select({ status: comments.status })
+		.from(comments)
+		.where(inArray(comments.id, [action.commentId]))
+		.all();
+	if (current[0] !== undefined && current[0].status !== status) {
+		console.warn(
+			'convergence for comment %s superseded mid-write (status %s → %s) — action stays outstanding',
+			action.commentId,
+			status,
+			current[0].status
+		);
+		return false;
+	}
+	return true;
 }
 
 async function completeActions(actions: OutstandingAction[], expected?: ChannelIdentity): Promise<number> {
@@ -427,30 +459,107 @@ async function applyModerationAction(
 		const releasable = await convergeHolds(superseded, accessToken, deadline, expected);
 		await markSuperseded(superseded.filter((action) => releasable.has(action.commentId)), expected);
 		if (!applicable.length) continue;
-		try {
-			await setModerationStatus(applicable.map((action) => action.commentId), status, banAuthor, accessToken, deadline);
-		} catch (error) {
-			if (!(error instanceof CommentNotFoundError)) throw error;
-			if (applicable.length === 1) {
-				await completeMissingAction(applicable[0], expected);
-				continue;
-			}
-			for (const action of applicable) {
-				if (await applyOneModerationAction(action, status, banAuthor, accessToken, deadline, expected)) acted += 1;
-			}
-			continue;
-		}
-		// The hold write resolved — but a human decision committed while it was
-		// in flight needs its state written last, or the late hold wins remotely.
-		const finished = status === 'heldForReview'
-			? await convergeHolds(applicable, accessToken, deadline, expected, true)
-			: new Set(applicable.map((action) => action.commentId));
-		// Count only rows this run actually terminalized — a hold whose
-		// corrective write failed stays outstanding and counts when a later
-		// sweep completes it (codex).
-		acted += await completeActions(applicable.filter((action) => finished.has(action.commentId)), expected);
+		acted += await applyModerationBatch(applicable, status, banAuthor, accessToken, deadline, expected);
 	}
 	return acted;
+}
+
+/**
+ * Applies one batched YouTube moderation write, then terminalizes the rows
+ * whose outcome is provable. A batch 404 falls back to per-action handling;
+ * a hold write is provisional until its post-write convergence check proves
+ * no human decision landed mid-flight.
+ */
+async function applyModerationBatch(
+	applicable: OutstandingAction[],
+	status: 'heldForReview' | 'rejected',
+	banAuthor: boolean,
+	accessToken: string,
+	deadline: number | undefined,
+	expected?: ChannelIdentity
+): Promise<number> {
+	try {
+		await setModerationStatus(applicable.map((action) => action.commentId), status, banAuthor, accessToken, deadline);
+	} catch (error) {
+		if (!(error instanceof CommentNotFoundError)) throw error;
+		if (applicable.length === 1) {
+			await completeMissingAction(applicable[0], expected);
+			return 0;
+		}
+		let acted = 0;
+		for (const action of applicable) {
+			if (await applyOneModerationAction(action, status, banAuthor, accessToken, deadline, expected)) acted += 1;
+		}
+		return acted;
+	}
+	// The hold write resolved — but a human decision committed while it was
+	// in flight needs its state written last, or the late hold wins remotely.
+	const finished = status === 'heldForReview'
+		? await convergeHolds(applicable, accessToken, deadline, expected, true)
+		: new Set(applicable.map((action) => action.commentId));
+	// Count only rows this run actually terminalized — a hold whose
+	// corrective write failed stays outstanding and counts when a later
+	// sweep completes it (codex).
+	return completeActions(applicable.filter((action) => finished.has(action.commentId)), expected);
+}
+
+async function applyProtectionDecision(
+	action: OutstandingAction, channelId: string, handle: string | undefined, transaction: ProtectionTransaction
+): Promise<OutstandingAction | null> {
+	const reason = handle ? 'protected handle' : 'protected identity unresolved';
+	const changed = await transaction.update(moderationActions)
+		.set(handle ? {state:action.state === 'dispatched' ? 'cancelling' : 'superseded'} : {action:'hold', reason, authorHandle:null})
+		.where(and(eq(moderationActions.commentId, action.commentId), eq(moderationActions.channelId, channelId), eq(moderationActions.state,action.state)))
+		.returning({id:moderationActions.commentId});
+	if (!changed.length) return null;
+	await transaction.update(comments).set({status:handle ? 'approved':'pending', decidedBy:handle ? 'allowlist':'none', matchedRuleId:null, aiScore:null})
+		.where(and(eq(comments.id,action.commentId), eq(comments.channelId,channelId)));
+	await transaction.insert(auditLog).values({channelId, commentId:action.commentId, action:handle ? 'approve':'queue', reason, actor:'system', authorHandle:handle ?? null, createdAt:new Date().toISOString()});
+	return handle ? null : {...action, action:'hold', reason, authorHandle:null};
+}
+
+async function guardPendingAction(
+	action: OutstandingAction,
+	channelId: string,
+	authors: Map<string, string>,
+	protection: ProtectedIdentities,
+	transaction: ProtectionTransaction
+): Promise<OutstandingAction | null> {
+	if (action.state === 'cancelling' || action.action === 'hold') return action;
+	const author = authors.get(action.commentId);
+	const handle = author ? protection.byChannelId.get(author) : undefined;
+	const uncertain = protection.unresolved || !author;
+	if (!handle && !uncertain) return action;
+	if (!handle && uncertain && action.state === 'dispatched') throw new Error('Protected identity is unavailable for a dispatched action; destructive retry deferred');
+	const current = await transaction.select().from(comments).where(and(eq(comments.id, action.commentId), eq(comments.channelId, channelId))).all();
+	// Human dispatch owns terminalization; retaining its row preserves reconciliation evidence.
+	if (!current[0] || hasHumanClaim(current[0]) || current[0].decidedBy === 'human') return null;
+	return applyProtectionDecision(action, channelId, handle, transaction);
+}
+
+/** Revalidate pending destructive intents against current protection before claiming them.
+ * Provider IDs are fetched outside the transaction and discarded after this sweep. */
+async function guardPendingProtection(actions: OutstandingAction[], accessToken: string, deadline: number | undefined, expected?: ChannelIdentity, previous?: ProtectedIdentities): Promise<OutstandingAction[]> {
+	const pending = actions.filter(action => action.state !== 'cancelling' && action.action !== 'hold');
+	if (!pending.length) return actions;
+	const channelId = pending[0].channelId;
+	const configured = await loadProtectedIdentities(channelId);
+	const authors = configured.configured ? await fetchCommentAuthorIds(pending.map(action => action.commentId), accessToken, deadline) : new Map<string,string>();
+	const authorIds = [...authors.values()];
+	const covered = previous?.observedAuthorIds && authorIds.every(id => previous.observedAuthorIds?.has(id));
+	const handles = configured.configured && !covered ? await fetchAuthorHandles(authorIds, accessToken, deadline) : new Map<string, string>();
+	const snapshot = covered ? previous : await loadProtectedAuthors(channelId, db, authorIds, handles, handle => resolveHandleChannelId(handle, accessToken, deadline), previous);
+	return db.transaction(async transaction => {
+		await assertChannelActive(channelId, transaction, expected);
+		const protection = await loadProtectedIdentities(channelId, transaction, undefined, snapshot);
+		if (!protection.configured) return actions;
+		const result: OutstandingAction[] = [];
+		for (const action of actions) {
+			const guarded = await guardPendingAction(action, channelId, authors, protection, transaction);
+			if (guarded) result.push(guarded);
+		}
+		return result;
+	});
 }
 
 async function applyYoutubeActions(
@@ -481,7 +590,7 @@ async function applyDeletes(actions: OutstandingAction[], accessToken: string, d
 	return acted;
 }
 
-async function processOutstandingActions(channelId: string, accessToken: string, deadline?: number, expected?: ChannelIdentity): Promise<number> {
+async function processOutstandingActions(channelId: string, accessToken: string, deadline?: number, expected?: ChannelIdentity, protection?: ProtectedIdentities): Promise<number> {
 	const actions = (await db
 		.select()
 		.from(moderationActions)
@@ -490,16 +599,16 @@ async function processOutstandingActions(channelId: string, accessToken: string,
 			inArray(moderationActions.state, ['pending', 'dispatched', 'cancelling'])
 		))
 		.all()).map(outstandingAction);
-	// A 'restoring' comment is owned by the human flow end-to-end: its
-	// outstanding action rows are bookkeeping only, and finalizeHumanIntent
-	// terminalizes them — this sweep must neither apply nor supersede them
-	// (codex).
+	// Human claims and unresolved corrective writes own their comment.
+	// A rescan may change its local status, but no newer staged enforcement
+	// can bypass the durable reservation while an older write may land.
 	const restoringIds = actions.length
 		? (
 				await db
 					.select({ id: comments.id })
 					.from(comments)
-					.where(and(eq(comments.channelId, channelId), eq(comments.status, 'restoring')))
+					.where(and(eq(comments.channelId, channelId), or(eq(comments.status, 'restoring'),
+						isNotNull(comments.humanDispatchToken), isNotNull(comments.humanDispatchState))))
 					.all()
 			).map((row) => row.id)
 		: [];
@@ -514,10 +623,20 @@ async function processOutstandingActions(channelId: string, accessToken: string,
 	const releasable = cancelling.filter((action) => convergedCancels.has(action.commentId));
 	await transitionActions(releasable, { state: 'superseded' }, expected, ['cancelling']);
 	// Stryker disable next-line MethodExpression, ConditionalExpression: equivalent — claimPendingActions' SQL still guards eq(state, 'pending'), so handing it dispatched rows too claims nothing extra
-	const claimed = await claimPendingActions(actions.filter((action) => action.state === 'pending' && !restoring.has(action.commentId)), expected);
+	let guarded: OutstandingAction[];
+	let protectionFailure: unknown = null;
+	try {
+		guarded = await guardPendingProtection(actions.filter(action => !restoring.has(action.commentId)), accessToken, deadline, expected, protection);
+	} catch (error) {
+		if (error instanceof DeadlineExceededError || error instanceof ChannelDeactivatedError) throw error;
+		console.warn('protection revalidation failed; only non-destructive holds will be attempted');
+		protectionFailure = error;
+		guarded = actions.filter(action => action.action === 'hold' && !restoring.has(action.commentId));
+	}
+	const claimed = await claimPendingActions(guarded.filter((action) => action.state === 'pending' && !restoring.has(action.commentId)), expected);
 	// Stryker disable next-line ArrayDeclaration: equivalent — applyYoutubeActions selects entries by their action field, so a foreign element in the array is never selected
 	const ready: OutstandingAction[] = [];
-	for (const action of actions) {
+	for (const action of guarded) {
 		if (restoring.has(action.commentId)) continue;
 		if (action.state === 'dispatched') {
 			ready.push(action);
@@ -531,7 +650,9 @@ async function processOutstandingActions(channelId: string, accessToken: string,
 			if (claimed.has(action.commentId)) ready.push(action);
 		}
 	}
-	return applyYoutubeActions(ready, accessToken, deadline, expected);
+	const acted = await applyYoutubeActions(ready, accessToken, deadline, expected);
+	if (protectionFailure) throw protectionFailure;
+	return acted;
 }
 
 /**
@@ -560,14 +681,14 @@ export async function applyHumanIntent(
 	deadline?: number
 ): Promise<'applied' | 'missing'> {
 	if (!humanFinalStatus(action)) throw new Error(`unsupported human intent '${action}'`);
-	assertBeforeDeadline(deadline);
+	try { assertBeforeDeadline(deadline); } catch (cause) { throw new RequestNotSentError(cause); }
 	try {
 		if (action === 'approve' || action === 'restore') {
-			await setModerationStatus([commentId], 'published', false, accessToken, deadline);
+			await setModerationStatus([commentId], 'published', false, accessToken, deadline, true);
 		} else if (action === 'reject' || action === 'ban') {
-			await setModerationStatus([commentId], 'rejected', action === 'ban', accessToken, deadline);
+			await setModerationStatus([commentId], 'rejected', action === 'ban', accessToken, deadline, true);
 		} else {
-			await deleteComment(commentId, accessToken, deadline);
+			await deleteComment(commentId, accessToken, deadline, true);
 		}
 	} catch (error) {
 		if (!(error instanceof CommentNotFoundError)) throw error;
@@ -579,7 +700,7 @@ export async function applyHumanIntent(
 
 /**
  * Commits the local result of a human intent in ONE transaction: the final
- * comment status is guarded on 'restoring', and every outstanding action row
+ * comment status is guarded on 'restoring' and the exact intent ID, and every outstanding action row
  * for the comment is resolved by whether its remote outcome AGREES with the
  * human's. A dispatched row whose outcome equals the final status completes
  * and is audited — both writes land the same remote state either order. A
@@ -594,24 +715,38 @@ export async function finalizeHumanIntent(
 	channelId: string,
 	commentId: string,
 	action: string,
-	expected?: ChannelIdentity
-): Promise<void> {
+	intentId: number,
+	expected?: ChannelIdentity,
+	dispatchToken?: string
+): Promise<boolean> {
 	const status = humanFinalStatus(action);
 	if (!status) throw new Error(`unsupported human intent '${action}'`);
 	const agreeing = (Object.keys(ACTION_OUTCOME) as YoutubeAction[]).filter((verb) => ACTION_OUTCOME[verb] === status);
-	await db.transaction(async (transaction) => {
+	return await db.transaction(async (transaction) => {
 		await assertChannelActive(channelId, transaction, expected);
 		const claimed = await transaction
 			.update(comments)
-			.set({ status, decidedBy: 'human' })
-			.where(and(eq(comments.id, commentId), eq(comments.status, 'restoring')))
+			.set({ status, decidedBy: 'human', restoreIntentId: null, humanDispatchToken: null, humanDispatchState: null })
+			.where(and(
+				eq(comments.id, commentId),
+				eq(comments.channelId, channelId),
+				eq(comments.status, 'restoring'),
+				eq(comments.restoreIntentId, intentId),
+				dispatchToken ? eq(comments.humanDispatchToken, dispatchToken) : isNull(comments.humanDispatchToken),
+				dispatchToken ? eq(comments.humanDispatchState, 'in_flight') : isNull(comments.humanDispatchState)
+			))
 			.returning({ id: comments.id });
 		if (!claimed.length) {
 			const current = await transaction
-				.select({ status: comments.status })
+				.select({ status: comments.status, humanDispatchToken: comments.humanDispatchToken, humanDispatchState: comments.humanDispatchState })
 				.from(comments)
 				.where(inArray(comments.id, [commentId]))
 				.all();
+			if ((current[0]?.humanDispatchToken || current[0]?.humanDispatchState) &&
+				(current[0].humanDispatchToken !== dispatchToken || current[0].humanDispatchState !== 'in_flight')) {
+				console.warn('finalize: comment %s has a different dispatch owner — leaving its claim unchanged', commentId);
+				return false;
+			}
 			if (current[0] && current[0].status !== status) {
 				await transaction
 					.update(moderationActions)
@@ -619,7 +754,7 @@ export async function finalizeHumanIntent(
 					.where(and(eq(moderationActions.commentId, commentId), eq(moderationActions.state, 'completed')));
 			}
 			console.warn('finalize: comment %s left restoring mid-flight — conflicting completed actions re-armed for reconciliation', commentId);
-			return;
+			return false;
 		}
 		const dispatched = agreeing.length
 			? await transaction
@@ -665,47 +800,144 @@ export async function finalizeHumanIntent(
 				}))
 			);
 		}
+		return true;
 	});
 }
 
-/**
- * Human actions claim a comment into 'restoring' and record their intent as
- * an audit row BEFORE the remote call (I3). A crash leaves 'restoring' +
- * the intent row — this sweep re-executes the intent (every remote verb is
- * idempotent) and commits the final status, so a crashed action converges
- * instead of sitting invisible between states forever. A 'restoring' row
- * without a user intent audit is not ours to finish.
- */
-async function reconcileRestoring(channelId: string, accessToken: string, deadline?: number, expected?: ChannelIdentity) {
-	const stuck = await db
-		.select({ id: comments.id })
-		.from(comments)
-		.where(and(eq(comments.channelId, channelId), eq(comments.status, 'restoring')))
-		.all();
-	for (const row of stuck) {
-		const intent = await db
-			.select({ action: auditLog.action, actor: auditLog.actor })
-			.from(auditLog)
-			.where(and(eq(auditLog.channelId, channelId), eq(auditLog.commentId, row.id)))
-			.orderBy(desc(auditLog.createdAt), desc(auditLog.id))
-			.limit(1)
-			.get();
-		if (!intent || intent.actor !== 'user' || !humanFinalStatus(intent.action)) continue;
-		try {
-			assertBeforeDeadline(deadline);
-			const outcome = await applyHumanIntent(row.id, intent.action, accessToken, deadline);
-			// A comment YouTube no longer has IS deleted — finalize the real
-			// remote outcome rather than stamping the requested intent over a
-			// remote deletion (codex).
-			await finalizeHumanIntent(channelId, row.id, outcome === 'missing' ? 'delete' : intent.action, expected);
-		} catch (error) {
-			if (error instanceof DeadlineExceededError) throw error;
-			// Leave it 'restoring' for the next run — one stuck comment must
-			// never abort the sweep or the run (I1), and never fail silently.
-			console.error(
-				`reconcile: could not finish '${intent.action}' for comment ${row.id}: ${error instanceof Error ? error.message : String(error)} — retrying next run`
-			);
+/** Reads only the audit bound to this claim, never a historical fallback. */
+export async function claimedHumanIntent(
+	channelId: string,
+	commentId: string,
+	intentId: number | null,
+	handle: Pick<typeof db, 'select'> = db
+) {
+	if (intentId === null) return undefined;
+	const intent = await handle
+		.select({ id: auditLog.id, action: auditLog.action, actor: auditLog.actor })
+		.from(auditLog)
+		.where(and(
+			eq(auditLog.id, intentId),
+			eq(auditLog.channelId, channelId),
+			eq(auditLog.commentId, commentId),
+			eq(auditLog.actor, 'user')
+		))
+		.get();
+	return intent && intent.actor === 'user' && humanFinalStatus(intent.action) ? intent : undefined;
+}
+
+async function reconcileHumanClaim(channelId: string, row: { id: string; restoreIntentId: number | null }, accessToken: string,
+	deadline?: number, expected?: ChannelIdentity) {
+	const intent = await claimedHumanIntent(channelId, row.id, row.restoreIntentId);
+	if (!intent) {
+		console.warn('reconcile: comment %s has no valid bound human intent — leaving restoring unchanged; owner retry required', row.id);
+		return;
+	}
+	try {
+		// Outstanding actions and earlier restores may have taken time since
+		// runEnforcement's connector check. Never spend a detached grant.
+		await assertChannelActive(channelId, db, expected);
+		// Intent lookup can race a request releasing or finishing this claim.
+		// Re-read its exact binding immediately before remote dispatch; the
+		// initial restoring snapshot is not authority for a replaced row.
+		const [current] = await db.select({ status: comments.status, restoreIntentId: comments.restoreIntentId })
+			.from(comments).where(and(eq(comments.id, row.id), eq(comments.channelId, channelId))).all();
+		if (current?.status !== 'restoring' || current.restoreIntentId !== intent.id) {
+			console.warn('reconcile: comment %s changed before human-intent dispatch — skipping stale claim', row.id);
+			return;
 		}
+		assertBeforeDeadline(deadline);
+		const dispatch = await reserveHumanDispatch(channelId, row.id, intent.id, expected);
+		if (!dispatch) {
+			console.warn('reconcile: comment %s has an active or uncertain human write — automatic replay is paused', row.id);
+			return;
+		}
+		await executeHumanDispatch(dispatch, intent.action, accessToken, expected, deadline);
+	} catch (error) {
+		if (error instanceof DeadlineExceededError || error instanceof ChannelDeactivatedError) throw error;
+		console.error(
+			`reconcile: could not finish '${intent.action}' for comment ${row.id}: ${error instanceof Error ? error.message : String(error)} — retrying next run`
+		);
+	}
+}
+
+const HUMAN_RECOVERY_PAGE_SIZE = 25;
+type HumanRecoveryCursor = { cycleId: string; afterId: string | null; endId: string; done: boolean };
+
+function readHumanRecoveryCursor(raw: string | null): HumanRecoveryCursor | null {
+	if (raw === null) return null;
+	const value = JSON.parse(raw) as Partial<HumanRecoveryCursor> | null;
+	if (!value || typeof value.cycleId !== 'string' || !value.cycleId || typeof value.endId !== 'string' || !value.endId
+		|| !(value.afterId === null || typeof value.afterId === 'string') || typeof value.done !== 'boolean') {
+		throw new Error('invalid human recovery checkpoint — reconciliation stopped');
+	}
+	return value as HumanRecoveryCursor;
+}
+
+function eligibleHumanClaims(channelId: string) {
+	// Keep this predicate identical to the eligible partial index: permanently
+	// fenced requests must cost no automatic scan or audit-lookup work.
+	return and(eq(comments.channelId, channelId), sql`${comments.status} = 'restoring'`, isNull(comments.humanDispatchToken), isNull(comments.humanDispatchState));
+}
+
+function humanRecoveryLease(expected: ChannelIdentity) {
+	if (expected.leaseExpiresAt === undefined) return undefined;
+	return expected.leaseExpiresAt === null ? isNull(channels.leaseExpiresAt) : eq(channels.leaseExpiresAt, expected.leaseExpiresAt);
+}
+
+async function writeHumanRecoveryCursor(channelId: string, previous: string | null, next: HumanRecoveryCursor, expected: ChannelIdentity) {
+	const serialized = JSON.stringify(next);
+	const changed = await db.transaction(async transaction => {
+		await assertChannelActive(channelId, transaction, expected);
+		return await transaction.update(channels).set({ humanRecoveryCursor: serialized })
+			.where(and(eq(channels.id, channelId), previous === null ? isNull(channels.humanRecoveryCursor) : eq(channels.humanRecoveryCursor, previous), humanRecoveryLease(expected)))
+			.returning({ id: channels.id });
+	});
+	if (!changed.length) {
+		console.warn('reconcile: channel %s recovery ownership changed — stopping this page', channelId);
+		return null;
+	}
+	return serialized;
+}
+
+async function startHumanRecoveryCycle(channelId: string, raw: string | null, expected: ChannelIdentity) {
+	const [last] = await db.select({ id: sql<string>`${comments.id}`.mapWith(comments.id) }).from(sql`${comments} indexed by comments_human_recovery_eligible_idx`).where(eligibleHumanClaims(channelId))
+		.orderBy(desc(comments.id)).limit(1).all();
+	if (!last) return null;
+	const cursor: HumanRecoveryCursor = { cycleId: randomUUID(), afterId: null, endId: last.id, done: false };
+	const saved = await writeHumanRecoveryCursor(channelId, raw, cursor, expected);
+	return saved === null ? null : { cursor, raw: saved };
+}
+
+/** One finite, persisted page per tick; invalid intents cannot pin later work. */
+async function reconcileRestoring(channelId: string, accessToken: string, deadline?: number, expected?: ChannelIdentity) {
+	assertBeforeDeadline(deadline);
+	const channel = await db.select().from(channels).where(eq(channels.id, channelId)).get();
+	if (!channel) throw new ChannelDeactivatedError(`channel deactivated mid-run: ${channelId}`);
+	const identity = expected ?? channel;
+	let raw = channel.humanRecoveryCursor;
+	let cursor = readHumanRecoveryCursor(raw);
+	if (!cursor || cursor.done) {
+		const started = await startHumanRecoveryCycle(channelId, raw, identity);
+		if (!started) return;
+		({ cursor, raw } = started);
+	}
+	const page = await db.select({ id: sql<string>`${comments.id}`.mapWith(comments.id), restoreIntentId: sql<number | null>`${comments.restoreIntentId}`.mapWith(comments.restoreIntentId) }).from(sql`${comments} indexed by comments_human_recovery_eligible_idx`)
+		.where(and(eligibleHumanClaims(channelId), cursor.afterId === null ? undefined : gt(comments.id, cursor.afterId), lte(comments.id, cursor.endId)))
+		.orderBy(asc(comments.id)).limit(HUMAN_RECOVERY_PAGE_SIZE).all();
+	let progress = cursor;
+	// Sequential settlement is necessary: a provider write must finish before
+	// the next one begins. A failed cursor CAS stops the chain immediately.
+	await page.reduce((previous, row) => previous.then(async () => {
+		if (raw === null) return;
+		assertBeforeDeadline(deadline);
+		await reconcileHumanClaim(channelId, row, accessToken, deadline, identity);
+		progress = { ...progress, afterId: row.id };
+		raw = await writeHumanRecoveryCursor(channelId, raw, progress, identity);
+	}), Promise.resolve());
+	if (raw !== null && (page.length < HUMAN_RECOVERY_PAGE_SIZE || progress.afterId === progress.endId)) {
+		// Retain the completed nonce. Replacing it for a new cycle prevents an
+		// old worker matching the same cursor/end pair after traversal wraps.
+		await writeHumanRecoveryCursor(channelId, raw, { ...progress, done: true }, identity);
 	}
 }
 
@@ -715,11 +947,12 @@ export async function runEnforcement(
 	deadline: number | undefined,
 	orgId: string | null | undefined,
 	deferred: number,
-	expected?: ChannelIdentity
+	expected?: ChannelIdentity,
+	protection?: ProtectedIdentities
 ): Promise<{ acted: number; outOfCredits: boolean }> {
 	// ... and again before any YouTube enforcement call.
 	await assertChannelActive(channelId, db, expected);
-	const acted = await processOutstandingActions(channelId, accessToken, deadline, expected);
+	const acted = await processOutstandingActions(channelId, accessToken, deadline, expected, protection);
 	await reconcileRestoring(channelId, accessToken, deadline, expected);
 	if (orgId) {
 		await assertChannelActive(channelId, db, expected);

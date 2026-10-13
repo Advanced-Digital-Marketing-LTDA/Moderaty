@@ -1,5 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { HATE_COMMENTS } from '$lib/blogs/hate-comments';
+import { SPAM_COMMENTS } from '$lib/blogs/spam-comments';
 
 // The crawlable surface: marketing, legal, and the two public utility
 // pages. Everything else — the (app) console, OAuth/consent/invite/verify
@@ -12,8 +14,14 @@ export const PUBLIC_PAGES = [
 	'/login',
 	'/privacy',
 	'/terms',
-	'/dpa'
+	'/dpa',
+	'/blogs/',
+	HATE_COMMENTS.path,
+	SPAM_COMMENTS.path
 ] as const;
+
+// Runtime-rendered editorial pages need the configured origin, not a session or DB.
+export const PUBLIC_BLOG_ROUTE_IDS = ['/blogs', HATE_COMMENTS.path.slice(0, -1), SPAM_COMMENTS.path.slice(0, -1)];
 
 // Route ids that must never appear in a search index: the authenticated
 // (app) console, single-use flow pages, and every API endpoint. Keyed on
@@ -29,10 +37,11 @@ export function isNoIndexRoute(routeId: string | null | undefined): boolean {
 	return NOINDEX_ROUTES.includes(routeId) || NOINDEX_PREFIXES.some((prefix) => routeId.startsWith(prefix));
 }
 
-// APP_URL is the canonical public origin (the Bunny domain in production).
-// Absolute sitemap/robots URLs come from it — not the request — so a
-// misconfigured deployment fails loudly instead of serving internal hosts.
-function appUrl(): string {
+/**
+ * Return the canonical public APP_URL origin, independent of the request host.
+ * Missing or malformed configuration fails with HTTP 500 without exposing its value.
+ */
+export function siteOrigin(): string {
 	if (!env.APP_URL) throw error(500, 'APP_URL is not configured');
 	const parsed = URL.parse(env.APP_URL);
 	if (
@@ -51,6 +60,7 @@ function appUrl(): string {
 	return parsed.origin;
 }
 
+/** Keep internal pages crawlable for noindex headers and link the configured sitemap. */
 export function robotsTxt(): string {
 	return [
 		'User-agent: *',
@@ -60,13 +70,14 @@ export function robotsTxt(): string {
 		// hide the tag, letting bare URLs index anyway.
 		'Disallow: /api/',
 		'',
-		`Sitemap: ${new URL('/sitemap.xml', appUrl()).toString()}`,
+		`Sitemap: ${new URL('/sitemap.xml', siteOrigin()).toString()}`,
 		''
 	].join('\n');
 }
 
+/** List only reviewed public routes as absolute URLs under the configured origin. */
 export function sitemapXml(): string {
-	const base = appUrl();
+	const base = siteOrigin();
 	const urls = PUBLIC_PAGES.map((path) =>
 		['\t<url><loc>', new URL(path, base).toString(), '</loc></url>'].join('')
 	).join('\n');
@@ -79,17 +90,21 @@ export function sitemapXml(): string {
 	].join('\n');
 }
 
+/** Build the product, blog, and legal discovery links under the configured origin. */
 export function llmsTxt(): string {
-	const base = appUrl();
+	const base = siteOrigin();
 	const link = (path: string) => new URL(path, base).toString();
 	return [
 		'# Moderaty',
 		'',
-		'> Comment protection for YouTube creators. Moderaty reads every comment,',
-		'> enforces the channel owner\'s rules instantly, scores the rest with AI',
-		'> across 13 toxicity categories, and holds the borderline for one-click',
-		'> review. An opt-in feedback digest groups the comments worth hearing',
-		'> into the themes viewers keep raising.',
+		'> Comment protection for YouTube creators. Moderaty checks published top-level',
+		'> comments on connected, active channels in background batches. Protected handles',
+		'> and rules run before AI screening and scoring. Uncertain results and scoring',
+		'> failures require review. If a check runs out of time, unfinished comments retry',
+		'> on a later check instead. Replies are outside the current scanning scope.',
+		'> Live chat and separate sweeps of YouTube-held or spam comments are also outside',
+		'> this scope. An optional read-only feedback digest groups recurring viewer feedback.',
+		'> Moderaty is source-available under PolyForm Shield License 1.0.0.',
 		'',
 		'## Product',
 		'',
@@ -97,6 +112,9 @@ export function llmsTxt(): string {
 		`- [Pricing](${link('/pricing')}) — plans and usage-based billing`,
 		`- [Contact](${link('/contact')}) — support and inquiries`,
 		`- [Sign in](${link('/login')}) — Google sign-in`,
+		`- [Blogs](${link('/blogs/')}) — YouTube comment moderation advice`,
+		`- [${HATE_COMMENTS.title}](${link(HATE_COMMENTS.path)}) — choosing a response to hurtful comments`,
+		`- [${SPAM_COMMENTS.title}](${link(SPAM_COMMENTS.path)}) — native controls and review for recurring spam patterns`,
 		'',
 		'## Legal',
 		'',

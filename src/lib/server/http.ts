@@ -7,6 +7,24 @@ export class DeadlineExceededError extends Error {
 	}
 }
 
+export class HttpResponseError extends Error {}
+export class HttpTransportError extends Error {}
+
+/** Local preparation failed before fetch began; no remote mutation is possible. */
+export class RequestNotSentError extends Error {
+	constructor(cause: unknown) {
+		super('request was not sent', { cause });
+		this.name = 'RequestNotSentError';
+	}
+}
+
+function transportFailure(cause: unknown): HttpTransportError {
+	if (cause instanceof TypeError || (cause instanceof DOMException && ['AbortError', 'TimeoutError', 'NetworkError'].includes(cause.name))) {
+		return new HttpTransportError(cause.message, { cause });
+	}
+	throw cause;
+}
+
 /**
  * Reads a response body as JSON, failing loudly on transport or parse errors.
  *
@@ -16,12 +34,18 @@ export class DeadlineExceededError extends Error {
  * @throws If the response status is not OK or the body is not valid JSON.
  */
 export async function jsonResponse(response: Response, label: string): Promise<unknown> {
-	const body = await response.text();
-	if (!response.ok) throw new Error(`${label} failed: ${response.status} ${body}`);
+	let body: string;
+	try {
+		body = await response.text();
+	} catch (cause) {
+		throw transportFailure(cause);
+	}
+	if (!response.ok) throw new HttpResponseError(`${label} failed: ${response.status} ${body}`);
 	try {
 		return JSON.parse(body) as unknown;
-	} catch {
-		throw new Error(`${label} returned invalid JSON`);
+	} catch (cause) {
+		if (!(cause instanceof SyntaxError)) throw cause;
+		throw new HttpResponseError(`${label} returned invalid JSON`);
 	}
 }
 
@@ -80,20 +104,30 @@ function requestTimeout(deadline?: number): number {
 
 type FetchAttempt = { response: Response } | { error: unknown };
 
-async function fetchAttempt(input: RequestInfo | URL, init: RequestInit, deadline?: number): Promise<FetchAttempt> {
+async function fetchAttempt(input: RequestInfo | URL, init: RequestInit, deadline?: number, distinguishUnsent = false): Promise<FetchAttempt> {
+	let started = false;
 	try {
 		const timeout = AbortSignal.timeout(requestTimeout(deadline));
 		const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+		started = true;
 		return { response: await fetch(input, { ...init, signal }) };
 	} catch (error) {
+		if (distinguishUnsent && !started) throw new RequestNotSentError(error);
 		if (init.signal?.aborted) throw error;
 		if (
 			// Stryker disable next-line ConditionalExpression: `deadline !== undefined` -> `true` is equivalent — `Date.now() >= undefined` is always false, so the && result is unchanged; the directive also sweeps the killable whole-condition siblings that start on the same line
 			deadline !== undefined &&
 			Date.now() >= deadline
 		) throw new DeadlineExceededError();
-		return { error };
+		return { error: transportFailure(error) };
 	}
+}
+
+/** One bounded attempt for mutations whose uncertain outcome must stay visible. */
+export async function fetchSingleAttempt(input: RequestInfo | URL, init: RequestInit = {}, deadline?: number): Promise<Response> {
+	const attempt = await fetchAttempt(input, init, deadline, true);
+	if ('error' in attempt) throw attempt.error;
+	return attempt.response;
 }
 
 function boundedRetryDelay(response: Response | undefined, retry: number, deadline?: number): number {

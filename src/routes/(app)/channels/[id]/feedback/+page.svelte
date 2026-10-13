@@ -9,19 +9,15 @@
 	import { autoRefresh } from '$lib/auto-refresh.svelte';
 	import { HISTORY_MONTH_PRESETS } from '$lib/historyWindow';
 	import { relativeTime } from '$lib/relative-time';
-	import type { FeedbackPreview } from '$lib/server/feedbackDigest';
 
 	let { data, form } = $props();
 	autoRefresh();
 	const feedbackDryRunForm = $derived(
-		form as { scope?: string; ok?: boolean; attempted?: boolean; dryRunUsed?: boolean; preview?: FeedbackPreview; message?: string; error?: string } | null | undefined
+		form as { scope?: string; ok?: boolean; attempted?: boolean; dryRunUsed?: boolean; message?: string; error?: string } | null | undefined
 	);
 	const feedbackPreviewUsed = $derived(
 		data.dryRunUsed ||
 			(feedbackDryRunForm?.scope === 'feedbackDryRun' && (feedbackDryRunForm.attempted === true || feedbackDryRunForm.dryRunUsed === true))
-	);
-	const feedbackPreview = $derived(
-		feedbackDryRunForm?.scope === 'feedbackDryRun' && feedbackDryRunForm.ok ? feedbackDryRunForm.preview ?? null : null
 	);
 	const revealForm = $derived(
 		form as { scope?: string; evidenceId?: number; text?: string; error?: string; confirmationRequired?: boolean } | null | undefined
@@ -89,10 +85,10 @@
 	const canOperate = $derived(data.orgRole === 'owner');
 
 	// History pagination links keep the selected digest's findings in view —
-	// ?digest= is the deep link, ?history= is only the list's position.
-	const digestParam = $derived(
-		shown && data.latest && shown.id !== data.latest.id ? `digest=${shown.id}&` : ''
-	);
+	// ?digest= is the deep link, ?history= is only the list's position. The
+	// param survives whenever shown isn't the latest complete — including a
+	// selected preview while no paid digest exists yet (cubic).
+	const digestParam = $derived(shown && shown.id !== data.latest?.id ? `digest=${shown.id}&` : '');
 	const digestHref = (id: number) => `?digest=${id}${data.historyCursor ? `&history=${data.historyCursor}` : ''}`;
 	const newerHistoryHref = $derived(`?${digestParam}`.replace(/&$/, ''));
 	const olderHistoryHref = $derived(`?${digestParam}history=${data.historyNext}`);
@@ -102,6 +98,17 @@
 		return `${start} → ${relativeTime(digest.windowEnd)}`;
 	}
 </script>
+
+{#snippet clusteringNotice()}
+	<p class="muted" role="status">Some comments could not be grouped reliably. Those comments were analyzed using their original extracted claims, so similar feedback may be undercounted.</p>
+{/snippet}
+
+{#snippet noFeedback()}
+	<EmptyState
+		title="No recurring feedback to show."
+		hint="Themes may be below the minimum-comments threshold or in categories excluded by the feedback settings."
+	/>
+{/snippet}
 
 <svelte:head>
 	<title>Moderaty — Feedback</title>
@@ -140,6 +147,21 @@
 		</div>
 	{/if}
 
+	<!-- The async preview lifecycle banner (MOD-233): the action returns
+	     immediately, and the next autoRefresh poll surfaces this row. It is
+	     deliberately separate from newestAttention — a pending preview must
+	     not hide a real failed/deferred paid attempt. -->
+	{#if data.previewAttempt?.status === 'dry-run-pending'}
+		<div class="flash" role="status">
+			Free feedback preview is running — it will appear under Recent digests at the bottom of this page.
+		</div>
+	{:else if data.previewAttempt?.status === 'dry-run-failed'}
+		<div class="error-box" role="alert">
+			<strong>Free feedback preview failed</strong> — this channel's one free preview is spent and won't
+			retry automatically. No credits were charged.
+		</div>
+	{/if}
+
 	{#if !data.settings.enabled}
 		<div class="card">
 			<p class="card-title">Feedback digest is off for this channel.</p>
@@ -148,8 +170,11 @@
 				and requests — without ever showing you the abusive wording.
 			</p>
 		</div>
-	{:else}
-		{#if newestAttention?.status === 'failed'}
+	{/if}
+	<!-- The dry-run action only needs an active channel — a saved preview
+	     must still render its findings while the digest is off (codex). -->
+	{#if data.settings.enabled || shown?.status === 'dry-run'}
+		{#if data.settings.enabled && newestAttention?.status === 'failed'}
 			<div class="error-box" role="alert">
 				<strong>Latest digest run failed</strong> —
 				{data.history.active
@@ -161,7 +186,7 @@
 					? `The digest below is the last complete one (window ended ${relativeTime(data.latest.windowEnd)}).`
 					: 'No complete digest exists yet.'}
 			</div>
-		{:else if newestAttention?.status === 'deferred'}
+		{:else if data.settings.enabled && newestAttention?.status === 'deferred'}
 			<div class="error-box" role="alert">
 				<strong>Latest digest run deferred</strong> —
 				{#if data.history.active}
@@ -190,7 +215,7 @@
 		{/if}
 
 		<div class="digest-head">
-			{#if canOperate}
+			{#if canOperate && data.settings.enabled}
 				<form
 					class="inline"
 					method="POST"
@@ -209,9 +234,10 @@
 				</form>
 			{/if}
 			{#if shown}
+				{#if shown.clusteringDegraded}{@render clusteringNotice()}{/if}
 				<p class="muted">
 					Window {windowLabel(shown)} · {shown.commentsClassified} classified{#if shown.commentsFailed}
-						· {shown.commentsFailed} failed{/if} · {shown.creditsUsed === null ? 'unmetered' : `${shown.creditsUsed} credits used`} · generated {relativeTime(shown.createdAt)}
+						· {shown.commentsFailed} failed{/if} · {shown.status === 'dry-run' ? 'free preview' : shown.creditsUsed === null ? 'unmetered' : `${shown.creditsUsed} credits used`} · generated {relativeTime(shown.createdAt)}
 					{#if data.latest && shown.id !== data.latest.id}
 						· <a href="?">Back to latest digest</a>
 					{/if}
@@ -321,11 +347,8 @@
 					recurring theme.
 				</p>
 			{/if}
-			{#if !grouped.length && !shown.pooledCount}
-				<EmptyState
-					title="No recurring feedback this window"
-					hint="Nothing met the minimum-comments threshold — below-threshold feedback would show as the pooled count."
-				/>
+			{#if !grouped.length}
+				{@render noFeedback()}
 			{/if}
 		{:else if !newestAttention}
 			<EmptyState
@@ -398,7 +421,7 @@
 							<option value="all">All time</option>
 						</select>
 					</label>
-					<p class="muted settings-note">1 free feedback dry run per channel — scores only the first YouTube page (up to 100 comments) and saves no digest, history, or moderation state. Used when it starts, even if it fails. No credits are charged.</p>
+					<p class="muted settings-note">1 free feedback dry run per channel — scores only the first YouTube page (up to 100 comments) and changes no moderation state or history coverage. Used when it starts, even if it fails. Results appear as a free preview under Recent digests; no credits are charged.</p>
 					<button class="btn small" disabled={previewingFeedback || feedbackPreviewUsed || !data.ch.active}>
 						{previewingFeedback ? 'Previewing…' : feedbackPreviewUsed ? 'Feedback preview already used' : 'Run feedback dry run'}
 					</button>
@@ -408,32 +431,6 @@
 		{#if !canOperate}<p class="muted settings-note">Only an organization owner can start a history scan or run the feedback preview.</p>{/if}
 		{#if analyzingHistory}<div class="preview-loading" role="status" aria-busy="true"><Skeleton rows={1} /></div>{/if}
 		{#if previewingFeedback}<div class="preview-loading" role="status" aria-busy="true"><Skeleton rows={2} /></div>{/if}
-		{#if feedbackPreview}
-			<section class="preview-results" aria-label="Feedback dry-run results">
-				<h4>Feedback dry-run preview</h4>
-				<p class="muted">{feedbackPreview.commentsClassified} classified · {feedbackPreview.commentsFailed} failed · {feedbackPreview.pooled} pooled · 0 credits used</p>
-				<p class="muted">Run a history scan to cover the full window.</p>
-				{#if feedbackPreview.hasMore}<p class="muted">More comments are available beyond this preview page.</p>{/if}
-				{#if feedbackPreview.findings.length}
-					{#each feedbackPreview.findings as finding, index (finding.category + finding.summary)}
-						<div class="preview-finding">
-							<h5>{finding.category}: {finding.summary}</h5>
-						<p class="muted">{finding.supporterCount} supporting comments</p>
-						<ul class="preview-evidence">
-							{#each finding.evidence as evidence, evidenceIndex (`${index}-${evidenceIndex}`)}
-								<li class:concealed={evidence.hasAbuse === 1}>
-									<blockquote class="quote">{evidence.sanitizedExcerpt}</blockquote>
-									{#if evidence.hasAbuse === 1}<span class="caps-label concealed-label">wording concealed</span>{/if}
-								</li>
-							{/each}
-						</ul>
-						</div>
-					{/each}
-				{:else}
-					<EmptyState title="No grouped findings in this preview" hint="No themes met the feedback settings threshold on this page." />
-				{/if}
-			</section>
-		{/if}
 	</section>
 
 	<section class="card settings-card" aria-label="Feedback digest settings">
@@ -490,19 +487,19 @@
 		{/if}
 	</section>
 
-	{#if data.digests.length > 1 || data.historyCursor || data.historyNext}
+	{#if data.digests.length > 1 || data.digests.some((d) => d.status === 'dry-run' || d.status === 'dry-run-pending' || d.status === 'dry-run-failed') || data.historyCursor || data.historyNext}
 		<section class="history" aria-label="Digest history">
 			<h3 class="caps-label">Recent digests</h3>
 			<ul class="history-list">
 				{#each data.digests as d (d.id)}
 					<li class="muted">
-						{#if d.status === 'complete'}
+						{#if d.status === 'complete' || d.status === 'dry-run'}
 							<a href={digestHref(d.id)} aria-current={shown?.id === d.id ? 'true' : undefined}>
-								{relativeTime(d.createdAt)} — {d.status}, {d.commentsClassified} classified{#if d.pooledCount}
-									, {d.pooledCount} pooled{/if}, {d.creditsUsed === null ? 'unmetered' : `${d.creditsUsed} credits used`}
+								{relativeTime(d.createdAt)} — {d.status === 'dry-run' ? 'free preview' : 'complete'}, {d.commentsClassified} classified{#if d.pooledCount}
+									, {d.pooledCount} pooled{/if}{#if d.status === 'complete'}, {d.creditsUsed === null ? 'unmetered' : `${d.creditsUsed} credits used`}{/if}
 							</a>
 						{:else}
-							{relativeTime(d.createdAt)} — {d.status}{#if d.status === 'failed'}
+							{relativeTime(d.createdAt)} — {d.status === 'dry-run-pending' ? 'preview in progress' : d.status === 'dry-run-failed' ? 'preview failed' : d.status}{#if d.status === 'failed'}
 								({d.error ?? 'error'}){/if}
 						{/if}
 					</li>
@@ -599,41 +596,6 @@
 	}
 	.preview-loading {
 		margin-top: 16px;
-	}
-	.preview-results {
-		margin-top: 22px;
-		padding-top: 18px;
-		border-top: 1px solid var(--line);
-	}
-	.preview-results h4,
-	.preview-finding h5 {
-		margin: 0 0 8px;
-	}
-	.preview-results > p {
-		margin: 0 0 8px;
-	}
-	.preview-finding {
-		padding: 14px 0;
-		border-bottom: 1px solid var(--line);
-	}
-	.preview-finding > p {
-		margin: 0 0 10px;
-	}
-	.preview-evidence {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-	.preview-evidence li {
-		padding: 10px;
-		border-radius: 6px;
-		background: var(--bg);
-	}
-	.preview-evidence .quote {
-		margin: 0;
 	}
 	.settings-readonly {
 		margin: 0 0 12px;

@@ -1,12 +1,17 @@
-// Per-channel protected-handle allowlist: comments from a listed handle are
-// always approved, skipping rules and AI scoring (identity beats text).
+// Only owner-entered handles persist; channel identities are resolved in memory.
+// Protected identities skip rules and AI scoring (identity beats text).
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
+import { HandleNotFoundError } from '$lib/server/youtube';
+import { DeadlineExceededError } from '$lib/server/http';
 import { db } from '$lib/server/db';
-import { channelAllowedHandles } from '$lib/server/db/schema';
+import { channelAllowedHandles, channels } from '$lib/server/db/schema';
 
 export const MAX_HANDLES_PER_CHANNEL = 100;
+export class HandleConfigurationError extends Error {
+	constructor(message: string, readonly status = 400) { super(message); }
+}
 
 const HANDLE_PATTERN = /^[a-z0-9._-]+$/;
 
@@ -29,19 +34,21 @@ export function normalizeHandle(raw: string): string {
  */
 export function validateHandle(raw: string): string {
 	const handle = normalizeHandle(raw);
-	if (handle.length === 0) throw new Error('handle is empty');
+	if (handle.length === 0) throw new HandleConfigurationError('handle is empty');
 	if (handle.length < 3 || handle.length > 30) {
-		throw new Error(`handle must be between 3 and 30 characters (got ${handle.length})`);
+		throw new HandleConfigurationError(`handle must be between 3 and 30 characters (got ${handle.length})`);
 	}
 	if (!HANDLE_PATTERN.test(handle)) {
-		throw new Error('handle may only contain lowercase letters, digits, dots, underscores, and hyphens');
+		throw new HandleConfigurationError('handle may only contain lowercase letters, digits, dots, underscores, and hyphens');
 	}
 	return handle;
 }
 
+type HandleReader = Pick<typeof db, 'select'>;
+
 /** All protected handles for a channel, newest first. */
-export async function listHandles(channelId: string) {
-	return db
+export function listHandles(channelId: string, reader: HandleReader = db) {
+	return reader
 		.select()
 		.from(channelAllowedHandles)
 		.where(eq(channelAllowedHandles.channelId, channelId))
@@ -49,29 +56,60 @@ export async function listHandles(channelId: string) {
 		.all();
 }
 
+type ChannelConnection = Pick<typeof channels.$inferSelect, 'orgId' | 'refreshTokenEnc'>;
+
 /**
  * Adds a handle to a channel's allowlist: validate, enforce the per-channel
- * cap, dedupe. Re-adding an already-protected handle returns the existing row
- * without error (idempotent add). The cap is checked before the dedupe, so at
- * capacity even a duplicate add is rejected loudly.
+ * cap and dedupe under a channel write lock. Provider verification happens
+ * before the transaction; its channel ID is discarded.
  */
-export async function addHandle(channelId: string, raw: string) {
+export async function addHandle(
+	channelId: string,
+	raw: string,
+	resolve?: () => Promise<string>,
+	connection?: ChannelConnection
+) {
 	const handle = validateHandle(raw);
 	const existing = await db
 		.select()
 		.from(channelAllowedHandles)
 		.where(eq(channelAllowedHandles.channelId, channelId))
 		.all();
-	if (existing.length >= MAX_HANDLES_PER_CHANNEL) {
-		throw new Error(`channel already has the maximum of ${MAX_HANDLES_PER_CHANNEL} protected handles`);
-	}
 	const duplicate = existing.find((row) => row.handle === handle);
-	if (duplicate) return duplicate;
-	const inserted = await db
-		.insert(channelAllowedHandles)
-		.values({ channelId, handle, createdAt: new Date().toISOString() })
-		.returning();
-	return inserted[0];
+	if (existing.length >= MAX_HANDLES_PER_CHANNEL && !duplicate) {
+		throw new HandleConfigurationError(`channel already has the maximum of ${MAX_HANDLES_PER_CHANNEL} protected handles`);
+	}
+	if (resolve) await resolve();
+	// Network work is complete. Lock and recheck before any durable write.
+	return db.transaction(async (tx) => {
+		if (connection) {
+			const connected = await tx.update(channels)
+				.set({ id: sql`${channels.id}` })
+				.where(and(
+					eq(channels.id, channelId),
+					connection.orgId === null ? isNull(channels.orgId) : eq(channels.orgId, connection.orgId),
+					eq(channels.refreshTokenEnc, connection.refreshTokenEnc)
+				))
+				.returning({ id: channels.id });
+			if (!connected[0]) throw new HandleConfigurationError('channel connection changed during handle verification', 409);
+		} else {
+			// Legacy configuration callers also lock before reading capacity.
+			await tx.update(channels).set({ id: sql`${channels.id}` }).where(eq(channels.id, channelId));
+		}
+		const current = await tx.select().from(channelAllowedHandles)
+			.where(eq(channelAllowedHandles.channelId, channelId)).all();
+		const sameHandle = current.find(row => row.handle === handle);
+		if (duplicate && sameHandle?.id !== duplicate.id) {
+			throw new HandleConfigurationError('protected handle was removed during resolution');
+		}
+		if (sameHandle) return sameHandle;
+		if (current.length >= MAX_HANDLES_PER_CHANNEL) {
+			throw new HandleConfigurationError(`channel already has the maximum of ${MAX_HANDLES_PER_CHANNEL} protected handles`);
+		}
+		const inserted = await tx.insert(channelAllowedHandles)
+			.values({ channelId, handle, createdAt: new Date().toISOString() }).returning();
+		return inserted[0];
+	});
 }
 
 /**
@@ -80,7 +118,7 @@ export async function addHandle(channelId: string, raw: string) {
  * scoped row matched (the action turns that into fail(404)).
  */
 export async function removeHandle(channelId: string, id: number) {
-	if (!Number.isInteger(id) || id <= 0) throw new Error('Invalid handle ID');
+	if (!Number.isInteger(id) || id <= 0) throw new HandleConfigurationError('Invalid handle ID');
 	const deleted = await db
 		.delete(channelAllowedHandles)
 		.where(and(eq(channelAllowedHandles.id, id), eq(channelAllowedHandles.channelId, channelId)))
@@ -88,7 +126,7 @@ export async function removeHandle(channelId: string, id: number) {
 	return deleted[0] ?? null;
 }
 
-/** The pipeline seam: all normalized protected handles for a channel as a Set. */
+/** Handle labels for callers that need configuration rather than identity matching. */
 export async function loadHandleSet(channelId: string): Promise<Set<string>> {
 	const rows = await db
 		.select({ handle: channelAllowedHandles.handle })
@@ -96,4 +134,78 @@ export async function loadHandleSet(channelId: string): Promise<Set<string>> {
 		.where(eq(channelAllowedHandles.channelId, channelId))
 		.all();
 	return new Set(rows.map((row) => row.handle));
+}
+
+export interface ProtectedIdentities {
+	byChannelId: Map<string, string>;
+	proofs?: Map<number, {handle: string; channelId: string | null}>;
+	unresolved: boolean;
+	configured: boolean;
+	observedAuthorIds?: Set<string>;
+}
+
+/** Match observed authors in batches; resolve handles remotely only for missing author metadata. */
+export async function loadProtectedAuthors(
+	channelId: string,
+	reader: HandleReader,
+	authorIds: string[],
+	handles: Map<string, string>,
+	resolve: (handle: string) => Promise<string>,
+	previous?: ProtectedIdentities
+): Promise<ProtectedIdentities> {
+	if (!authorIds.length) return loadProtectedIdentities(channelId, reader);
+	const byHandle = new Map([...handles].map(([id, handle]) => [handle, id]));
+	const missing = authorIds.some(id => !handles.has(id));
+	// An absence inferred for one page cannot prove absence for a different set of authors.
+	const reusable = missing && previous ? { ...previous, proofs: new Map([...previous.proofs ?? []].filter(([, proof]) => proof.channelId !== null)) } : undefined;
+	const protection = await loadProtectedIdentities(channelId, reader, async handle => {
+		const id = byHandle.get(handle);
+		if (id) return id;
+		if (missing) return resolve(handle);
+		throw new HandleNotFoundError();
+	}, reusable);
+	return { ...protection, observedAuthorIds: new Set(authorIds) };
+}
+
+/** Resolve current holders once per snapshot; reuse only unchanged row/handle proofs.
+ * A new/removed configuration is never trusted from an earlier snapshot. */
+export async function loadProtectedIdentities(
+	channelId: string,
+	reader: HandleReader = db,
+	resolve?: (handle: string) => Promise<string>,
+	previous?: ProtectedIdentities
+): Promise<ProtectedIdentities> {
+	const rows = await listHandles(channelId, reader);
+	if (rows.length > MAX_HANDLES_PER_CHANNEL) throw new HandleConfigurationError('protected handle configuration exceeds the supported limit');
+	const proofs = new Map<number, {handle: string; channelId: string | null}>();
+	let unresolved = false;
+	let failures = 0;
+	let firstFailure: unknown;
+	// Five concurrent lookups, at most 100 configured handles, all deadline-bound
+	// by the provider resolver. No network call is made within a write transaction.
+	for (let index = 0; index < rows.length; index += 5) {
+		await Promise.all(rows.slice(index, index + 5).map(async row => {
+			const known = previous?.proofs?.get(row.id);
+			if (known?.handle === row.handle) { proofs.set(row.id, known); return; }
+			if (!resolve) { unresolved = true; return; }
+			try {
+				const id = await resolve(row.handle);
+				if (!id || id.trim() !== id) throw new Error('Invalid protected channel identity');
+				proofs.set(row.id, {handle: row.handle, channelId: id});
+			} catch (error) {
+				if (error instanceof DeadlineExceededError) throw error;
+				if (error instanceof HandleNotFoundError) { proofs.set(row.id, { handle: row.handle, channelId: null }); return; }
+				unresolved = true;
+				failures += 1;
+				firstFailure ??= error;
+			}
+		}));
+	}
+	if (failures) console.error('protected handle resolution failed; comments will be held for review', { channelId, failures }, firstFailure);
+	const byChannelId = new Map<string, string>();
+	for (const row of rows) {
+		const proof = proofs.get(row.id);
+		if (proof?.channelId && !byChannelId.has(proof.channelId)) byChannelId.set(proof.channelId, proof.handle);
+	}
+	return {byChannelId, proofs, unresolved, configured: rows.length > 0};
 }

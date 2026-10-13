@@ -57,6 +57,8 @@ export function isTestCheckoutOperator(user: Pick<SessionUser, 'email'>): boolea
 export function checkoutRejectionMessage(error: unknown): string | null {
 	if (!(error instanceof Error)) return null;
 	switch (error.message) {
+		case 'credit bundle credits_100 is not available for purchase':
+			return 'The 100-comment bundle is no longer available. Choose 500 or 2,000 comments.';
 		case HOSTED_PLAN_EXISTS_ERROR:
 			return 'Your organization already has an active hosted subscription — manage it via the customer portal below.';
 		case ACTIVE_HOSTED_PLAN_ERROR:
@@ -165,6 +167,24 @@ function checkoutRedirectUrls(appUrl: URL): { success_url: string; cancel_url: s
 }
 
 /**
+ * Fiscal collection on every real Checkout Session (MOD-236): Stripe
+ * natively collects the billing address and a business tax ID on its
+ * supported-types list (BR CPF/CNPJ are not on it — Brazilian recipients
+ * get their identifiers through the MOD-181 fiscal profile instead), so
+ * the org fiscal profile is seeded from processor data instead of
+ * re-asking the customer. The operator test checkout skips these — a smoke
+ * test is not a sale and never feeds the fiscal profile.
+ */
+const fiscalCollection = {
+	billing_address_collection: 'required',
+	tax_id_collection: { enabled: true },
+	// Existing-customer tax-ID sessions require name='auto' or Stripe rejects
+	// session creation; address='auto' persists the required billing address
+	// onto the Customer so the MOD-181 persist step can read it there too.
+	customer_update: { name: 'auto', address: 'auto' }
+} as const;
+
+/**
  * Creates a Stripe Checkout Session for a credit bundle.
  *
  * @param orgId - The organization receiving the credits
@@ -205,6 +225,7 @@ export async function createCreditCheckout(orgId: string, user: SessionUser, bun
 			client_reference_id: orgId,
 			metadata: { org_id: orgId, bundle: bundle.id, credits: String(bundle.credits) },
 			payment_intent_data: { setup_future_usage: 'off_session' },
+			...fiscalCollection,
 			// new URL(path, base) per the repo URL-construction guideline — the
 			// literal {CHECKOUT_SESSION_ID} placeholder must survive verbatim.
 			...checkoutRedirectUrls(appUrl)
@@ -251,7 +272,9 @@ async function resolveExistingCheckout(attempt: CheckoutAttempt): Promise<{ url?
 		return { url: session.url, idempotencyKey: attempt.idempotencyKey };
 	}
 	if (session.status === 'complete') {
-		await db.update(stripeCheckoutAttempts).set({ status: 'fulfilled', updatedAt: sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))` }).where(eq(stripeCheckoutAttempts.attemptId, attempt.attemptId));
+		// Provider completion does not prove local fulfillment (or even a
+		// settled delayed payment). Only a successful fulfillment may mark
+		// this attempt fulfilled and release its account-deletion shield.
 		throw new Error('checkout attempt has already completed');
 	}
 	if (session.status === 'expired') {
@@ -343,6 +366,7 @@ export async function createPlanCheckout(orgId: string, user: SessionUser, plan:
 				client_reference_id: orgId,
 				metadata,
 				...(plan === 'hosted' ? { subscription_data: { metadata } } : {}),
+				...fiscalCollection,
 				...checkoutRedirectUrls(appUrl)
 			},
 			{ idempotencyKey }
@@ -360,24 +384,22 @@ export async function createPlanCheckout(orgId: string, user: SessionUser, plan:
  * no amount or activity checks — the only thing the app needs from the Price
  * is whether the session runs in payment or subscription mode.
  */
+async function resolveProductDefaultPrice(productId: string): Promise<string> {
+	const product = await getStripe().products.retrieve(productId);
+	const defaultPrice = typeof product.default_price === 'string' ? product.default_price : product.default_price?.id;
+	if (defaultPrice) return defaultPrice;
+	const prices = await getStripe().prices.list({ product: productId, active: true, limit: 2 });
+	if (prices.data.length !== 1) {
+		throw new Error(`STRIPE_TEST_PRODUCT product has no default price and ${prices.data.length} active prices — set a default price or configure the Price id directly`);
+	}
+	return prices.data[0].id;
+}
+
 async function testProductPrice(): Promise<{ priceId: string; recurring: boolean }> {
 	const configured = env.STRIPE_TEST_PRODUCT;
 	if (!configured) throw new Error('STRIPE_TEST_PRODUCT is not configured');
 	try {
-		let priceId = configured;
-		if (configured.startsWith('prod_')) {
-			const product = await getStripe().products.retrieve(configured);
-			const defaultPrice = typeof product.default_price === 'string' ? product.default_price : product.default_price?.id;
-			if (defaultPrice) {
-				priceId = defaultPrice;
-			} else {
-				const prices = await getStripe().prices.list({ product: configured, active: true, limit: 2 });
-				if (prices.data.length !== 1) {
-					throw new Error(`STRIPE_TEST_PRODUCT product has no default price and ${prices.data.length} active prices — set a default price or configure the Price id directly`);
-				}
-				priceId = prices.data[0].id;
-			}
-		}
+		const priceId = configured.startsWith('prod_') ? await resolveProductDefaultPrice(configured) : configured;
 		if (!priceId.startsWith('price_')) throw new Error('STRIPE_TEST_PRODUCT must be a Stripe Product (prod_...) or Price (price_...) id');
 		const price = await getStripe().prices.retrieve(priceId);
 		return { priceId, recurring: price.type === 'recurring' };

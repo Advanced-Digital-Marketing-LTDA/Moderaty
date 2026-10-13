@@ -14,7 +14,7 @@
 
 <section class="section">
 	<Reveal>
-		<h2 class="section-title">Three ways to never read it.</h2>
+		<h2 class="section-title">Three ways to use Moderaty.</h2>
 	</Reveal>
 	<div class="plans">
 		<Reveal>
@@ -31,7 +31,7 @@
 	</div>
 	<Reveal delay={0.2}>
 		<p class="custom">
-			Bigger than that? Custom amounts — <a href={CONTACT_URL} class="custom-link">contact us for pricing</a>.
+			Bigger than that? Custom amounts — <a href={CONTACT_URL} data-moderaty-event="contact_click" data-moderaty-placement="pricing_contact" class="custom-link">contact us for pricing</a>.
 		</p>
 	</Reveal>
 </section>

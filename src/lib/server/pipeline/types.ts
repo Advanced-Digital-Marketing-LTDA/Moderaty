@@ -1,4 +1,4 @@
-import type { loadHandleSet } from '$lib/server/allowlist';
+import type { loadProtectedIdentities } from '$lib/server/allowlist';
 import type { DryRunClaim } from '$lib/server/dryRun';
 import type { moderationActions } from '$lib/server/db/schema';
 import type { prepareRules } from '$lib/server/rules';
@@ -37,6 +37,8 @@ export interface ChannelRunResult {
 	 * mid-run (no verdict — the Paused badge covers it). Absent on complete
 	 * runs and on results produced before this field existed. */
 	stoppedReason?: 'deadline' | 'deactivated';
+	/** Audit enrichment failed; moderation still completed without some handles. */
+	handleLookupError?: boolean;
 	/** Window-mode continuation: token for the next drain page (null when the
 	 * window is exhausted) and whether the drain reached its boundary. Absent
 	 * outside window mode. */
@@ -117,7 +119,7 @@ export type ScoreOutcome = PromiseSettledResult<Decision>;
 export type DecisionBatch = {
 	newComments: Array<CommentPage['comments'][number]>;
 	rulesForChannel: ReturnType<typeof prepareRules>;
-	allowlist: Awaited<ReturnType<typeof loadHandleSet>>;
+	allowlist: Awaited<ReturnType<typeof loadProtectedIdentities>>;
 	aiBudget: AiBudget;
 	videoContext: Awaited<ReturnType<typeof fetchVideoMetadata>> | null;
 	metadataError: unknown;

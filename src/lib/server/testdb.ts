@@ -1,7 +1,8 @@
+import { readFileSync } from 'node:fs';
 // Test helper: real in-memory libsql database with the app schema.
 // Never imported by app code — tests only.
 
-import { createClient, type Client } from '@libsql/client';
+import { createClient, type Client, type InStatement } from '@libsql/client';
 import { getTableName, is } from 'drizzle-orm';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import { SQLiteTable } from 'drizzle-orm/sqlite-core';
@@ -9,6 +10,10 @@ import { beforeAll, beforeEach, vi } from 'vitest';
 import * as schema from './db/schema';
 import { consents, users } from './db/schema';
 import { LIFETIME_SLOT_LIMIT } from './billing/plans';
+
+export function statementSql(statement: InStatement): string {
+	return typeof statement === 'string' ? statement : statement.sql;
+}
 
 export interface TestDb {
 	db: LibSQLDatabase<typeof schema>;
@@ -215,6 +220,7 @@ export async function createTestDb(): Promise<TestDb> {
 			history_next_page_token TEXT,
 			history_boundary TEXT,
 			history_scan_id TEXT,
+			human_recovery_cursor TEXT,
 			dry_run_boundary TEXT,
 			dry_run_page_token TEXT,
 			last_run_at TEXT,
@@ -254,6 +260,7 @@ export async function createTestDb(): Promise<TestDb> {
 			handle TEXT NOT NULL,
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 		)`,
+		`CREATE UNIQUE INDEX channel_allowed_handles_channel_handle_unique ON channel_allowed_handles (channel_id, handle)`,
 		`CREATE INDEX channel_allowed_handles_channel_idx ON channel_allowed_handles (channel_id)`,
 		`CREATE TABLE comments (
 			id TEXT PRIMARY KEY,
@@ -263,6 +270,9 @@ export async function createTestDb(): Promise<TestDb> {
 			text TEXT NOT NULL,
 			published_at TEXT NOT NULL,
 			status TEXT NOT NULL,
+			restore_intent_id INTEGER,
+			human_dispatch_token TEXT,
+			human_dispatch_state TEXT,
 			decided_by TEXT NOT NULL,
 			matched_rule_id INTEGER,
 			ai_score TEXT,
@@ -271,6 +281,7 @@ export async function createTestDb(): Promise<TestDb> {
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 		)`,
 		`CREATE INDEX comments_channel_digested_idx ON comments (channel_id, feedback_digested_at)`,
+		`CREATE INDEX comments_human_recovery_eligible_idx ON comments (channel_id, id) WHERE status = 'restoring' AND human_dispatch_token IS NULL AND human_dispatch_state IS NULL`,
 		`CREATE TABLE audit_log (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			channel_id TEXT NOT NULL,
@@ -315,10 +326,15 @@ export async function createTestDb(): Promise<TestDb> {
 			stripe_customer_id TEXT,
 			stripe_default_pm_id TEXT,
 			auto_topup_enabled INTEGER,
+			auto_topup_bundle TEXT,
 			auto_topup_threshold INTEGER,
 			auto_topup_state TEXT,
 			auto_topup_last_attempt_at TEXT,
 			auto_topup_failures INTEGER,
+			auto_topup_pause_reason TEXT,
+			auto_topup_paused_at TEXT,
+			auto_topup_attempt_at TEXT,
+			auto_topup_submitted_at TEXT,
 			auto_topup_consent_text TEXT,
 			auto_topup_consent_version TEXT,
 			auto_topup_consented_by TEXT,
@@ -357,9 +373,35 @@ export async function createTestDb(): Promise<TestDb> {
 			charge_id TEXT NOT NULL,
 			reason TEXT NOT NULL,
 			dispute_id TEXT,
+			occurred_at TEXT,
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 		)`,
 		`CREATE UNIQUE INDEX stripe_pending_reversals_charge_reason_idx ON stripe_pending_reversals (charge_id, reason)`,
+		`CREATE TABLE stripe_auto_topup_recoveries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			org_id TEXT NOT NULL,
+			customer_id TEXT,
+			attempt_at TEXT NOT NULL,
+			payment_intent_id TEXT,
+			payment_lookup_cursor TEXT,
+			lookup_cursor TEXT,
+			lookup_candidate_id TEXT,
+			refund_occurred_at TEXT,
+			refund_id TEXT,
+			last_checked_at TEXT,
+			last_error TEXT,
+			resolved_at TEXT,
+			UNIQUE(org_id, attempt_at)
+		)`,
+		`CREATE INDEX stripe_auto_topup_recoveries_pending_idx ON stripe_auto_topup_recoveries (resolved_at, last_checked_at)`,
+		`CREATE INDEX stripe_auto_topup_recoveries_payment_idx ON stripe_auto_topup_recoveries (org_id, payment_intent_id)`,
+		`CREATE INDEX stripe_auto_topup_recoveries_customer_idx ON stripe_auto_topup_recoveries (customer_id, resolved_at)`,
+		`CREATE TABLE stripe_refund_observations (
+			charge_id TEXT PRIMARY KEY NOT NULL,
+			refunded_amount_cents INTEGER NOT NULL,
+			occurred_at TEXT NOT NULL,
+			org_id TEXT
+		)`,
 		`CREATE TABLE stripe_dispute_reversals (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			dispute_id TEXT NOT NULL UNIQUE,
@@ -475,6 +517,7 @@ export async function createTestDb(): Promise<TestDb> {
 			amount_cents INTEGER NOT NULL,
 			credits INTEGER,
 			payment_id TEXT UNIQUE,
+			refunded_amount_cents INTEGER,
 			paid_at TEXT,
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 			updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -490,6 +533,10 @@ export async function createTestDb(): Promise<TestDb> {
 		)`,
 		`CREATE TABLE contact_submissions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			message TEXT,
+			notification_due_at TEXT,
+			notification_claim TEXT,
+			notification_sent_at TEXT,
 			email TEXT NOT NULL,
 			name TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'pending',
@@ -502,6 +549,7 @@ export async function createTestDb(): Promise<TestDb> {
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 		)`,
 		`CREATE INDEX contact_submissions_status_email_idx ON contact_submissions (status, email)`,
+		`CREATE INDEX contact_submissions_notification_due_idx ON contact_submissions (notification_due_at)`,
 		// Partial unique index (human review): at most one pending row per
 		// e-mail; verified rows free the slot. Mirrors the drizzle schema.
 		`CREATE UNIQUE INDEX contact_submissions_pending_email_unique ON contact_submissions (email) WHERE status = 'pending'`,
@@ -522,9 +570,11 @@ export async function createTestDb(): Promise<TestDb> {
 			status TEXT NOT NULL,
 			comments_classified INTEGER NOT NULL DEFAULT 0,
 			comments_failed INTEGER NOT NULL DEFAULT 0,
+			clustering_degraded INTEGER,
 			pooled_count INTEGER NOT NULL DEFAULT 0,
 			credits_used INTEGER,
 			error TEXT,
+			attempted_at TEXT,
 			emailed_at TEXT,
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 		)`,
@@ -558,5 +608,10 @@ export async function createTestDb(): Promise<TestDb> {
 		)`,
 		`CREATE INDEX feedback_history_comments_channel_idx ON feedback_history_comments (channel_id)`
 	]);
+	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0062_hosted_welcome_email.sql', import.meta.url), 'utf8'));
+	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0063_welcome_campaign_pacing.sql', import.meta.url), 'utf8'));
+	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0064_cron_workload_fairness.sql', import.meta.url), 'utf8'));
+	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0067_welcome_discovery.sql', import.meta.url), 'utf8'));
+	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0069_recovery_pagination.sql', import.meta.url), 'utf8'));
 	return { db: drizzle(client, { schema }), client };
 }

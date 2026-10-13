@@ -1,8 +1,9 @@
 # Moderaty
 
-**Never read another hate comment.** Moderaty is an open-source YouTube comment
-protection platform for creators. It applies the creator's rules first, uses AI
-as a second opinion, and sends uncertain decisions to a human review queue.
+Moderaty is a source-available YouTube comment protection platform for creators,
+licensed under [PolyForm Shield License 1.0.0](LICENSE). It checks top-level
+comments on connected channels, applies your rules before AI, and sends uncertain
+decisions to a human review queue.
 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/a971fb52cb6142efab9a17572f3e3f57)](https://app.codacy.com/gh/Bonobo791/Moderaty/dashboard?utm_source=github&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
@@ -25,17 +26,29 @@ as a second opinion, and sends uncertain decisions to a human review queue.
 ## What it does
 
 - Connects YouTube channels through Google OAuth.
+- Skips rules and AI for protected handles.
 - Matches top-level comments against keyword, regex, and blocked-user rules.
 - Applies `hold`, `reject`, `delete`, or `ban` actions to matching comments.
 - Uses OpenAI moderation and an optional per-channel tone pass for comments that
-  rules do not decide.
+  rules do not decide — screened for prompt injection first, with flagged
+  comments held for human review.
 - Routes AI failures and borderline scores to a human review queue instead of
-  silently approving or rejecting them.
+  silently approving or rejecting them. If a check runs out of time, unfinished
+  comments retry on a later check instead.
 - Records decisions in an audit log and supports `DRY_RUN=true` previews.
 
+Scanning covers published top-level comments on connected, active channels.
+Replies, live chat, and separate sweeps of YouTube's held-for-review or spam
+queues are outside the current scanning scope. History scans use the same
+retrieval path, with 1, 3, 6, 12, or 24-month windows. Moderation history can apply
+actions; feedback history is read-only. Starting either live history scan requires
+purchased credits, available paid subscription allowance, or, for lifetime teams,
+a usable OpenAI key.
+
 Each scheduled run is bounded and checkpointed. It processes one eligible
-channel, records enforcement work in the database before writing to YouTube,
-and reconciles unfinished actions on a later run.
+channel and up to 100 top-level comments per page, records enforcement work in
+the database before writing to YouTube, and reconciles unfinished actions on a
+later run.
 
 ## Repository overview
 
@@ -43,8 +56,10 @@ Moderaty is a SvelteKit 2 application using Svelte 5, TypeScript, and a
 **dual deploy adapter** (the choice is the build-time `MODERATY_ADAPTER` env):
 the default Netlify adapter, or adapter-node for the self-hosted Coolify +
 Bunny CDN target (see `DEPLOY.md` and `docs/COOLIFY_BUNNY.md`). Server code
-calls the Google and OpenAI HTTP APIs directly; there are no auth, Google, or
-OpenAI SDKs in the dependency tree.
+calls the Google and OpenAI HTTP APIs directly — no auth or Google SDKs. The
+only third-party runtime SDKs are `stripe` (billing), `@openai/guardrails`
+(prompt-injection screening), and `nodemailer` (Proton Mail SMTP), all
+server-only.
 
 | Path | Purpose |
 | --- | --- |
@@ -118,34 +133,55 @@ Copy [.env.example](.env.example) and provide these values as appropriate:
 | --- | --- |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client credentials |
 | `APP_URL` | Canonical app URL used for OAuth redirects |
+| `ORIGIN` | adapter-node (Coolify) only — the public origin behind the CDN |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Local SQLite or production Turso connection |
-| `OPENAI_API_KEY` | AI moderation and tone scoring |
-| `OPENAI_TONE_MODEL` | Optional tone model; defaults to `gpt-4.1-nano` |
+| `OPENAI_API_KEY` | AI moderation, tone scoring, and feedback digests |
+| `OPENAI_JAILBREAK_MODEL`, `OPENAI_TONE_MODEL` | Optional prompt-injection and tone models; default to `gpt-6-luna` |
+| `OPENAI_FEEDBACK_MODEL`, `OPENAI_FEEDBACK_CLUSTER_MODEL` | Optional feedback classification and clustering models; default to `gpt-6-luna` |
 | `CRON_SECRET` | Secret for scheduled and manual cron requests |
 | `ENCRYPTION_KEY` | Key used to encrypt stored YouTube refresh tokens |
 | `DRY_RUN` | Must be `true` or `false`; `true` records audit previews without durable moderation changes |
+| `PROTON_SMTP_USERNAME`, `PROTON_SMTP_TOKEN` | Proton Mail SMTP submission credentials for transactional e-mail (contact-form verification, zero-credit warnings) |
+| `PROTON_FROM_NAME` | Optional sender display name; defaults to `Moderaty` |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe billing credentials for credit bundles and hosted/lifetime plans |
+| `STRIPE_PRICE_CREDITS_*`, `STRIPE_PRICE_HOSTED_MONTHLY`, `STRIPE_PRICE_LIFETIME` | Stripe Price ids for the credit bundles, the hosted monthly plan, and lifetime access |
+| `STRIPE_TEST_PRODUCT` | Optional operator-only "Test checkout" card that runs a real end-to-end purchase |
 | `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` | Optional Mercado Pago BRL prepaid-credit checkout credentials |
 | `MERCADOPAGO_ENVIRONMENT`, `MERCADOPAGO_PRICE_CREDITS_*_BRL_CENTS` | Optional Mercado Pago mode and BRL bundle prices in cents |
+| `ADAFLOW_API_TOKEN` | Optional AdaFlow accounting-export Bearer token (`docs/adaflow-api-validation.md`) |
+| `FOCUS_NFE_TOKEN`, `FOCUS_NFE_ENVIRONMENT` | Optional Focus NFe NFS-e emission credentials (`docs/focus-nfe-validation.md`) |
+| `ANALYTICS_ENABLED`, `UMAMI_URL`, `UMAMI_WEBSITE_ID`, `ANALYTICS_ALLOWED_HOSTNAMES` | Optional self-hosted audience measurement; runtime only, disabled by default |
 
 Never commit `.env` or real credentials. Netlify environment-variable setup is
 covered by [DEPLOY.md](DEPLOY.md).
+
+Self-hosted Umami audience measurement is optional and disabled by default:
+unchanged forks make no collector requests. Supply your own collector origin,
+website UUID and exact hostname allowlist in hosting runtime settings. Public
+pageviews and approved marketing clicks use restricted payloads; account flows
+are excluded. See [analytics setup](docs/ANALYTICS.md) for activation requirements,
+visitor preferences, retention and runtime verification.
 
 ## Useful commands
 
 ```bash
 npm run dev          # Start the development server
+npm run dev:cron     # Tick the cron endpoint alongside the dev server
 npm run check        # Run SvelteKit sync and strict TypeScript diagnostics
 npm run test         # Run the Vitest suite
 npm run build        # Build (default Netlify adapter; MODERATY_ADAPTER=node for Coolify)
 npm run preview      # Serve the production build locally
 npm run db:migrate   # Apply Drizzle migrations
+npm run db:verify    # Verify every journaled migration is applied (read-only)
 ```
 
 The test suite includes route, OAuth, session, database, moderation, pipeline,
-and UI-state tests. The tone evaluator is a separate live API check:
+and UI-state tests. The tone and feedback evaluators are separate live API
+checks:
 
 ```bash
 node scripts/tone-eval.mjs
+node scripts/feedback-eval.mjs
 ```
 
 ## Accounts and hosting
@@ -158,6 +194,8 @@ target (Scheduled Function, see [DEPLOY.md](DEPLOY.md)) and the self-hosted
 **Coolify + Bunny CDN** target (Dockerfile + in-container scheduled task, see
 [docs/COOLIFY_BUNNY.md](docs/COOLIFY_BUNNY.md)); both use Turso as the
 production database and share the same `DRY_RUN`-first verification flow.
+Transactional e-mail (contact-form verification and zero-credit warnings)
+goes out through Proton Mail SMTP submission.
 
 ## License
 

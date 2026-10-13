@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { render } from 'svelte/server';
+import Privacy from '../components/landing/legal/Privacy.svelte';
 import { PRIVACY_NOTICE_TEXT, REFUND_NOTICE_TEXT, AUTO_TOPUP_CONSENT_TEXT } from '../server/legal';
 import { FAQ_ENTRIES } from './faq';
 import { LEGAL_DOCS, LEGAL_EFFECTIVE_DATE, LEGAL_VERSION } from './legal';import { PRICING_FAQ_ENTRIES } from './pricing-faq';
@@ -27,11 +29,18 @@ describe('LEGAL_DOCS', () => {
 		// 1.10 was the PolyForm license swap; 1.11 was the lifetime-BYOK
 		// requirement; 1.12 was the digest credit disclosure; 1.13 identifies
 		// the legal operator and updates its contact details; 1.14 adds the
-		// dormant zero-credit account deletion (Terms §17.3). Material changes
-		// must bump LEGAL_VERSION so the re-consent gate (hasCurrentConsent)
-		// routes every user back through /consent. Never let legal changes ride
-		// along under an old version.
-		expect(LEGAL_VERSION).toBe('1.14');
+		// dormant zero-credit account deletion (Terms §17.3); 1.15 introduced
+		// the owner-selected credit bundles; 1.16 corrects the transactional
+		// e-mail provider disclosure to Proton AG (Mailjet was disclosed since
+		// 1.9 but never provisioned); 1.17 adds the billing address Stripe
+		// Checkout now requires (MOD-236) to Privacy §2's billing row; 1.20
+		// corrects the Terms §6.1(c) lifetime cap to the implemented reusable
+		// places (refunded places are resold).
+		// Material changes must bump LEGAL_VERSION
+		// so the re-consent gate (hasCurrentConsent) routes every user back
+		// through /consent. Never let legal changes ride along under an old
+		// version.
+		expect(LEGAL_VERSION).toBe('1.20');
 	});
 
 	it('lists exactly the three published legal documents', () => {
@@ -70,6 +79,28 @@ describe('LEGAL_DOCS', () => {
 	});
 });
 
+describe('public audience measurement disclosure', () => {
+	it('states the actual URL exclusion boundary without claiming every credential-like query suppresses a pageview', () => {
+		const body = render(Privacy).body;
+		expect(body).toContain('URLs with embedded usernames or passwords, or recognized sensitive query keys');
+		expect(body).not.toContain('Credential-bearing URLs and');
+	});
+	it('describes visitor processing, safeguards and the pending basis without claiming anonymity', () => {
+		const body = render(Privacy).body;
+		for (const phrase of ['visitors to our public website', 'Umami', 'network IP address', 'browser user agent', 'pseudonymous', '90 days', '7 days', 'awaiting completion', 'Do Not Track', 'Global Privacy Control', 'Audience measurement']) {
+			expect(body).toContain(phrase);
+		}
+		expect(body).not.toMatch(/guaranteed anonym|automatically LGPD compliant|audience measurement[^.]*assessment is complete/i);
+		expect(LEGAL_EFFECTIVE_DATE).toBe('11 October 2026');
+	});
+	it('preserves prominent advance notice and email commitments', () => {
+		const body = render(Privacy).body;
+		const notice = body.slice(body.indexOf('id="s13"'), body.indexOf('id="s14"'));
+		expect(notice).toContain("at least 30 days' prior notice");
+		expect(notice).toContain('displayed prominently in the Service and sent by e-mail');
+	});
+});
+
 // Guards for findings from the PR #35 review. Each test fails if the reviewed
 // content regresses.
 describe('legal page content (PR #35 review)', () => {
@@ -94,8 +125,10 @@ describe('legal page content (PR #35 review)', () => {
 
 	it('discloses the same sub-processors in the Privacy Policy as in DPA Annex III', () => {
 		const privacy = readComponent('privacy');
-		for (const provider of ['Netlify', 'Turso', 'OpenAI', 'Stripe']) {
+		const dpa = readComponent('dpa');
+		for (const provider of ['Netlify', 'Turso', 'OpenAI', 'Stripe', 'Proton']) {
 			expect(privacy).toContain(provider);
+			expect(dpa).toContain(provider);
 		}
 	});
 
@@ -573,7 +606,7 @@ describe('AI-cost claims match implementation', () => {
 	});
 
 	it('no surface names the moderation endpoint, the model, or token pricing', () => {
-		const MECHANISM = [/moderation endpoint/i, /gpt-4\.1-nano/i, /v1\/moderations/i, /fractions of a cent/i];
+		const MECHANISM = [/moderation endpoint/i, /gpt-4\.1-nano/i, /gpt-6-luna/i, /v1\/moderations/i, /fractions of a cent/i];
 		for (const [name, text] of Object.entries(aiCostSurfaces)) {
 			for (const pattern of MECHANISM) {
 				expect(text, `${name} still names AI internals: ${pattern}`).not.toMatch(pattern);
@@ -671,6 +704,19 @@ describe('lifetime BYOK disclosure matches the required-key Terms', () => {
 		}
 	});
 
+	it('Terms §6.1 clause (c) caps the offer at reusable lifetime places, not cumulative purchasers', () => {
+		// Refunded places return to the pool and are resold
+		// (releaseLifetimeForPayment), so the cap binds concurrent places —
+		// the 1,001st purchaser can buy a released place. A "first 1,000
+		// purchasers" clause would forbid sales the checkout permits (codex
+		// P2 / coderabbit on PR #230).
+		const terms = readComponent('terms');
+		const s61 = terms.slice(terms.indexOf('<strong>6.1</strong>'));
+		const clause = s61.slice(0, s61.indexOf('</p>'));
+		expect(clause).toMatch(/\(c\)[^;]*1,000 lifetime places/i);
+		expect(clause).not.toMatch(/first 1,000 purchasers/i);
+	});
+
 	it('Terms §6.1 clause (c) states the lifetime plan scores on the buyer’s own key', () => {
 		// Maintainer decision (LEGAL_VERSION 1.11): lifetime BYOK is REQUIRED,
 		// not an opt-in — clause (c) must say the plan runs on the buyer's key,
@@ -690,6 +736,96 @@ describe('lifetime BYOK disclosure matches the required-key Terms', () => {
 		expect(byok, 'BYOK FAQ entry missing').toBeDefined();
 		expect(byok?.a).toMatch(/self-host/i);
 		expect(byok?.a).toMatch(/lifetime/i);
+	});
+});
+
+// LEGAL_VERSION 1.16: the disclosed transactional e-mail provider is Proton
+// AG (Switzerland). Mailjet was named since 1.9 but never provisioned, so
+// this corrects a disclosed-but-never-used provider rather than recording a
+// live-provider switch. The disclosure must cover the purposes
+// (contact-form verification and service notices, including zero-credit
+// account warnings), the data processed (recipient e-mail and message
+// content), the processing location, the ANPD SCC transfer mechanism, and
+// the transport reality: SMTP-submitted messages are not end-to-end
+// encrypted and a copy is retained in the provider's Sent mailbox.
+describe('transactional e-mail provider disclosure (1.16)', () => {
+	it('Privacy §5(a) names Proton AG with purposes, data, and Switzerland', () => {
+		const privacy = readComponent('privacy');
+		const s5a = privacy.match(/\(a\) Infrastructure([\s\S]*?)<\/li>/)?.[1] ?? '';
+		expect(s5a).toMatch(/Proton AG \(transactional e-mail/);
+		expect(s5a).toMatch(/contact-form verification/i);
+		expect(s5a).toMatch(/zero-credit/i);
+		// The data categories must be pinned too — dropping them from §5(a)
+		// must fail the guard (cubic).
+		expect(s5a).toMatch(/recipient e-mail address/i);
+		expect(s5a).toMatch(/message content/i);
+		expect(s5a).toMatch(/Switzerland/);
+	});
+
+	it('Privacy discloses SMTP transport limits and Sent-mailbox retention', () => {
+		const privacy = readComponent('privacy');
+		expect(privacy).toMatch(/not end-to-end encrypted/i);
+		expect(privacy).toMatch(/Sent (mailbox|folder)/i);
+	});
+
+	it('Privacy qualifies Proton processing geography — no unsupported confinement claim', () => {
+		// Proton's DPA §11 permits safeguarded transfers outside Switzerland,
+		// the EU, and adequacy-decision countries — the disclosure must not
+		// claim processing is confined to those regions (coderabbit/cubic).
+		const privacy = readComponent('privacy');
+		const para = privacy.match(/E-mail submitted to Proton([\s\S]*?)<\/p>/)?.[1] ?? '';
+		expect(para, '§5 Proton transport paragraph not found').not.toBe('');
+		expect(para).not.toMatch(/confine processing to/i);
+		expect(para).toMatch(/safeguarded transfers/i);
+		expect(para).toMatch(/Switzerland/);
+	});
+
+	it('Privacy states a deletion period for the Proton Sent-mailbox copies', () => {
+		// §7.1 promises retention only for the periods in §2 — the Sent copy
+		// needs a stated period, tied to the record it documents (cubic).
+		const privacy = readComponent('privacy');
+		const para = privacy.match(/E-mail submitted to Proton([\s\S]*?)<\/p>/)?.[1] ?? '';
+		expect(para).toMatch(/submission record/i);
+		expect(para).toMatch(/account closure/i);
+		expect(para).toMatch(/2 years/i);
+	});
+
+	it('Privacy §6.3 records Proton AG as a Switzerland transfer recipient', () => {
+		const s63 =
+			readComponent('privacy').match(/<strong>6\.3<\/strong>([\s\S]*?)<\/p>/)?.[1] ?? '';
+		expect(s63).toMatch(/Proton AG \(Switzerland\)/);
+	});
+
+	it('DPA Annex III keeps Proton out of scope — it processes no Comment Data', () => {
+		// §1.2 excludes the Controller's own contact/account data from this
+		// DPA. Proton handles exactly that (contact verification and service
+		// notices), so it belongs in the out-of-scope note, not the
+		// authorized-sub-processor table (cubic).
+		const dpa = readComponent('dpa');
+		const annex3 = dpa.slice(dpa.indexOf('id="annex-3"'), dpa.indexOf('id="annex-4"'));
+		expect(annex3).not.toMatch(/<td>Proton AG<\/td>/);
+		expect(annex3).toMatch(/Proton AG/);
+		expect(annex3).toMatch(/Switzerland/);
+		expect(annex3).toMatch(/no Comment Data/i);
+	});
+
+	it('no live disclosure still names Mailjet as the provider', () => {
+		expect(readComponent('privacy')).not.toMatch(/Mailjet/i);
+		expect(readComponent('dpa')).not.toMatch(/Mailjet/i);
+	});
+});
+
+// LEGAL_VERSION 1.17: MOD-236 made the billing address mandatory and enabled
+// tax-ID collection on every real Checkout Session, so Privacy §2's billing
+// row must enumerate both categories. If checkout's collected fields and the
+// row ever drift apart again the row must change with them — under a new
+// LEGAL_VERSION (codex on PR #179).
+describe('billing disclosure covers checkout collection (1.17)', () => {
+	it('Privacy §2 billing row discloses the billing address Stripe now collects', () => {
+		const row = readComponent('privacy').match(/Billing:([\s\S]*?)<\/td>/)?.[1] ?? '';
+		expect(row, 'Privacy §2 billing row not found').not.toBe('');
+		expect(row).toMatch(/billing address/i);
+		expect(row).toMatch(/tax ID/i);
 	});
 });
 
@@ -724,4 +860,24 @@ describe('zero-credit account retention disclosure (1.14)', () => {
 		const s172 = dpa.slice(dpa.indexOf('<strong>17.2</strong>'), dpa.indexOf('<h2 id="s18">'));
 		expect(s172).toMatch(/zero-credit|Terms §17\.3/);
 	});
+});
+
+
+describe('automatic top-up terms', () => {
+	it('Terms disclose owner-selected offered bundles for automatic top-up', () => {
+		const terms = readComponent('terms');
+		const section = terms.split('<strong>6.2</strong>')[1].split('</p>')[0];
+		expect(section).toContain('credit bundle you select (500 or 2,000 comments)');
+		expect(section).not.toContain('smallest');
+		expect(section).not.toContain('100, 500');
+	});
+
+	it('Terms disclose refund pauses, fresh consent, and automatic charge limits', () => {
+		const section = readComponent('terms').split('<strong>6.2</strong>')[1].split('</p>')[0];
+		expect(section).toMatch(/refund[^.]*paus/i);
+		expect(section).toMatch(/fresh[^.]*consent/i);
+		expect(section).toMatch(/24 hours/);
+		expect(section).toMatch(/30[^.]*calendar month/);
+	});
+
 });

@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
 
-import { CommentNotFoundError, deleteComment, fetchNewComments, fetchVideoMetadata, refreshAccessToken, setModerationStatus, YOUTUBE_ID_BATCH_SIZE } from './youtube';
+import { CommentNotFoundError, HandleNotFoundError, deleteComment, fetchNewComments, fetchVideoMetadata, refreshAccessToken, resolveHandleChannelId, setModerationStatus, YOUTUBE_ID_BATCH_SIZE } from './youtube';
 
 // Pins the shared constant to YouTube's documented `id`-list cap — a change
 // here is a provider-limit change, not a refactor, and must be deliberate.
@@ -220,6 +220,26 @@ test('keeps a 500 moderation update failure generic', async () => {
 	expect(failure).toBeInstanceOf(Error);
 	expect(failure).not.toBeInstanceOf(CommentNotFoundError);
 	expect(failure).toMatchObject({ message: 'setModerationStatus failed: 500 provider unavailable' });
+});
+
+test('a human mutation never retries a transport failure hidden behind a later success', async () => {
+	vi.useFakeTimers();
+	const fetch = vi.fn().mockRejectedValueOnce(new TypeError('connection lost')).mockResolvedValue(new Response(null, { status: 204 }));
+	vi.stubGlobal('fetch', fetch);
+	try {
+		const result = setModerationStatus(['comment'], 'rejected', false, 'token', undefined, true).catch((cause: unknown) => cause);
+		await vi.runAllTimersAsync();
+		expect(await result).toBeInstanceOf(Error);
+		expect(fetch).toHaveBeenCalledTimes(1);
+	} finally {
+		vi.useRealTimers();
+	}
+});
+
+test('a settled human write refusal is distinguished from an uncertain server failure', async () => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('forbidden', { status: 403 })));
+	const failure = await setModerationStatus(['comment'], 'rejected', false, 'token', undefined, true).catch((cause: unknown) => cause);
+	expect(failure).toMatchObject({ name: 'YoutubeWriteRefusedError' });
 });
 
 test('deletes a comment with a DELETE request and tolerates an already-deleted comment', async () => {
@@ -691,4 +711,39 @@ test('refreshAccessToken fails loudly when the token response lacks an access to
 	await expect(refreshAccessToken('refresh-token')).rejects.toThrow(
 		'token refresh response access_token is missing or invalid'
 	);
+});
+
+test('handle lookup uses the authoritative forHandle filter, never the display name', async () => {
+	const fetch = vi.fn().mockResolvedValue(Response.json({ items: [{ id: 'verified-author' }] }));
+	vi.stubGlobal('fetch', fetch);
+	expect(await resolveHandleChannelId('protected_handle', 'token')).toBe('verified-author');
+	const url = new URL(fetch.mock.calls[0][0]);
+	expect(url.searchParams.get('forHandle')).toBe('protected_handle');
+	expect(url.searchParams.get('part')).toBe('id');
+	expect(url.searchParams.has('id')).toBe(false);
+});
+test.each([{}, { items: [] }, { items: [{ id: '' }] }, { items: [{ id: 1 }] }, { items: [{ id: 'a' }, { id: 'b' }] }])('handle lookup rejects missing or ambiguous identity: %j', async (payload) => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(payload)));
+	await expect(resolveHandleChannelId('protected_handle', 'token')).rejects.toThrow();
+});
+test('handle lookup rejects provider failure', async () => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 403 })));
+	await expect(resolveHandleChannelId('protected_handle', 'token')).rejects.toThrow('YouTube handle lookup failed: HTTP 403');
+});
+
+test.each([{ items: [] }])('handle lookup distinguishes zero results from malformed data: %j', async (payload) => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(payload)));
+	await expect(resolveHandleChannelId('unknown_handle', 'token')).rejects.toThrow('No YouTube channel uses this handle');
+});
+
+test.each([{}, { items: null }, null, [], { items: 0 }, { items: {} }, { items: [null] }, { items: [{ id: ' ' }] }])('handle lookup still rejects malformed responses: %j', async (payload) => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(payload)));
+	const error = await resolveHandleChannelId('unknown_handle', 'token').catch(error => error);
+	expect(error).toBeInstanceOf(Error);
+	expect(error).not.toBeInstanceOf(HandleNotFoundError);
+});
+
+test('a structured expired refresh grant is distinguishable from other provider failures', async () => {
+	vi.stubGlobal('fetch', async () => Response.json({error:'invalid_grant',error_description:'synthetic-private-detail'},{status:400}));
+	await expect(refreshAccessToken('synthetic-refresh')).rejects.toMatchObject({name:'GoogleGrantExpiredError'});
 });

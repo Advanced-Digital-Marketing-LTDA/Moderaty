@@ -31,6 +31,58 @@ export const users = sqliteTable('users', {
 	index('users_zero_credits_checked_idx').on(table.zeroCreditsCheckedAt)
 ]);
 
+// MOD-258: one first-service welcome per account, independent of marketing consent.
+// No copied address/body: each attempt resolves the current live account.
+export const welcomeEmails = sqliteTable('welcome_emails', {
+	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+	campaign: text('campaign').notNull(),
+	templateVersion: integer('template_version').notNull(),
+	state: text('state').notNull(),
+	cohort: text('cohort'),
+	source: text('source').notNull(),
+	messageId: text('message_id').notNull(),
+	queuedAt: text('queued_at'),
+	attempts: integer('attempts').notNull().default(0),
+	lastAttemptAt: text('last_attempt_at'),
+	lastError: text('last_error'),
+	nextRetryAt: text('next_retry_at'),
+	claimToken: text('claim_token'),
+	leaseExpiresAt: text('lease_expires_at'),
+	acceptedAt: text('accepted_at'),
+	providerMessageId: text('provider_message_id'),
+	suppressionReason: text('suppression_reason'),
+	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
+}, (table) => [
+	primaryKey({ columns: [table.userId, table.campaign] }),
+	index('welcome_emails_due_idx').on(table.state, table.nextRetryAt),
+	index('welcome_emails_lease_idx').on(table.state, table.leaseExpiresAt),
+	check('welcome_emails_state', sql`${table.state} IN ('never_sent', 'historical_unknown', 'queued', 'claimed', 'in_flight', 'accepted', 'retryable_failure', 'permanent_failure', 'suppressed', 'ambiguous')`)
+]);
+
+// Recipient-independent pacing contains no user identity and survives account erasure.
+export const welcomeCampaigns = sqliteTable('welcome_campaigns', {
+	campaign: text('campaign').primaryKey(),
+	nextAttemptAt: text('next_attempt_at').notNull()
+});
+
+// Bounded round-robin account discovery, separate from SMTP campaign pacing.
+export const welcomeDiscovery = sqliteTable('welcome_discovery', {
+	campaign: text('campaign').primaryKey(),
+	afterUserId: text('after_user_id'),
+	cycleEndUserId: text('cycle_end_user_id'),
+	claimToken: text('claim_token'),
+	leaseExpiresAt: text('lease_expires_at')
+});
+
+// Shared scheduler turn, independent of any channel's live health or account.
+export const cronWorkloadState = sqliteTable('cron_workload_state', {
+	id: integer('id').primaryKey(),
+	nextWorkload: text('next_workload', { enum: ['preview', 'live'] }).notNull().default('preview')
+}, (table) => [
+	check('cron_workload_singleton', sql`${table.id} = 1`),
+	check('cron_workload_kind', sql`${table.nextWorkload} IN ('preview', 'live')`)
+]);
+
 export const sessions = sqliteTable('sessions', {
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
 	id: text('id').primaryKey(), // random 32-byte hex token; also the cookie value
@@ -68,13 +120,20 @@ export const organizations = sqliteTable('organizations', {
 	stripeCustomerId: text('stripe_customer_id'), // Stripe Customer for this org
 	stripeDefaultPmId: text('stripe_default_pm_id'), // card saved for off-session auto top-up
 	autoTopupEnabled: integer('auto_topup_enabled'),
+	autoTopupBundle: text('auto_topup_bundle'),
 	autoTopupThreshold: integer('auto_topup_threshold'), // top up when credits < threshold
 	// 'idle' | 'in_flight' | 'disabled' — in_flight is the atomic claim against
 	// concurrent triggers; disabled after SCA/decline failures until the
 	// customer re-authenticates (never blind-retried off-session).
 	autoTopupState: text('auto_topup_state'),
 	autoTopupLastAttemptAt: text('auto_topup_last_attempt_at'),
+	// Logical attempt survives an indeterminate Stripe create response. Submission
+	// is recorded before the remote call so an unsent attempt can be proven safe.
+	autoTopupAttemptAt: text('auto_topup_attempt_at'),
+	autoTopupSubmittedAt: text('auto_topup_submitted_at'),
 	autoTopupFailures: integer('auto_topup_failures'),
+	autoTopupPauseReason: text('auto_topup_pause_reason'),
+	autoTopupPausedAt: text('auto_topup_paused_at'),
 	// Auto top-up authorization evidence (Stripe save-and-reuse compliance:
 	// keep a record of the written agreement). Written once on the
 	// disabled→enabled transition and NEVER cleared by disabling — the record
@@ -186,6 +245,7 @@ export const mercadoPagoCheckoutAttempts = sqliteTable('mercado_pago_checkout_at
 	// change between checkout and the webhook.
 	credits: integer('credits'),
 	paymentId: text('payment_id').unique(),
+	refundedAmountCents: integer('refunded_amount_cents'),
 	paidAt: text('paid_at'),
 	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
 	updatedAt: text('updated_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
@@ -247,6 +307,7 @@ export const channels = sqliteTable('channels', {
 	historyNextPageToken: text('history_next_page_token'), // RESERVED (issue #70): a future history drain that walks independently of the live cursor; nothing reads or writes it yet
 	historyBoundary: text('history_boundary'), // user-requested history rescan marker: non-null while an "Analyze history" drain is re-walking comments down to this boundary (planted with cursor=boundary)
 	historyScanId: text('history_scan_id'), // per-request nonce planted with history_boundary: scopes the rescan's credit anchors so each requested scan debits once while retries of the SAME scan stay idempotent; cleared with the boundary on completion
+	humanRecoveryCursor: text('human_recovery_cursor'), // exact JSON checkpoint; a fresh cycle nonce fences stale progress after wrap
 	dryRunBoundary: text('dry_run_boundary'), // on-demand dry-run window (ISO): the drain rescores comments down to this timestamp; null = no dry-run drain in flight
 	dryRunPageToken: text('dry_run_page_token'), // YouTube continuation token for the dry-run drain's next page
 	lastRunAt: text('last_run_at'), // ISO timestamp of last cron run; rotation orders by it ASC (NULLs first)
@@ -266,7 +327,7 @@ export const channels = sqliteTable('channels', {
 	feedbackCadence: text('feedback_cadence'), // 'weekly' | 'per_100' | 'manual'; null = weekly
 	feedbackCategories: text('feedback_categories'), // comma list of enabled categories; null = all
 	feedbackThreshold: integer('feedback_threshold'), // min supporters per finding; null = 3
-	feedbackEmail: integer('feedback_email'), // 1 = also e-mail each digest — RESERVED, unwired until MOD-92 (no Mailjet path writes/reads it yet)
+	feedbackEmail: integer('feedback_email'), // 1 = also e-mail each digest — RESERVED, unwired until MOD-92 (no e-mail path writes/reads it yet)
 	feedbackLastDigestAt: text('feedback_last_digest_at'), // rotation ordering; NULLs generate first
 	moderationDryRunUsedAt: text('moderation_dry_run_used_at'),
 	feedbackDryRunUsedAt: text('feedback_dry_run_used_at'),
@@ -304,7 +365,8 @@ export const channelAllowedHandles = sqliteTable('channel_allowed_handles', {
 	handle: text('handle').notNull(), // normalized lowercase commenter handle
 	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
 }, (table) => [
-	index('channel_allowed_handles_channel_idx').on(table.channelId)
+	index('channel_allowed_handles_channel_idx').on(table.channelId),
+	uniqueIndex('channel_allowed_handles_channel_handle_unique').on(table.channelId, table.handle)
 ]);
 
 export const comments = sqliteTable('comments', {
@@ -324,7 +386,12 @@ export const comments = sqliteTable('comments', {
 	text: text('text').notNull(), // truncated to 500 chars on insert
 	publishedAt: text('published_at').notNull(),
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
-	status: text('status').notNull(), // 'pending' | 'approved' | 'held' | 'rejected' | 'deleted' | 'restoring' (in-flight undo)
+	status: text('status').notNull(), // 'pending' | 'approved' | 'held' | 'rejected' | 'deleted' | 'restoring' (in-flight human action)
+	// Exact audit row for the current human claim; NULL legacy rows cannot be replayed safely.
+	restoreIntentId: integer('restore_intent_id'),
+	// A dispatched human write cannot be taken over after an uncertain remote outcome.
+	humanDispatchToken: text('human_dispatch_token'),
+	humanDispatchState: text('human_dispatch_state', { enum: ['in_flight', 'uncertain'] }),
 	decidedBy: text('decided_by').notNull(), // 'rule' | 'ai' | 'human' | 'none' | 'allowlist'
 	matchedRuleId: integer('matched_rule_id'),
 	aiScore: text('ai_score'), // JSON string of the six category scores, or null
@@ -344,7 +411,14 @@ export const comments = sqliteTable('comments', {
 	// and unmetered verdicts stamp it too (codex).
 	scanId: text('scan_id'),
 	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
-}, (table) => [index('comments_channel_digested_idx').on(table.channelId, table.feedbackDigestedAt)]);
+}, (table) => [
+	index('comments_channel_digested_idx').on(table.channelId, table.feedbackDigestedAt),
+	index('comments_dispatch_recovery_idx').on(table.channelId, table.id)
+		.where(sql`${table.humanDispatchToken} is not null or ${table.humanDispatchState} is not null`),
+	index('comments_restoring_recovery_idx').on(table.channelId, table.id).where(sql`${table.status} = 'restoring'`),
+	index('comments_human_recovery_eligible_idx').on(table.channelId, table.id)
+		.where(sql`${table.status} = 'restoring' and ${table.humanDispatchToken} is null and ${table.humanDispatchState} is null`)
+]);
 
 export const moderationActions = sqliteTable('moderation_actions', {
 	commentId: text('comment_id').primaryKey(),
@@ -410,12 +484,17 @@ export const feedbackDigests = sqliteTable('feedback_digests', {
 	windowStart: text('window_start').notNull(), // ISO; last complete digest's window_end (epoch for the first)
 	windowEnd: text('window_end').notNull(), // ISO; published_at of the newest classified comment
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
-	status: text('status').notNull(), // 'complete' | 'failed' | 'deferred'
+	status: text('status').notNull(), // 'complete' | 'failed' | 'deferred' | 'dry-run' | 'dry-run-pending' | 'dry-run-failed'
 	commentsClassified: integer('comments_classified').notNull().default(0),
 	commentsFailed: integer('comments_failed').notNull().default(0), // per-comment classifier failures, skipped and counted (I1)
+	clusteringDegraded: integer('clustering_degraded'),
 	pooledCount: integer('pooled_count').notNull().default(0), // feedback comments that fell below the evidence threshold
 	creditsUsed: integer('credits_used'), // metered credits charged for this run; null = unmetered/none
 	error: text('error'), // sanitized failure category only — raw provider detail stays in the server log
+	// First cron-drain claim stamp on a 'dry-run-pending' row; NULL = queued
+	// but never attempted. The stale sweep only expires rows that got a real
+	// opportunity — queue age alone never expires a preview (codex, PR #178).
+	attemptedAt: text('attempted_at'),
 	emailedAt: text('emailed_at'), // set once the digest e-mail went out — RESERVED, unwired until MOD-92; always null today
 	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
 }, (table) => [
@@ -428,7 +507,13 @@ export const feedbackDigests = sqliteTable('feedback_digests', {
 		table.windowStart,
 		table.windowEnd
 	),
-	index('feedback_digests_channel_created_idx').on(table.channelId, table.createdAt)
+	index('feedback_digests_channel_created_idx').on(table.channelId, table.createdAt),
+	// The cron drainer probes status='dry-run-pending' every tick (select +
+	// stale finalize) — a partial index keeps that O(pending) instead of
+	// scanning all digest history as the table grows (codex, PR #178).
+	index('feedback_digests_pending_idx')
+		.on(table.id)
+		.where(sql`${table.status} = 'dry-run-pending'`)
 ]);
 
 export const feedbackFindings = sqliteTable('feedback_findings', {
@@ -451,7 +536,7 @@ export const findingEvidence = sqliteTable('finding_evidence', {
 	findingId: integer('finding_id')
 		.notNull()
 		.references(() => feedbackFindings.id, { onDelete: 'cascade' }),
-	commentId: text('comment_id').notNull(), // real comments.id — validated at write time; reveal path re-checks tenancy
+	commentId: text('comment_id').notNull(), // YouTube comment id — validated at write time; a dry-run preview's id may exist nowhere else (sourceText carries its text); reveal path re-checks tenancy
 	sanitizedExcerpt: text('sanitized_excerpt').notNull(), // concealEvidence() output — the only text the default render shows
 	hasAbuse: integer('has_abuse').notNull().default(0), // 1 = classifier flagged abuse; drives the reveal warning
 	sourceText: text('source_text'), // the exact text this digest classified — pinned per evidence row so a later scan refreshing the shared snapshot can't change what an older digest's reveal shows (codex). Null on rows written before the column existed: reveal falls back to the snapshot/live join.
@@ -549,6 +634,36 @@ export const creditTransactions = sqliteTable('credit_transactions', {
 // that granted it). charge_id UNIQUE: one reversal per charge, first event
 // wins. A grant that lands later drains the row (drainPendingReversals);
 // the cron sweep drops rows whose grant never arrived.
+// Canceled auto-top-up authorization: durable until Stripe cancellation/refund
+// completes, retained afterwards to reject delayed duplicate success events.
+export const stripeAutoTopupRecoveries = sqliteTable('stripe_auto_topup_recoveries', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	orgId: text('org_id').notNull(), // payment routing only; unresolved obligations survive account deletion
+	customerId: text('customer_id'),
+	attemptAt: text('attempt_at').notNull(),
+	paymentIntentId: text('payment_intent_id'),
+	paymentLookupCursor: text('payment_lookup_cursor'),
+	// Retained from the already-applied 0057 migration; current recovery uses paymentLookupCursor.
+	lookupCursor: text('lookup_cursor'),
+	lookupCandidateId: text('lookup_candidate_id'),
+	refundOccurredAt: text('refund_occurred_at'),
+	refundId: text('refund_id'),
+	lastCheckedAt: text('last_checked_at'),
+	lastError: text('last_error'),
+	resolvedAt: text('resolved_at')
+}, (table) => [uniqueIndex('stripe_auto_topup_recoveries_attempt_idx').on(table.orgId, table.attemptAt),
+	index('stripe_auto_topup_recoveries_payment_idx').on(table.orgId, table.paymentIntentId),
+	index('stripe_auto_topup_recoveries_pending_idx').on(table.resolvedAt, table.lastCheckedAt),
+	index('stripe_auto_topup_recoveries_customer_idx').on(table.customerId, table.resolvedAt)]);
+
+// Monotonic refund observations survive out-of-order grants and dedupe consent revocation.
+export const stripeRefundObservations = sqliteTable('stripe_refund_observations', {
+	chargeId: text('charge_id').primaryKey(),
+	refundedAmountCents: integer('refunded_amount_cents').notNull(),
+	occurredAt: text('occurred_at').notNull(),
+	orgId: text('org_id') // NULL until the local purchase is known and its pause is applied
+});
+
 export const stripePendingReversals = sqliteTable(
 	'stripe_pending_reversals',
 	{
@@ -558,6 +673,7 @@ export const stripePendingReversals = sqliteTable(
 		// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
 		reason: text('reason').notNull(), // 'refund' | 'dispute'
 		disputeId: text('dispute_id'),
+		occurredAt: text('occurred_at'),
 		createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
 	},
 	// UNIQUE(charge_id, reason), NOT charge_id alone: a dispute AND a later
@@ -664,6 +780,10 @@ export const contactSubmissions = sqliteTable('contact_submissions', {
 	email: text('email').notNull(), // submitted address, normalized to lowercase
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
 	name: text('name').notNull(), // submitted display name
+	message: text('message'), // optional contact message, at most 2,000 characters
+	notificationDueAt: text('notification_due_at'), // due time / expiring delivery lease; null = not queued
+	notificationClaim: text('notification_claim'), // fences acknowledgments from stale delivery workers
+	notificationSentAt: text('notification_sent_at'), // recorded SMTP acceptance
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
 	status: text('status').notNull().default('pending'), // 'pending' | 'verified'
 	verificationToken: text('verification_token').notNull().unique(), // random 32-byte hex; the URL token
@@ -678,6 +798,7 @@ export const contactSubmissions = sqliteTable('contact_submissions', {
 	// Resubmission dedupe (unexpired pending per e-mail) filters
 	// status='pending' AND email=?; the status leftmost serves it.
 	index('contact_submissions_status_email_idx').on(table.status, table.email),
+	index('contact_submissions_notification_due_idx').on(table.notificationDueAt),
 	// Idempotency backstop (human review): at most ONE pending submission per
 	// e-mail. createOrReusePendingSubmission is check-then-act — two
 	// concurrent submissions can both miss the lookup and insert two rows with

@@ -4,8 +4,12 @@ import { validateRule } from '$lib/server/rules';
 import {
 	addHandle as addAllowedHandle,
 	listHandles,
+	validateHandle,
+	HandleConfigurationError,
 	removeHandle as removeAllowedHandle
 } from '$lib/server/allowlist';
+import { decrypt } from '$lib/server/crypto';
+import { HandleNotFoundError, GoogleGrantExpiredError, refreshAccessToken, resolveHandleChannelId } from '$lib/server/youtube';
 import { ownedChannel } from '$lib/server/ownership';
 import { and, eq } from 'drizzle-orm';
 import { fail } from '@sveltejs/kit';
@@ -59,12 +63,20 @@ export const actions = {
 		return { ok: true };
 	},
 	addHandle: async ({ params, request, locals }) => {
-		await ownedChannel(params.id, locals);
+		const channel = await ownedChannel(params.id, locals);
 		const f = await request.formData();
 		try {
-			await addAllowedHandle(params.id, String(f.get('handle') ?? ''));
+			const handle = validateHandle(String(f.get('handle') ?? ''));
+			await addAllowedHandle(params.id, handle, async () => {
+				const token = await refreshAccessToken(decrypt(channel.refreshTokenEnc));
+				return await resolveHandleChannelId(handle, token);
+			}, channel);
 		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : String(e) });
+			if (e instanceof HandleNotFoundError) return fail(400, {error:e.message});
+			if (e instanceof HandleConfigurationError) return fail(e.status, {error:e.message});
+			console.error('protected handle configuration failed', params.id, e);
+			if (e instanceof GoogleGrantExpiredError) return fail(401, {error:'YouTube access expired — reconnect the channel; protection was not changed'});
+			return fail(503, {error:'Protected handle configuration is unavailable; protection was not changed'});
 		}
 		return { ok: true };
 	},
@@ -76,7 +88,9 @@ export const actions = {
 			// Channel-scoped: a request here cannot delete another channel's handle.
 			removed = await removeAllowedHandle(params.id, Number(f.get('handleId')));
 		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : String(e) });
+			if (e instanceof HandleConfigurationError) return fail(e.status, {error:e.message});
+			console.error('protected handle configuration failed', params.id, e);
+			return fail(503, {error:'Protected handle configuration is unavailable; protection was not changed'});
 		}
 		if (!removed) return fail(404, { error: 'protected handle not found' });
 		return { ok: true };

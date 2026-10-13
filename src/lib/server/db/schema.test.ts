@@ -173,10 +173,15 @@ describe('organizations', () => {
 			stripe_customer_id: { notNull: false },
 			stripe_default_pm_id: { notNull: false },
 			auto_topup_enabled: { notNull: false },
+			auto_topup_bundle: { notNull: false },
 			auto_topup_threshold: { notNull: false },
 			auto_topup_state: { notNull: false },
 			auto_topup_last_attempt_at: { notNull: false },
+			auto_topup_attempt_at: { notNull: false },
+			auto_topup_submitted_at: { notNull: false },
 			auto_topup_failures: { notNull: false },
+			auto_topup_pause_reason: { notNull: false },
+			auto_topup_paused_at: { notNull: false },
 			auto_topup_consent_text: { notNull: false },
 			auto_topup_consent_version: { notNull: false },
 			auto_topup_consented_by: { notNull: false },
@@ -350,6 +355,7 @@ describe('channels', () => {
 			history_next_page_token: { notNull: false },
 			history_boundary: { notNull: false },
 			history_scan_id: { notNull: false },
+			human_recovery_cursor: { notNull: false },
 			dry_run_boundary: { notNull: false },
 			dry_run_page_token: { notNull: false },
 			last_run_at: { notNull: false },
@@ -424,6 +430,9 @@ describe('comments', () => {
 			text: { notNull: true },
 			published_at: { notNull: true },
 			status: { notNull: true },
+			restore_intent_id: { notNull: false },
+			human_dispatch_token: { notNull: false },
+			human_dispatch_state: { notNull: false },
 			decided_by: { notNull: true },
 			matched_rule_id: { notNull: false },
 			ai_score: { notNull: false },
@@ -532,6 +541,10 @@ describe('contact_submissions', () => {
 			id: { notNull: true, primary: true, autoIncrement: true },
 			email: { notNull: true },
 			name: { notNull: true },
+			message: { notNull: false },
+			notification_due_at: { notNull: false },
+			notification_claim: { notNull: false },
+			notification_sent_at: { notNull: false },
 			status: { notNull: true, hasDefault: true },
 			verification_token: { notNull: true },
 			expires_at: { notNull: true },
@@ -544,6 +557,7 @@ describe('contact_submissions', () => {
 		expectUnique(contactSubmissions, 'verification_token', 'contact_submissions_verification_token_unique');
 		expect(getTableConfig(contactSubmissions).columns.find((c) => c.name === 'status')!.default).toBe('pending');
 		expectIndex(contactSubmissions, 'contact_submissions_status_email_idx', ['status', 'email']);
+		expectIndex(contactSubmissions, 'contact_submissions_notification_due_idx', ['notification_due_at']);
 		expectCreatedAtDefault(contactSubmissions);
 	});
 });
@@ -560,9 +574,11 @@ describe('feedback_digests', () => {
 			status: { notNull: true },
 			comments_classified: { notNull: true, hasDefault: true },
 			comments_failed: { notNull: true, hasDefault: true },
+			clustering_degraded: { notNull: false },
 			pooled_count: { notNull: true, hasDefault: true },
 			credits_used: { notNull: false },
 			error: { notNull: false },
+			attempted_at: { notNull: false },
 			emailed_at: { notNull: false },
 			created_at: { notNull: true, hasDefault: true }
 		});

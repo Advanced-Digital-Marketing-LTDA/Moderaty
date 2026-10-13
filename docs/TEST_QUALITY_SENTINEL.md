@@ -1,0 +1,121 @@
+# Test Quality Sentinel
+
+The compiled GitHub Actions entry point was removed at the maintainer's request.
+Test Quality Sentinel is disabled in this branch; `test-quality-sentinel.md`
+remains as source. The compiler wrapper, its tests, and its fixture were also
+removed at the maintainer's request. Restoring an executable workflow requires
+maintainer approval. The description below
+documents its behavior when enabled. It runs on opened, updated, reopened and ready PRs
+targeting `dev` or `main`, including drafts, human-authored and stacked PRs.
+The trusted `pull_request_target` trigger runs the workflow from the base branch;
+PR edits cannot replace the workflow or collector in that run. Fork PRs
+are excluded by an explicit repository-ID activation condition; this is not a required check
+for forks. There is no author-name filter or dependency on another CI result.
+
+The sentinel reviews useful behavioral coverage, excessive business-logic
+mocking, internal-only assertions, missing error cases and duplication. It also
+reads deleted tests and changed test/CI configuration. It posts an advisory
+comment with the reviewed head SHA, scope, score and specific findings. It does
+not execute tests, approve/merge PRs, or certify coverage. The existing `checks`
+workflow remains the execution gate. A green sentinel job means the review
+completed; concerns are in its comment, not a deterministic blocking verdict.
+
+## Runtime and permissions
+
+Uses OpenAI-hosted Codex inference with a `CODEX_API_KEY` repository secret,
+or `OPENAI_API_KEY` when the former is absent. Add a dedicated OpenAI API key
+privately under **Settings → Secrets and variables → Actions**. Neither a
+Copilot token nor a Copilot license is used. The workflow fails visibly if
+neither OpenAI secret is configured; it never substitutes a successful review.
+Do not paste credentials into PR comments, source files or workflow logs.
+
+The agent has read-only contents/PR permissions. The generated safe-output and
+conclusion jobs request `issues: write` and `pull-requests: write` for GitHub's
+comment machinery; they do not check out or execute candidate code. Issue
+failure reports are disabled. All action references are immutable SHAs and
+container images have digests. The Codex CLI version is pinned to
+`0.154.0`, with explicit `gpt-5.4` model selection and OpenAI inference.
+The framework's secondary detection engine also uses Codex and the same OpenAI credential.
+
+The collector is checked out separately at the reviewed immutable commit
+`4bb3972f18493c134465ee30a85bcc0a8fe0e2f1`. The evidence repository stays
+at the event's base SHA. The collector fetches the PR head
+as Git data, verifies the fetched SHA and compares from the merge base. It never
+checks out, imports or runs candidate files. Credentials are not persisted by
+checkout or by the fetch invocation. The agent's default checkout, shell and file
+editing tools are disabled. `project_doc_max_bytes=0` disables automatic
+AGENTS.md instructions. Read-only GitHub MCP tools provide additional source
+context. A trusted pre-agent step validates the evidence head and required
+arrays, then appends JSON to the already rendered prompt. Candidate strings
+are data; they are never evaluated as shell code or workflow templates.
+The compiler's activation/detection jobs may read candidate files as data.
+
+Evidence includes complete before/after bodies and related source. More than
+500 changed files, evidence over 2 MB, absent refs and fetch errors fail loudly;
+there is no truncated clean-review fallback or reused cache. Reviews above
+50 behavioral cases must explicitly report incomplete scope. The prompt also
+requires checking for a moved PR head before publishing a verdict.
+
+## Activation and maintenance
+
+The pinned collector allows the introduction PR to run even when its target
+branch does not contain the collector yet. Updating the executable collector
+requires reviewing and publishing its commit first, then updating the workflow's
+pin. PR changes to the collector are evidence only until that explicit update.
+Nothing here modifies repository security settings.
+
+An agent with repository write access could still weaken/delete the Markdown,
+generated workflow, evidence collector, triggers or prompts. This workflow
+protects the current run from PR edits, but changes merged into the trusted base
+can still weaken future runs. Enforcing human review of those paths requires a
+separately authorized ruleset/CODEOWNERS policy. No policy was changed here.
+
+## Trigger security review
+
+Switching to `pull_request_target` makes the base-branch workflow the trusted
+control plane. The generated activation job excludes forks before accessing
+secrets. The agent has read-only permissions, checks out only the base SHA and
+the pinned collector, and reads candidate commits as Git data. The Codex migration removes Copilot credential forwarding and introduces
+`CODEX_API_KEY` / `OPENAI_API_KEY` for inference. Both main and detection runs
+use the framework's OpenAI proxy, which keeps real keys outside the agent
+container. Codex installation adds `actions/setup-node@820762786026740c76f36085b0efc47a31fe5020`
+(v7.0.0). The unused CLI-proxy image is removed from the manifest and image
+downloads; the remaining container digests are unchanged. No custom network
+redirects were added.
+OpenAI inference replaces the Copilot inference destination. The trigger's compiler
+security warning is expected and reviewed for these constraints.
+
+The add-mask audit rule flags every masking command, regardless of shell syntax.
+The generated mask stays enabled; removing it to clear the audit would expose
+the gateway credential. Local Lizard v1.24.1 measures `matchesEntityTag` at five
+lines, so the reported 155-line function is a parser false positive.
+
+## Validation and limits
+
+`npm test -- scripts/test-quality-context.test.mjs` uses real disposable Git
+repositories, including:
+
+- a precise boolean assertion weakened to `toBeDefined`;
+- a renamed/deleted test and newly excluded test directory;
+- a legitimate regression-only `.spec.ts` addition;
+- docs-only edits, oversized evidence and invalid refs;
+- candidate code that throws if executed and unrelated working-tree edits;
+- wildcard filenames, ensuring diffs cannot accidentally include other tests;
+- an older base missing the collector and a malicious candidate collector,
+  verifying that the workflow executable collects evidence without running candidate code.
+
+These tests prove evidence collection and isolation, not AI judgment quality.
+Local review of synthetic weakening and legitimate examples is a rubric check;
+it is not a measured live model evaluation. Before treating the reviewer as
+effective, validate actual comments on authorized synthetic PRs with weak
+internal-only/mock-heavy tests and useful regression/persistence tests. Check
+both true positives and false positives; never infer effectiveness from a
+green workflow run alone.
+
+Source reviewed on 2026-10-09:
+[GitHub's sentinel](https://github.com/github/gh-aw/blob/main/.github/workflows/test-quality-sentinel.md)
+and [pinned compiler source](https://github.com/github/gh-aw/tree/c35393777e5604a63721d09512263b1383301d4f).
+The adaptation removes Go-specific rules, repository-local telemetry imports,
+experimental model allocation, brittle added-line-only extraction and automatic
+PR approvals. A large test/production line ratio is context, never a violation
+by itself; legitimate regression tests need no production-code changes.

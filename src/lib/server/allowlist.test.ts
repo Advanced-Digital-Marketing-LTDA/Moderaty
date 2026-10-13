@@ -88,6 +88,12 @@ test('addHandle throws loudly at the per-channel maximum', async () => {
 	expect(await rows()).toHaveLength(MAX_HANDLES_PER_CHANNEL);
 });
 
+test('duplicates remain idempotent at capacity without a resolver', async () => {
+	await testDb().db.insert(channelAllowedHandles).values(Array.from({length: 100}, (_, index) => ({channelId: 'UC1', handle: `handle-${index}`})));
+	expect(await addHandle('UC1', '@HANDLE-0')).toMatchObject({handle: 'handle-0'});
+	expect(await rows()).toHaveLength(100);
+});
+
 test('the same handle can be protected on two different channels', async () => {
 	await addHandle('UC1', 'someuser');
 	await addHandle('UC2', '@SomeUser');
@@ -139,4 +145,53 @@ test('loadHandleSet returns this channel normalized handles as a Set', async () 
 	const set = await loadHandleSet('UC1');
 
 	expect(set).toEqual(new Set(['someuser', 'other.user']));
+});
+
+test('verification at capacity preserves the entered handle without storing identity', async () => {
+	await testDb().db.insert(channelAllowedHandles).values(Array.from({ length: 100 }, (_, index) => ({ channelId: 'UC1', handle: `handle-${index}` })));
+	await addHandle('UC1', 'handle-0', async () => 'verified-author');
+	const stored = await rows();
+	expect(stored).toHaveLength(100);
+	expect(stored.find(row => row.handle === 'handle-0')).not.toHaveProperty('resolvedChannelId');
+	expect(JSON.stringify(stored)).not.toContain('verified-author');
+});
+
+test('failed explicit resolution retains the unresolved row and original configuration', async () => {
+	await addHandle('UC1', 'legacy-handle');
+	const before = await rows();
+	await expect(addHandle('UC1', 'legacy-handle', async () => { throw new Error('lookup unavailable'); })).rejects.toThrow('lookup unavailable');
+	expect(await rows()).toEqual(before);
+});
+
+test('duplicate verification discards a different current holder without rebinding stored data', async () => {
+	const original = await addHandle('UC1', 'legacy-handle', async () => 'first-holder');
+	await addHandle('UC1', 'legacy-handle', async () => {
+		await addHandle('UC1', 'legacy-handle', async () => 'concurrent-holder');
+		return 'later-holder';
+	});
+	expect(await rows()).toEqual([original]);
+	expect(original).not.toHaveProperty('resolvedChannelId');
+});
+
+test('removal during external resolution cannot report an added protection', async () => {
+	const original = await addHandle('UC1', 'legacy-handle');
+	await expect(addHandle('UC1', 'legacy-handle', async () => {
+		await removeHandle('UC1', original.id);
+		return 'verified-author';
+	})).rejects.toThrow('removed during resolution');
+	expect(await rows()).toEqual([]);
+});
+
+test('concurrent resolved adds cannot exceed the cap after awaiting the provider', async () => {
+	await testDb().db.insert(channelAllowedHandles).values(Array.from({ length: 99 }, (_, index) => ({ channelId: 'UC1', handle: `handle-${index}` })));
+	const bothStarted = Promise.withResolvers<void>();
+	let started = 0;
+	const resolve = async () => {
+		if (++started === 2) bothStarted.resolve();
+		await bothStarted.promise;
+		return 'verified-author';
+	};
+	const results = await Promise.allSettled([addHandle('UC1', 'first-new', resolve), addHandle('UC1', 'second-new', resolve)]);
+	expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+	expect(await rows()).toHaveLength(100);
 });

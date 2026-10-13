@@ -6,16 +6,16 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
 	env: {
-		APP_URL: 'http://localhost:5173',
-		MJ_APIKEY_PUBLIC: 'api-key',
-		MJ_APIKEY_PRIVATE: 'secret-key',
-		MAILJET_FROM_EMAIL: 'no-reply@moderaty.app'
+		APP_URL: 'http://localhost:5173'
 	} as Record<string, string | undefined>,
-	sendMailjetMessage: vi.fn()
+	sendProtonMailEmail: vi.fn()
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
-vi.mock('$lib/server/mailjet', () => ({ sendMailjetMessage: mocks.sendMailjetMessage }));
+vi.mock('$lib/server/protonMail', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/server/protonMail')>()),
+	sendProtonMailEmail: mocks.sendProtonMailEmail
+}));
 
 import { setupTestDb, testDb } from '$lib/server/testdb';
 import { contactSubmissions } from '$lib/server/db/schema';
@@ -58,8 +58,8 @@ async function pendingRows() {
 
 beforeEach(() => {
 	mocks.env.APP_URL = 'http://localhost:5173';
-	mocks.sendMailjetMessage.mockReset();
-	mocks.sendMailjetMessage.mockResolvedValue({ messageId: 1, messageUuid: 'uuid-1' });
+	mocks.sendProtonMailEmail.mockReset();
+	mocks.sendProtonMailEmail.mockResolvedValue({ messageId: '<msg-1@moderaty.app>' });
 });
 
 describe('contact page source', () => {
@@ -122,8 +122,8 @@ describe('contact action', () => {
 			userAgent: 'moderaty-test/1.0'
 		});
 
-		expect(mocks.sendMailjetMessage).toHaveBeenCalledTimes(1);
-		const sent = mocks.sendMailjetMessage.mock.calls[0][0];
+		expect(mocks.sendProtonMailEmail).toHaveBeenCalledTimes(1);
+		const sent = mocks.sendProtonMailEmail.mock.calls[0][0];
 		expect(sent.toEmail).toBe('fan@example.com');
 		expect(sent.textPart).toContain(`http://localhost:5173/contact/verify?token=${rows[0].verificationToken}`);
 	});
@@ -132,23 +132,27 @@ describe('contact action', () => {
 		const outcome = await captureAction({ name: 'Fan', email: 'fan@example.com' });
 		expect(outcome).toMatchObject({ status: 400 });
 		expect(await pendingRows()).toHaveLength(0);
-		expect(mocks.sendMailjetMessage).not.toHaveBeenCalled();
+		expect(mocks.sendProtonMailEmail).not.toHaveBeenCalled();
 	});
 
 	test('rejects an invalid e-mail (400) and writes nothing', async () => {
 		const outcome = await captureAction({ name: 'Fan', email: 'not-an-email', opt_in: 'on' });
 		expect(outcome).toMatchObject({ status: 400 });
 		expect(await pendingRows()).toHaveLength(0);
-		expect(mocks.sendMailjetMessage).not.toHaveBeenCalled();
+		expect(mocks.sendProtonMailEmail).not.toHaveBeenCalled();
 	});
 
 	test('fails loudly (500) with a generic message when the send fails, keeping the pending row for retry', async () => {
-		mocks.sendMailjetMessage.mockRejectedValue(new Error('verification e-mail could not be sent (HTTP 500)'));
+		// Reject with provider-shaped detail a leaked error would carry — the
+		// visible message must be exactly the generic string, not merely free
+		// of one pattern (cubic).
+		mocks.sendProtonMailEmail.mockRejectedValue(new Error('SMTP 535 5.7.8 authentication failed for smtp-token'));
 		const outcome = await captureAction(VALID);
 		expect(outcome).toMatchObject({ status: 500 });
 		const data = outcome as { data?: { error?: string } };
-		expect(data.data?.error).toContain('could not send the verification e-mail');
-		expect(data.data?.error).not.toContain('HTTP 500');
+		expect(data.data?.error).toBe(
+			'We could not send the verification e-mail right now — please try again in a few minutes.'
+		);
 
 		const rows = await pendingRows();
 		expect(rows).toHaveLength(1);
@@ -166,6 +170,53 @@ describe('contact action', () => {
 		expect(rows[0].id).toBe(firstRows[0].id);
 		expect(rows[0].verificationToken).toBe(firstRows[0].verificationToken);
 		expect(rows[0].name).toBe('Fan Two');
-		expect(mocks.sendMailjetMessage).toHaveBeenCalledTimes(2);
+		expect(mocks.sendProtonMailEmail).toHaveBeenCalledTimes(2);
 	});
+});
+
+
+test('renders a labeled, bounded optional message textarea with error repopulation', () => {
+	expect(contactPage).toContain('<textarea');
+	expect(contactPage).toContain('for="contact-message"');
+	expect(contactPage).toContain('name="message"');
+	expect(contactPage).toContain('maxlength="2000"');
+	expect(contactPage).toContain('form?.values?.message');
+});
+
+test('retains message on validation and transport failures and persists it on retry', async () => {
+	const message = 'Line one\nLine two';
+	const invalid = await captureAction({ ...VALID, email: 'bad', message });
+	expect(invalid).toMatchObject({ status: 400, data: { values: { message } } });
+	mocks.sendProtonMailEmail.mockRejectedValueOnce(new Error('SMTP failed'));
+	const failed = await captureAction({ ...VALID, message });
+	expect(failed).toMatchObject({ status: 500, data: { values: { message } } });
+	expect((await pendingRows())[0].message).toBe(message);
+	await captureAction({ ...VALID, message: 'Updated\nrequest' });
+	expect(await pendingRows()).toHaveLength(1);
+	expect((await pendingRows())[0].message).toBe('Updated\nrequest');
+});
+
+
+test('consent and privacy disclosures include the optional message and contact inbox', () => {
+	expect(CONTACT_OPT_IN_TEXT).toContain('optional message');
+	const privacy = readFileSync(join(here, '../../lib/components/landing/legal/Privacy.svelte'), 'utf8');
+	expect(privacy).toContain('Contact form: name, e-mail, optional message');
+	expect(privacy).toContain('verified contact requests');
+	expect(contactPage).toContain('contact inbox');
+});
+
+
+test('message field shares input styling and a visible keyboard focus state', () => {
+	const css = readFileSync(join(here, '../../app.css'), 'utf8');
+	expect(css).toContain('input, select, textarea {');
+	expect(css).toContain('textarea:focus-visible');
+	expect(css).toContain('textarea::placeholder');
+});
+
+
+test('textarea keyboard focus remains outlined and placeholder text meets the readable contrast style', () => {
+	expect(contactPage).toContain('.contact-form textarea:focus-visible');
+	expect(contactPage).toContain('outline: 1px solid var(--accent)');
+	expect(contactPage).toContain('.contact-form textarea::placeholder');
+	expect(contactPage).toContain('color: rgb(244 244 248 / 70%)');
 });

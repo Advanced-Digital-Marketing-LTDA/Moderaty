@@ -14,7 +14,7 @@
 // never-evaluated users go first). Cron may overlap itself, so every
 // transition is a conditional UPDATE — the loser matches 0 rows.
 
-import { and, asc, eq, gte, inArray, isNotNull, isNull, notInArray, notLike, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, notInArray, notLike, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 
 import { effectiveBalanceSql, isUnmeteredPlan, paidSubscriptionPeriodExistsSql } from '$lib/server/billing/ledger';
@@ -24,7 +24,7 @@ import { memberships, mercadoPagoCheckoutAttempts, organizations, stripeCheckout
 import { deleteUserRecords, revokeChannelGrants, type DeletionTx, type ErasedChannelGrant } from '$lib/server/deletion';
 import { escapeHtml } from '$lib/server/emailText';
 import { assertBeforeDeadline, DeadlineExceededError } from '$lib/server/http';
-import { sendMailjetMessage } from '$lib/server/mailjet';
+import { sendProtonMailEmail } from '$lib/server/protonMail';
 
 export const ZERO_CREDIT_GRACE_MS = 30 * 24 * 60 * 60 * 1000; // countdown length (Terms §17)
 export const ZERO_CREDIT_NOTICE_MS = 7 * 24 * 60 * 60 * 1000; // warning cadence — first at day 7, never at day 0
@@ -130,9 +130,9 @@ function usageUrl(): string {
 	return new URL('/usage', appUrl).toString();
 }
 
-async function sendMail(toEmail: string, toName: string, email: ZeroCreditEmail, deadline?: number): Promise<void> {
-	await sendMailjetMessage(
-		{ toEmail, toName, subject: email.subject, textPart: email.textPart, htmlPart: email.htmlPart },
+async function sendMail(toEmail: string, email: ZeroCreditEmail, deadline?: number): Promise<void> {
+	await sendProtonMailEmail(
+		{ toEmail, subject: email.subject, textPart: email.textPart, htmlPart: email.htmlPart },
 		deadline
 	);
 }
@@ -144,26 +144,19 @@ class AccountFundedError extends Error {}
 class PaymentInFlightError extends Error {}
 
 /**
- * A checkout opened recently can already be paid at the provider while the
- * webhook fulfillment is still in flight: the local balance and subscription
- * state `fundingState` reads have not caught up, so the account looks broke
- * — erasing now would strand the payment (no org left to credit, no refund
- * path) and destroy exactly the purchase meant to save it (codex).
+ * An unresolved checkout can already be paid at the provider while local
+ * fulfillment has not caught up. Its age cannot prove that it is unpaid:
+ * delivery can fail beyond the provider's retry window, and a later retry
+ * must still have an organization to credit or a refund obligation to resolve.
  *
- * The shield is bounded by the provider's delivery window: Stripe Checkout
- * sessions live 24h and webhooks retry for ~3 days, so a 'pending'/'open'
- * attempt stops deferring 72h after its last local touch — an abandoned
- * checkout can never hold the account hostage forever. Two states shield
- * unconditionally: `manual_refund_required` (money arrived, never granted —
- * the obligation survives until a human resolves it) and a Mercado Pago
- * attempt carrying a `paidAt` in an unresolved status (the provider told us
- * the payment exists; the row just has not been fulfilled).
+ * Pending/open attempts shield until explicitly resolved, even if abandoned.
+ * Never infer resolution from updatedAt. Keep this guard local so it can run
+ * again under the erase transaction's write lock without remote calls.
+ * Manual-refund obligations and unresolved Mercado Pago paid stamps also
+ * protect the account regardless of age.
  */
-const IN_FLIGHT_CHECKOUT_WINDOW_MS = 72 * 60 * 60 * 1000;
-
 async function hasInFlightPayment(
 	userId: string,
-	nowMs: number,
 	handle: Pick<typeof db, 'select'> | DeletionTx = db
 ): Promise<boolean> {
 	const orgIds = (
@@ -175,17 +168,13 @@ async function hasInFlightPayment(
 			.all()
 	).map((row) => row.id);
 	if (!orgIds.length) return false;
-	const cutoffIso = new Date(nowMs - IN_FLIGHT_CHECKOUT_WINDOW_MS).toISOString();
 	const stripeInFlight = await handle
 		.select({ id: stripeCheckoutAttempts.id })
 		.from(stripeCheckoutAttempts)
 		.where(
 			and(
 				inArray(stripeCheckoutAttempts.orgId, orgIds),
-				or(
-					eq(stripeCheckoutAttempts.status, 'manual_refund_required'),
-					and(inArray(stripeCheckoutAttempts.status, ['pending', 'open']), gte(stripeCheckoutAttempts.updatedAt, cutoffIso))
-				)
+				inArray(stripeCheckoutAttempts.status, ['pending', 'open', 'manual_refund_required'])
 			)
 		)
 		.get();
@@ -197,8 +186,7 @@ async function hasInFlightPayment(
 			and(
 				inArray(mercadoPagoCheckoutAttempts.orgId, orgIds),
 				or(
-					eq(mercadoPagoCheckoutAttempts.status, 'manual_refund_required'),
-					and(inArray(mercadoPagoCheckoutAttempts.status, ['pending', 'open']), gte(mercadoPagoCheckoutAttempts.updatedAt, cutoffIso)),
+					inArray(mercadoPagoCheckoutAttempts.status, ['pending', 'open', 'manual_refund_required']),
 					// Provider-confirmed payment still unresolved: paidAt stamped but
 					// the row never reached a terminal state — the money exists.
 					and(
@@ -326,7 +314,7 @@ async function claimAndWarn(user: SweepUser, since: string, sinceMs: number, now
 		// A spent budget throws here too — inside the try — so the milestone
 		// claim releases and the warning retries next tick (codex).
 		assertBeforeDeadline(deadline);
-		await sendMail(user.email, user.displayName, email, deadline);
+		await sendMail(user.email, email, deadline);
 	} catch (cause) {
 		await releaseWarningClaim(user, nowIso);
 		throw cause;
@@ -336,11 +324,20 @@ async function claimAndWarn(user: SweepUser, since: string, sinceMs: number, now
 	// the send leaves the delivery unmarked rather than satisfying a
 	// countdown that never got its warning (codex). A missed mark is safe:
 	// the deletion gate reads `warned_at`, fails, and restarts the window.
-	const marked = await db
-		.update(users)
-		.set({ zeroCreditsWarnedAt: nowIso })
-		.where(and(eq(users.id, user.id), eq(users.zeroCreditsSince, since), eq(users.zeroCreditsNotifiedAt, nowIso)))
-		.returning({ id: users.id });
+	let marked: { id: string }[];
+	try {
+		marked = await db
+			.update(users)
+			.set({ zeroCreditsWarnedAt: nowIso })
+			.where(and(eq(users.id, user.id), eq(users.zeroCreditsSince, since), eq(users.zeroCreditsNotifiedAt, nowIso)))
+			.returning({ id: users.id });
+	} catch (cause) {
+		// The marker write itself failed — release the claim so the milestone
+		// re-sends next rotation instead of sitting stamped-but-unproven for
+		// a cadence interval, then restarting the countdown unwarned (codeant).
+		await releaseWarningClaim(user, nowIso);
+		throw cause;
+	}
 	if (!marked.length) {
 		console.warn(`zero-credit sweep: warning delivered to user ${user.id} but the countdown moved mid-send — delivery left unmarked`);
 	}
@@ -361,7 +358,7 @@ async function claimAndDelete(user: SweepUser, since: string, ageMs: number, dea
 	// A payment in flight can still fulfill — the webhook lands on an org this
 	// erase would destroy. Deferring BEFORE the claim keeps the countdown
 	// intact: if the attempt expires unpaid, the same clock still applies.
-	if (await hasInFlightPayment(user.id, Date.now())) {
+	if (await hasInFlightPayment(user.id)) {
 		console.info(`zero-credit sweep: user ${user.id} has a payment in flight — deletion deferred, countdown preserved`);
 		return 'idle';
 	}
@@ -404,7 +401,7 @@ async function claimAndDelete(user: SweepUser, since: string, ageMs: number, dea
 				// pre-claim check and the erase commits under this lock — the
 				// predicate re-runs on the tx handle so it sees (or blocks)
 				// that write (codex).
-				if (await hasInFlightPayment(user.id, Date.now(), tx)) {
+				if (await hasInFlightPayment(user.id, tx)) {
 					throw new PaymentInFlightError();
 				}
 			}
@@ -435,7 +432,7 @@ async function claimAndDelete(user: SweepUser, since: string, ageMs: number, dea
 	// The completion notice is best-effort — the erase is already committed;
 	// a mail failure must not masquerade as a failed deletion.
 	try {
-		await sendMail(user.email, user.displayName, buildZeroCreditDeletedEmail({ name: user.displayName }), deadline);
+		await sendMail(user.email, buildZeroCreditDeletedEmail({ name: user.displayName }), deadline);
 	} catch (cause) {
 		console.error('zero-credit sweep: post-deletion notice for user %s failed:', user.id, cause);
 	}
@@ -496,42 +493,44 @@ async function evaluateUser(user: SweepUser, deadline?: number): Promise<EvalOut
 		console.error(`zero-credit sweep: user ${user.id} has an unparseable zero_credits_warned_at (${user.warnedAt}) — skipped`);
 		return 'idle';
 	}
-	if (ageMs >= ZERO_CREDIT_GRACE_MS) {
-		// The gate is `warned_at` — the DELIVERY marker, not the claim: a
-		// crash after the claim but before the send leaves notified_at
-		// stamped with no mail out, so trusting it would delete unwarned
-		// accounts (codex). A stamp older than this countdown belongs to an
-		// earlier cycle either way.
-		const neverWarned = user.warnedAt === null || Date.parse(user.warnedAt) < sinceMs;
-		if (neverWarned) {
-			// Deletion requires a delivered warning — an account whose warnings
-			// all failed to send (APP_URL missing, Mailjet down) must not be
-			// erased on the bare clock. Restart the window so the promised
-			// cadence can run; the release is conditional so a concurrent
-			// sweep's warning claim still wins (codex+coderabbit).
-			const restamped = await db
-				.update(users)
-				.set({ zeroCreditsSince: nowIso, zeroCreditsNotifiedAt: null, zeroCreditsWarnedAt: null })
-				.where(
-					and(
-						eq(users.id, user.id),
-						eq(users.zeroCreditsSince, user.since),
-						user.notifiedAt === null
-							? isNull(users.zeroCreditsNotifiedAt)
-							: eq(users.zeroCreditsNotifiedAt, user.notifiedAt)
-					)
-				)
-				.returning({ id: users.id });
-			if (!restamped.length) return 'idle'; // a concurrent run claimed the milestone — it owns the outcome
-			console.error(`zero-credit sweep: user ${user.id} reached the grace expiry with no delivered warning — restarting the warning window`);
-			return 'stamped';
-		}
-		return claimAndDelete(user, user.since, ageMs, deadline);
-	}
+	if (ageMs >= ZERO_CREDIT_GRACE_MS) return resolveGraceExpiry(user, user.since, sinceMs, ageMs, nowIso, deadline);
 	if (ageMs >= ZERO_CREDIT_NOTICE_MS && (user.notifiedAt === null || Date.now() - Date.parse(user.notifiedAt) >= ZERO_CREDIT_NOTICE_MS)) {
 		return claimAndWarn(user, user.since, sinceMs, nowIso, deadline);
 	}
 	return 'idle';
+}
+
+/**
+ * Grace-expiry resolution. The gate is `warned_at` — the DELIVERY marker,
+ * not the claim: a crash after the claim but before the send leaves
+ * notified_at stamped with no mail out, so trusting it would delete
+ * unwarned accounts (codex). A stamp older than this countdown belongs to
+ * an earlier cycle either way.
+ */
+async function resolveGraceExpiry(user: SweepUser, since: string, sinceMs: number, ageMs: number, nowIso: string, deadline?: number): Promise<EvalOutcome> {
+	const neverWarned = user.warnedAt === null || Date.parse(user.warnedAt) < sinceMs;
+	if (!neverWarned) return claimAndDelete(user, since, ageMs, deadline);
+	// Deletion requires a delivered warning — an account whose warnings
+	// all failed to send (APP_URL missing, mail transport down) must not be
+	// erased on the bare clock. Restart the window so the promised
+	// cadence can run; the release is conditional so a concurrent
+	// sweep's warning claim still wins (codex+coderabbit).
+	const restamped = await db
+		.update(users)
+		.set({ zeroCreditsSince: nowIso, zeroCreditsNotifiedAt: null, zeroCreditsWarnedAt: null })
+		.where(
+			and(
+				eq(users.id, user.id),
+				eq(users.zeroCreditsSince, since),
+				user.notifiedAt === null
+					? isNull(users.zeroCreditsNotifiedAt)
+					: eq(users.zeroCreditsNotifiedAt, user.notifiedAt)
+			)
+		)
+		.returning({ id: users.id });
+	if (!restamped.length) return 'idle'; // a concurrent run claimed the milestone — it owns the outcome
+	console.error(`zero-credit sweep: user ${user.id} reached the grace expiry with no delivered warning — restarting the warning window`);
+	return 'stamped';
 }
 
 export interface ZeroCreditSweepResult {
