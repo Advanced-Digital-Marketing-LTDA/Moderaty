@@ -25,7 +25,7 @@
 					<a href={LOGIN_URL} data-moderaty-event="connect_click" data-moderaty-placement="hero" class="btn-press cta-primary">Connect your YouTube channel</a>
 					<a href="/pricing" class="btn-press cta-ghost">See pricing</a>
 				</div>
-					<p class="reassurance">Each connected channel gets one free moderation dry run and one free feedback dry run. Neither uses credits. See proposed moderation decisions before enabling live actions.</p>
+					<p class="reassurance">Each connected channel gets one free moderation dry run and one free feedback dry run; neither uses credits. Live moderation may start as soon as you connect a channel if your plan permits it. Previews do not change YouTube comments or pause live moderation.</p>
 			</Reveal>
 		</div>
 		<Reveal class="hero-queue" amount={0.1} delay={0.2}>
@@ -36,7 +36,7 @@
 					<li><strong>2. AI scoring</strong><span>Assess other eligible comments.</span></li>
 					<li><strong>3. Your review</strong><span>Check uncertain decisions.</span></li>
 				</ol>
-				<p class="example-note">Example only. Preview actual decisions on your channel before taking action.</p>
+				<p class="example-note">Illustrative workflow only. A preview does not pause an active channel or stop live moderation.</p>
 			</div>
 		</Reveal>
 	</div>
