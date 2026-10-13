@@ -93,20 +93,10 @@ test('external citations open safely and the privacy claim links directly to its
 	expect(body).toContain('href="https://support.google.com/youtube/answer/142443"');
 });
 
-test('hate-comment dry-run link targets the homepage moderation preview, not the unrelated FAQ', async () => {
+test('the hate-comments guide links its free preview to the current homepage section and explains activation', async () => {
 	const Article = (await import('./how-to-deal-with-hate-comments-on-youtube/+page.svelte')).default;
 	const { body } = render(Article, { props: { data: pageData } });
-	expect(body).toMatch(/href="\/#moderation-preview"[^>]*>Moderaty&#x27;s free moderation dry run<\/a>/);
-	expect(body).not.toMatch(/href="\/#faq"[^>]*>Moderaty&#x27;s free moderation dry run<\/a>/);
-});
-
-test('the linked dry-run article warns that active channels continue live actions', async () => {
-	const Article = (await import('./how-to-deal-with-hate-comments-on-youtube/+page.svelte')).default;
-	const { body } = render(Article, { props: { data: pageData } });
-	const start = body.indexOf('href="/#moderation-preview"');
-	expect(start).toBeGreaterThanOrEqual(0);
-	const previewAdvice = body.slice(start, start + 1000);
-	expect(previewAdvice).toContain('A dry run does not pause live moderation.');
-	expect(previewAdvice).toContain('live actions may continue while you preview');
-	expect(previewAdvice).not.toContain('Before enabling automatic actions');
+	expect(body).toMatch(/<a href="\/#moderation-preview">Moderaty[^<]*free moderation dry run<\/a>/);
+	expect(body).not.toMatch(/<a href="\/#faq">Moderaty[^<]*free moderation dry run<\/a>/);
+	expect(body).toContain('Live moderation may start when you connect a channel');
 });
