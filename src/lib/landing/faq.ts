@@ -68,7 +68,7 @@ export const HOMEPAGE_FAQ_ENTRIES: FaqEntry[] = [
 	},
 	{
 		q: 'Can Moderaty remove old comments?',
-		a: "Yes, for published top-level comments in supported history windows. A live history moderation scan can take actions on YouTube and requires available paid credits or a usable OpenAI key on an eligible lifetime plan. It does not include reply threads or YouTube's separate Held queue."
+		a: "Yes, for published top-level comments in supported history windows. A live history moderation scan can take actions on YouTube and requires purchased credits, an available paid subscription allowance, or, for lifetime teams, a usable OpenAI key. It does not include reply threads or YouTube's separate Held queue."
 	},
 	{
 		q: "What if AI can't decide?",
