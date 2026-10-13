@@ -107,7 +107,7 @@ describe('landing navigation', () => {
 
 	it('keeps the desktop nav within the 1152px container after copy changes', () => {
 		const desktop = render(Nav).body.match(/<nav[^>]*aria-label="Primary"[^>]*>([\s\S]*?)<\/nav>/)?.[1] ?? '';
-		const labels = [...desktop.matchAll(/<a\b[^>]*>([^<]*)<\/a>/g)].map(([, label]) => label.trim());
+		const labels = [...desktop.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/g)].map(([, markup]) => markup.replace(/<[^>]*>/g, '').trim());
 		expect(labels).toHaveLength(8);
 		// Conservative JetBrains Mono width budget at the CSS launch breakpoint:
 		// 11px mono links with 0.16em tracking, 14px wordmark with 0.22em tracking,
