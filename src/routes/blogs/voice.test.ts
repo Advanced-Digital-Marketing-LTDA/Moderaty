@@ -49,3 +49,9 @@ test.each([
 ] as const)('the %s article does not quantify how much spam or abuse a filter stops', (_, Page) => {
 	expect(visibleText(article(Page))).not.toMatch(/\b(?:stops?|catch(?:es)?|blocks?|removes?) (?:most|nearly all|almost all) (?:of the )?(?:spam|scams?|comments|abuse|hate)\b/i);
 });
+
+test('the spam article does not credit the author with testing the author did not report', () => {
+	const text = visibleText(article(SpamArticle));
+	expect(text).not.toMatch(/\bI (?:tested|ran|measured|benchmarked)\b/);
+	expect(text).toContain('These invented examples were tested against Moderaty’s source rule matcher.');
+});

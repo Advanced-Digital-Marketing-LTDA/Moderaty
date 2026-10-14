@@ -73,7 +73,7 @@
 	<p>YouTube’s <a href="https://support.google.com/youtube/answer/15535966?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener noreferrer">moderation guide</a> separates removing a comment, reporting spam or abuse, and hiding a user. I would still use those native reporting controls even if another tool handles your routine holds.</p>
 
 	<h2 id="custom-rules" tabindex="-1">{heading['custom-rules']}</h2>
-	<p>Test a custom moderation rule by starting it on hold for review, so you can inspect matches before you make an irreversible choice. I tested these invented examples against Moderaty’s source rule matcher. They show how text matching works, not scam-detection accuracy or results on a live channel.</p>
+	<p>Test a custom moderation rule by starting it on hold for review, so you can inspect matches before you make an irreversible choice. These invented examples were tested against Moderaty’s source rule matcher. They show how text matching works, not scam-detection accuracy or results on a live channel.</p>
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll this named table region.) -->
 	<div class="table-scroll" role="region" aria-labelledby="rules-caption" tabindex="0">
 		<table>
