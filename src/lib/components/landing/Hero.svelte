@@ -16,7 +16,7 @@
 			<Reveal amount={0.1} delay={0.16}>
 				<p class="sub">
 					Reading the comments is the job nobody hired you for. Moderaty checks published
-					top-level comments on your connected YouTube channels so you don't have to: your
+					top-level comments on your connected YouTube channels: your
 					rules swing first, AI scoring handles the rest, and the "is this a joke or a threat?"
 					ones wait in your review queue. No auto-replies. No posting as you. Just bonks.
 				</p>

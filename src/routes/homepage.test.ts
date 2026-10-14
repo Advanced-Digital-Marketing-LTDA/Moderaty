@@ -139,5 +139,22 @@ test('homepage keeps the meme-culture voice alongside the factual disclosures', 
 	}
 	expect(body).toContain('Moderaty wants to');
 	expect(body).toMatch(/<h2 class="section-title[^"]*">Asked, answered\.<\/h2>/);
-	expect(body).toContain('Go touch grass.');
+	const finalCta = body.split('class="final-cta')[1]?.split('</section>')[0];
+	expect(finalCta).toMatch(/<h2[^>]*>Go touch grass\. <span class="marker">/);
+});
+
+test('the restored Regulars and Manifesto sections are named landmarks', () => {
+	const { body } = renderHomepage();
+	for (const [section, heading] of [['regulars', 'Meet the regulars.'], ['manifesto', 'Moderaty wants to']] as const) {
+		const open = body.match(new RegExp(`<section[^>]*aria-labelledby="${section}-title"[^>]*>`));
+		expect(open).not.toBeNull();
+		expect(body).toMatch(new RegExp(`<h2[^>]*id="${section}-title"[^>]*>[^<]*${heading.replace('.', '\\.')}`));
+	}
+});
+
+test('the meme copy does not overclaim against competitors or the review queue', () => {
+	const { body } = renderHomepage();
+	expect(body).not.toMatch(/Every other comment tool/);
+	const hero = body.split('id="top"')[1]?.split('</section>')[0];
+	expect(hero).not.toContain("so you don't have to");
 });
