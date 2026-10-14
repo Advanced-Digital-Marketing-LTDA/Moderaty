@@ -25,3 +25,11 @@ describe('dropShadowedFallbackTitle', () => {
 		expect(() => dropShadowedFallbackTitle(html)).toThrow(/duplicate <title>/i);
 	});
 });
+
+test('repeated calls on the same document give the same result (no state carried between requests)', () => {
+	const doc = shell('<title>Pricing | Moderaty</title>');
+	const first = dropShadowedFallbackTitle(doc);
+	for (let i = 0; i < 5; i += 1) expect(dropShadowedFallbackTitle(doc)).toBe(first);
+	expect(() => dropShadowedFallbackTitle('<title>A</title><title>B</title>')).toThrow(/duplicate <title>/i);
+	expect(() => dropShadowedFallbackTitle('<title>A</title><title>B</title>')).toThrow(/duplicate <title>/i);
+});

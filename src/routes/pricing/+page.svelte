@@ -17,7 +17,11 @@
 
 	// The root layout publishes this page's canonical from the configured APP_URL;
 	// card URLs reuse that origin so they never point at the request host.
-	const pageUrl = $derived(page.data.canonical as string);
+	const pageUrl = $derived.by(() => {
+		const canonical = page.data.canonical;
+		if (!canonical) throw new Error('Pricing page needs the layout canonical (canonicalUrl in siteIndex.ts must cover /pricing).');
+		return canonical;
+	});
 	const socialImage = $derived(new URL('/og.png', pageUrl).href);
 	const socialTitle = 'Protection, priced like a utility.';
 	const socialDescription =

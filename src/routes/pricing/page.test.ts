@@ -3,8 +3,15 @@ import { expect, test, vi } from 'vitest';
 import { PRICING_FAQ_ENTRIES } from '$lib/landing/pricing-faq';
 import PricingPage from './+page.svelte';
 
+const mocks = vi.hoisted(() => ({ canonical: 'https://moderaty.example/pricing' as string | null }));
+
 vi.mock('$app/state', () => ({
-	page: { data: { locale: 'en', canonical: 'https://moderaty.example/pricing' }, url: new URL('https://moderaty.example/pricing') }
+	page: {
+		get data() {
+			return { locale: 'en', canonical: mocks.canonical };
+		},
+		url: new URL('https://moderaty.example/pricing')
+	}
 }));
 
 test.each([
@@ -55,4 +62,13 @@ test('pricing card metadata uses absolute configured-origin URLs and Moderaty br
 	expect(content('name', 'twitter:card')).toEqual(['summary_large_image']);
 	expect(content('name', 'twitter:title')).toEqual(content('property', 'og:title'));
 	expect(content('name', 'twitter:description')).toEqual(content('property', 'og:description'));
+});
+
+test('rendering pricing without the layout canonical fails with a clear message instead of an opaque URL error', () => {
+	mocks.canonical = null;
+	try {
+		expect(() => render(PricingPage).head).toThrow(/pricing page needs the layout canonical/i);
+	} finally {
+		mocks.canonical = 'https://moderaty.example/pricing';
+	}
 });
