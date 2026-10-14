@@ -28,7 +28,7 @@
 <section id="how-it-works" class="section" aria-labelledby="how-title">
 	<div class="intro">
 		<p class="eyebrow">Moderation that follows your rules</p>
-		<h2 id="how-title" class="section-title">Decide what belongs in your comment section</h2>
+		<h2 id="how-title" class="section-title">Your rules swing first. The AI mops up. You get the final say.</h2>
 		<p class="lede">
 			YouTube Studio's built-in moderation settings can hold potentially inappropriate
 			comments, but they may not match every rule you want for your community. Moderaty
@@ -36,14 +36,15 @@
 			an audit log for your connected channels.
 		</p>
 		<p class="lede">
-			Keep corrections and genuine criticism. Set boundaries for abuse, repeated
-			promotion, and unwanted patterns. You decide what your rules should do.
+			Keep the corrections and the genuine criticism (yes, even the Ackchyually Guy is
+			sometimes right). Set boundaries for abuse, crypto bots, and the same self-promo
+			pasted under every video. You decide what your rules should do.
 		</p>
 	</div>
 	<div class="steps">
 		<article class="panel">
 			<span class="number" aria-hidden="true">01</span>
-			<h3>Write the rules</h3>
+			<h3>Your rules fire first.</h3>
 			<p>
 				Create keyword, pattern (regex), or user rules. A matching rule can select
 				hold, reject, delete, or ban. Protected handles bypass Moderaty's rules and
@@ -52,7 +53,7 @@
 		</article>
 		<article class="panel">
 			<span class="number" aria-hidden="true">02</span>
-			<h3>Let AI assess what your rules don't decide</h3>
+			<h3>The AI scores what your rules miss.</h3>
 			<p>
 				For the remaining eligible comments, Moderaty screens for prompt-injection
 				attempts and scores toxicity across 13 categories. A model score is a
@@ -65,7 +66,7 @@
 		</article>
 		<article class="panel">
 			<span class="number" aria-hidden="true">03</span>
-			<h3>Review the uncertain cases</h3>
+			<h3>Doubt is always yours to decide.</h3>
 			<p>
 				Use your review queue to decide what happens next. The audit log shows
 				recorded decisions and completed actions. A requested hold may not take
@@ -77,7 +78,7 @@
 </section>
 
 <section id="moderation-preview" class="section preview-section" aria-labelledby="preview-title">
-	<p class="eyebrow">Proof of process</p>
+	<p class="eyebrow">Try before you bonk</p>
 	<h2 id="preview-title" class="section-title">Review example moderation decisions</h2>
 	<p class="lede">
 		<strong>Important:</strong> A dry run does not change YouTube comments or pause
@@ -118,8 +119,8 @@
 </section>
 
 <section id="history" class="section" aria-labelledby="history-title">
-	<p class="eyebrow">Decision visibility</p>
-	<h2 id="history-title" class="section-title">See what happened, not just what the model predicted</h2>
+	<p class="eyebrow">Receipts</p>
+	<h2 id="history-title" class="section-title">Every bonk comes with a receipt</h2>
 	<p class="lede">
 		Moderaty records moderation intent before sending changes to YouTube and logs
 		completed actions. You can inspect what was held, rejected, deleted, or banned,
@@ -136,7 +137,7 @@
 	<div class="two-col">
 		<div>
 			<p class="eyebrow">Optional audience feedback</p>
-			<h2 id="digest-title" class="section-title">Don't lose the useful feedback</h2>
+			<h2 id="digest-title" class="section-title">Somewhere under the trolls, an actually good idea</h2>
 			<p class="lede">
 				Turn on the optional, read-only feedback digest to group recurring questions,
 				corrections, substantive criticism, and viewer requests from scanned
@@ -163,7 +164,7 @@
 
 <section id="pricing" class="section" aria-labelledby="pricing-title">
 	<p class="eyebrow">Hosting and usage</p>
-	<h2 id="pricing-title" class="section-title">Choose how you want to run Moderaty</h2>
+	<h2 id="pricing-title" class="section-title">Choose your fighter</h2>
 	<div class="plans">
 		<article class="plan panel">
 			<p class="plan-tag">Self-hosted</p>
@@ -202,7 +203,7 @@
 
 <section id="scope" class="section scope-section" aria-labelledby="scope-title">
 	<p class="eyebrow">Coverage and control</p>
-	<h2 id="scope-title" class="section-title">What Moderaty does and doesn't moderate</h2>
+	<h2 id="scope-title" class="section-title">What gets bonked, and what doesn't</h2>
 	<p class="lede">
 		Moderaty scans <strong>published top-level YouTube comments</strong> on connected,
 		active channels. It can also scan published top-level comment history in supported

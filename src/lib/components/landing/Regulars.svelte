@@ -52,9 +52,9 @@
 	];
 </script>
 
-<section id="regulars" class="section">
+<section id="regulars" class="section" aria-labelledby="regulars-title">
 	<Reveal>
-		<h2 class="section-title">Meet the regulars.</h2>
+		<h2 id="regulars-title" class="section-title">Meet the regulars.</h2>
 		<p class="section-sub">Illustrative comments and possible decisions. Your rules and AI scores determine the outcome.</p>
 	</Reveal>
 
