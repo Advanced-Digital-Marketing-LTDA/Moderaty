@@ -4,12 +4,11 @@ import { HATE_COMMENTS, HATE_COMMENTS_EDITION } from '$lib/blogs/hate-comments';
 import { SPAM_COMMENTS, SPAM_COMMENTS_EDITION } from '$lib/blogs/spam-comments';
 import HateArticle from './how-to-deal-with-hate-comments-on-youtube/+page.svelte';
 import SpamArticle from './how-to-stop-spam-and-scam-comments-on-youtube/+page.svelte';
+import { visibleText } from './article-text';
 
 const data = { locale: 'en' as const, siteOrigin: 'https://moderaty.com' };
 const article = (Page: typeof HateArticle) =>
 	render(Page, { props: { data } }).body.split('<article')[1].split('</article>')[0];
-const visibleText = (html: string) =>
-	html.replace(/<!--.*?-->/gs, '').replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ');
 const wordCount = (html: string) => visibleText(html).split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
 
 const articles = [

@@ -2,6 +2,7 @@ import { render } from 'svelte/server';
 import { expect, test } from 'vitest';
 import HateArticle from './how-to-deal-with-hate-comments-on-youtube/+page.svelte';
 import SpamArticle from './how-to-stop-spam-and-scam-comments-on-youtube/+page.svelte';
+import { visibleText } from './article-text';
 
 const data = { locale: 'en' as const, siteOrigin: 'https://moderaty.com' };
 const article = (Page: typeof HateArticle) =>
@@ -9,7 +10,7 @@ const article = (Page: typeof HateArticle) =>
 const paragraphs = (html: string) =>
 	[...html.matchAll(/<p\b([^>]*)>(.*?)<\/p>/gs)]
 		.filter(([, attrs]) => !/byline|contents-label/.test(attrs))
-		.map(([, , text]) => text.replace(/<[^>]+>/g, ''));
+		.map(([, , text]) => visibleText(text));
 const firstPerson = /\b(?:I|I’m|I've|I’ve|I'd|I’d|my|me)\b/;
 
 test.each([

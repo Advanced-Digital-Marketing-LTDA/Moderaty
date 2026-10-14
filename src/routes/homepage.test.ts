@@ -157,4 +157,12 @@ test('the meme copy does not overclaim against competitors or the review queue',
 	expect(body).not.toMatch(/Every other comment tool/);
 	const hero = body.split('id="top"')[1]?.split('</section>')[0];
 	expect(hero).not.toContain("so you don't have to");
+	const finalCta = body.split('class="final-cta')[1]?.split('</section>')[0];
+	expect(finalCta).not.toMatch(/\bonly look at\b/i);
+});
+
+test('the hero keeps threats out of the punchline', () => {
+	const hero = renderHomepage().body.split('id="top"')[1]?.split('</section>')[0];
+	expect(hero).toContain('Just bonks.');
+	expect(hero).not.toMatch(/threat/i);
 });
