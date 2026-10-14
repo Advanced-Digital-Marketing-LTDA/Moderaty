@@ -147,9 +147,9 @@ describe('legal page content (PR #35 review)', () => {
 		expect(readComponent('privacy')).not.toContain('published in English and Portuguese');
 	});
 
-	it('prerenders every legal route', () => {
+	it('renders every legal route at request time so its canonical uses the runtime APP_URL', () => {
 		for (const doc of LEGAL_DOCS) {
-			expect(readRoute(doc.slug, '+page.ts')).toContain('export const prerender = true');
+			expect(readRoute(doc.slug, '+page.ts')).toContain('export const prerender = false');
 		}
 	});
 });

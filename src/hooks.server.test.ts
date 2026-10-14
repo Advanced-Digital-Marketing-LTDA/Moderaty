@@ -41,8 +41,8 @@ function makeEvent() {
 	};
 }
 
-test.each(['/blogs', '/blogs/how-to-deal-with-hate-comments-on-youtube', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube'])(
-	'public blog %s stays available without database migrations or a valid session',
+test.each(['/blogs', '/blogs/how-to-deal-with-hate-comments-on-youtube', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube', '/privacy', '/terms', '/dpa'])(
+	'public page %s stays available without database migrations or a valid session',
 	async (routeId) => {
 		mocks.assertMigrationsCurrent.mockImplementation(async () => error(503, 'Migrations pending'));
 		mocks.getSessionUser.mockImplementation(async () => error(500, 'Session integrity failure'));

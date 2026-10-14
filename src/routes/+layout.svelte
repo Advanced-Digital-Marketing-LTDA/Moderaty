@@ -16,6 +16,9 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	{#if data.canonical}
+		<link rel="canonical" href={data.canonical} />
+	{/if}
 </svelte:head>
 
 {@render children()}

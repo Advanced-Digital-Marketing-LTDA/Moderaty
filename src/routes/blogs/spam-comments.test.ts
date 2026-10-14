@@ -4,7 +4,7 @@ import { SPAM_COMMENTS, SPAM_COMMENT_SECTIONS, SPAM_RULE_EXAMPLES } from '$lib/b
 import Article from './how-to-stop-spam-and-scam-comments-on-youtube/+page.svelte';
 
 test('spam guide renders its answer, safe examples, qualified preview route, and complete contents', () => {
-	const { body, head } = render(Article, { props: { data: { locale: 'en', siteOrigin: 'https://selfhost.example' } } });
+	const { body, head } = render(Article, { props: { data: { locale: 'en', canonical: null, siteOrigin: 'https://selfhost.example' } } });
 	for (const { id } of SPAM_COMMENT_SECTIONS) {
 		expect(body).toContain(`id="${id}"`);
 		expect(body).toContain(`href="#${id}"`);
