@@ -31,15 +31,6 @@
 		</div>
 		<Reveal class="hero-queue" amount={0.1} delay={0.2}>
 			<BonkQueue />
-			<div class="workflow-example">
-				<p class="example-heading">Illustrative moderation workflow</p>
-				<ol>
-					<li><strong>1. Your rules</strong><span>Match the patterns you define.</span></li>
-					<li><strong>2. AI scoring</strong><span>Assess other eligible comments.</span></li>
-					<li><strong>3. Your review</strong><span>Check uncertain decisions.</span></li>
-				</ol>
-				<p class="example-note">Illustrative workflow only. A preview does not pause an active channel or stop live moderation.</p>
-			</div>
 		</Reveal>
 	</div>
 </section>
@@ -133,36 +124,6 @@
 		font-size: 12px;
 		line-height: 1.7;
 	}
-	.workflow-example {
-		margin-top: 16px;
-		border: 1px solid var(--line);
-		border-radius: var(--radius);
-		background: var(--surface);
-		padding: 28px;
-	}
-	.example-heading {
-		margin: 0;
-		font: 11px var(--font-mono);
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
-		color: var(--mint);
-	}
-	.workflow-example ol {
-		list-style: none;
-		padding: 0;
-		margin: 20px 0 0;
-	}
-	.workflow-example li {
-		border-top: 1px solid var(--line);
-		padding: 20px 0;
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		line-height: 1.5;
-	}
-	.workflow-example li strong { color: var(--paper); }
-	.workflow-example li span, .example-note { color: rgb(244 244 248 / 0.60); }
-	.example-note { font-size: 12px; line-height: 1.6; }
 	@media (min-width: 768px) {
 		h1 {
 			font-size: 60px;
