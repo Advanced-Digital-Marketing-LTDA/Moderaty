@@ -116,3 +116,13 @@ test('direct preview links disclose that an active channel can keep moderating',
 	expect(preview).toMatch(/A dry run does not change YouTube comments or pause\s+live moderation\./);
 	expect(preview).toContain('live actions may continue while you preview');
 });
+
+test('hero shows the animated review-queue demo with its labeled illustrative counters', () => {
+	const { body } = renderHomepage();
+	const hero = body.split('id="top"')[1]?.split('</section>')[0];
+	expect(hero).toBeDefined();
+	expect(hero).toMatch(/role="figure"[^>]*aria-label="Illustrative demonstration of the Moderaty review queue"/);
+	expect(hero).toContain('an illustrative night');
+	expect(hero).toContain('live-dot');
+	expect(hero).toContain('Illustrative moderation workflow');
+});
