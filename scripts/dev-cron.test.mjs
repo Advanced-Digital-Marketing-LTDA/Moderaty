@@ -170,6 +170,16 @@ describe('dev cron tick', () => {
 		expect(summary).not.toContain('test-secret');
 	});
 
+	it('moves only the lease-release diagnostic ahead and keeps the others in order', () => {
+		const diagnostic = (sweep, operation) => ({ sweep, operation, category: 'unknown', service: 'database' });
+		const summary = formatTickFailure({
+			ok: false, results: {},
+			failureDiagnostics: [diagnostic('sweepError', 'handle_sweep'), diagnostic('zeroCreditSweepError', 'zero_credit'), diagnostic('leaseRelease', 'lease_release')]
+		}, []);
+
+		expect(summary.split('; ').map((detail) => detail.split(':')[0])).toEqual(['leaseRelease', 'sweepError', 'zeroCreditSweepError']);
+	});
+
 	it.each([200, 503])('distinguishes a failed HTTP %s body read from an unanswered endpoint', async (status) => {
 		const root = Object.assign(new Error('private URL test-secret'), { code: 'ECONNRESET' });
 		vi.stubGlobal('fetch', vi.fn(async () => new Response(new ReadableStream({ start(controller) { controller.error(root); } }), { status })));
