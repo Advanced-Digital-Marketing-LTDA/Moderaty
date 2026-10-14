@@ -8,7 +8,7 @@ vi.mock('$app/state', () => ({
 }));
 
 const renderHomepage = (siteOrigin = 'https://moderaty.com') =>
-	render(Homepage, { props: { data: { siteOrigin, locale: 'en' as const } } });
+	render(Homepage, { props: { data: { siteOrigin, locale: 'en' as const, canonical: null } } });
 
 
 test('MC-3 homepage owns the commercial query, metadata, and canonical URL', () => {

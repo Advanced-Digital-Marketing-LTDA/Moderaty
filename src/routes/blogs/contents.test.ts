@@ -5,7 +5,7 @@ import { expect, test } from 'vitest';
 import Article from './how-to-deal-with-hate-comments-on-youtube/+page.svelte';
 
 const article = () => render(Article, {
-	props: { data: { locale: 'en', siteOrigin: 'https://moderaty.com' } }
+	props: { data: { locale: 'en', canonical: null, siteOrigin: 'https://moderaty.com' } }
 }).body;
 const withoutSvelteMarkers = (html: string) => html.replaceAll('<!---->', '');
 

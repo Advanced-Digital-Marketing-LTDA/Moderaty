@@ -20,8 +20,19 @@ export const PUBLIC_PAGES = [
 	SPAM_COMMENTS.path
 ] as const;
 
-// Runtime-rendered editorial pages need the configured origin, not a session or DB.
-export const PUBLIC_BLOG_ROUTE_IDS = ['/blogs', HATE_COMMENTS.path.slice(0, -1), SPAM_COMMENTS.path.slice(0, -1)];
+// Pages whose own route renders <link rel="canonical">; the root layout covers the rest.
+const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path];
+const LAYOUT_CANONICAL_PAGES = PUBLIC_PAGES.filter((path) => !SELF_CANONICAL_PAGES.includes(path));
+
+// Runtime-rendered editorial and legal pages need the configured origin, not a session or DB.
+export const PUBLIC_BLOG_ROUTE_IDS = [
+	'/blogs',
+	HATE_COMMENTS.path.slice(0, -1),
+	SPAM_COMMENTS.path.slice(0, -1),
+	'/privacy',
+	'/terms',
+	'/dpa'
+];
 
 // Route ids that must never appear in a search index: the authenticated
 // (app) console, single-use flow pages, and every API endpoint. Keyed on
@@ -58,6 +69,18 @@ export function siteOrigin(): string {
 		throw error(500, 'APP_URL is not configured as a valid absolute http(s) origin');
 	}
 	return parsed.origin;
+}
+
+/**
+ * The canonical URL for a public page the root layout canonicalises: the
+ * configured origin plus the page path only, so query strings, fragments, the
+ * request host and trailing-slash variants never leak into it. Returns null
+ * for pages that own their canonical or are not indexable layout pages.
+ */
+export function canonicalUrl(pathname: string): string | null {
+	const path = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
+	if (!LAYOUT_CANONICAL_PAGES.includes(path as (typeof PUBLIC_PAGES)[number])) return null;
+	return new URL(path, siteOrigin()).toString();
 }
 
 /** Keep internal pages crawlable for noindex headers and link the configured sitemap. */

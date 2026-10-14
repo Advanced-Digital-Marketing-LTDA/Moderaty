@@ -6,7 +6,7 @@ import HateArticle from './how-to-deal-with-hate-comments-on-youtube/+page.svelt
 import SpamArticle from './how-to-stop-spam-and-scam-comments-on-youtube/+page.svelte';
 import { readingText, visibleText } from './article-text';
 
-const data = { locale: 'en' as const, siteOrigin: 'https://moderaty.com' };
+const data = { locale: 'en' as const, canonical: null, siteOrigin: 'https://moderaty.com' };
 const article = (Page: typeof HateArticle) =>
 	render(Page, { props: { data } }).body.split('<article')[1].split('</article>')[0];
 const wordCount = (html: string) => readingText(html).split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;

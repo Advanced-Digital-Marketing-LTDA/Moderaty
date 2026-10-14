@@ -1,6 +1,5 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import Analytics from '$lib/components/Analytics.svelte';
 
 	let { children, data } = $props();
@@ -15,7 +14,11 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+	<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+	{#if data.canonical}
+		<link rel="canonical" href={data.canonical} />
+	{/if}
 </svelte:head>
 
 {@render children()}

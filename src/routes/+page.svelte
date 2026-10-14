@@ -45,6 +45,7 @@
 	<meta name="description" content={productDescription} />
 	<link rel="canonical" href={canonical} />
 	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Moderaty" />
 	<meta property="og:url" content={canonical} />
 	<meta property="og:title" content="AI YouTube Comment Moderation Software | Moderaty" />
 	<meta property="og:description" content={productDescription} />

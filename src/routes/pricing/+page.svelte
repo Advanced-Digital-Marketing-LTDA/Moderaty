@@ -13,6 +13,19 @@
 	import { PRICING_FAQ_ENTRIES } from '$lib/landing/pricing-faq';
 	import { TOP_UP_BUNDLES_COPY } from '$lib/landing/plans';
 	import { jsonLd } from '$lib/landing/json-ld';
+	import { page } from '$app/state';
+
+	// The root layout publishes this page's canonical from the configured APP_URL;
+	// card URLs reuse that origin so they never point at the request host.
+	const pageUrl = $derived.by(() => {
+		const canonical = page.data.canonical;
+		if (!canonical) throw new Error('Pricing page needs the layout canonical (canonicalUrl in siteIndex.ts must cover /pricing).');
+		return canonical;
+	});
+	const socialImage = $derived(new URL('/og.png', pageUrl).href);
+	const socialTitle = 'Protection, priced like a utility.';
+	const socialDescription =
+		'Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted: $5 a month for 100 AI classifications shared by moderation scoring and feedback digests, or $49 once for lifetime hosting (1,000 lifetime places, your own OpenAI key).';
 
 	const faqPage = {
 		'@context': 'https://schema.org',
@@ -32,11 +45,15 @@
 		content={`Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted: $5 a month for 100 AI classifications shared by moderation scoring and feedback digests; top-ups: ${TOP_UP_BUNDLES_COPY}. 1,000 lifetime places: $49 once for lifetime hosting, with your own OpenAI key.`}
 	/>
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content="Protection, priced like a utility." />
-	<meta
-		property="og:description"
-		content="Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted: $5 a month for 100 AI classifications shared by moderation scoring and feedback digests, or $49 once for lifetime hosting (1,000 lifetime places, your own OpenAI key)."
-	/>
+	<meta property="og:site_name" content="Moderaty" />
+	<meta property="og:url" content={pageUrl} />
+	<meta property="og:title" content={socialTitle} />
+	<meta property="og:description" content={socialDescription} />
+	<meta property="og:image" content={socialImage} />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content={socialTitle} />
+	<meta name="twitter:description" content={socialDescription} />
+	<meta name="twitter:image" content={socialImage} />
 	{@html jsonLd(faqPage)}
 </svelte:head>
 

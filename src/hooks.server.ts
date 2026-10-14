@@ -10,6 +10,7 @@ import { getSessionUser, SESSION_COOKIE } from '$lib/server/session';
 import { isNoIndexRoute, PUBLIC_BLOG_ROUTE_IDS } from '$lib/server/siteIndex';
 import { emitOperationalEvent } from '$lib/server/operationalEvents';
 import { escapeHtml } from '$lib/server/emailText';
+import { dropShadowedFallbackTitle } from '$lib/server/documentTitle';
 import errorPage from './error.html?raw';
 
 type Event = Parameters<Handle>[0]['event'];
@@ -158,7 +159,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 	const resolveLocalized = () =>
 		resolve(event, {
 			transformPageChunk: ({ html, done }) =>
-				done ? html.replace('<html lang="en">', `<html lang="${locale}">`) : html
+				done ? dropShadowedFallbackTitle(html.replace('<html lang="en">', `<html lang="${locale}">`)) : html
 		});
 	// Internal surfaces carry X-Robots-Tag: noindex on every response — it
 	// reaches crawlers even on the 302 an anonymous visitor gets from an

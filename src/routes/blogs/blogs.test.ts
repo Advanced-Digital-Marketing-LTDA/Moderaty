@@ -5,7 +5,7 @@ const path = '/blogs/how-to-deal-with-hate-comments-on-youtube/';
 const title = 'How to deal with hate comments on YouTube';
 const author = 'Andrew Philip Weilbacher';
 const authorBio = 'Andrew Philip Weilbacher is the founder of Moderaty and a YouTube Creator.';
-const pageData = { locale: 'en' as const, siteOrigin: 'https://moderaty.com' };
+const pageData = { locale: 'en' as const, canonical: null, siteOrigin: 'https://moderaty.com' };
 
 test('the article renders its decision table, precise controls, and fictional-example labels', async () => {
 	const Article = (await import('./how-to-deal-with-hate-comments-on-youtube/+page.svelte')).default;
