@@ -12,3 +12,14 @@ export function visibleText(html: string): string {
 	}
 	return text;
 }
+
+// Text a reader reads once: the contents navigation renders twice (desktop rail
+// and mobile disclosure), so it is excluded from reading-time counts.
+export function readingText(html: string): string {
+	const start = html.indexOf('<aside class="contents-rail');
+	if (start === -1) return visibleText(html);
+	const close = '</details>';
+	const end = html.indexOf(close, start);
+	if (end === -1) throw new Error('Article contents rail has no closing mobile disclosure');
+	return visibleText(html.slice(0, start) + html.slice(end + close.length));
+}

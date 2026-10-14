@@ -4,12 +4,12 @@ import { HATE_COMMENTS, HATE_COMMENTS_EDITION } from '$lib/blogs/hate-comments';
 import { SPAM_COMMENTS, SPAM_COMMENTS_EDITION } from '$lib/blogs/spam-comments';
 import HateArticle from './how-to-deal-with-hate-comments-on-youtube/+page.svelte';
 import SpamArticle from './how-to-stop-spam-and-scam-comments-on-youtube/+page.svelte';
-import { visibleText } from './article-text';
+import { readingText, visibleText } from './article-text';
 
 const data = { locale: 'en' as const, siteOrigin: 'https://moderaty.com' };
 const article = (Page: typeof HateArticle) =>
 	render(Page, { props: { data } }).body.split('<article')[1].split('</article>')[0];
-const wordCount = (html: string) => visibleText(html).split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
+const wordCount = (html: string) => readingText(html).split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
 
 const articles = [
 	['hate comments', HateArticle, HATE_COMMENTS_EDITION, SPAM_COMMENTS.path],
@@ -25,6 +25,13 @@ test.each(articles)('the %s article shows its last-updated date and a reading ti
 	const minutes = Math.max(1, Math.ceil(wordCount(body) / 200));
 	expect(edition.readingMinutes).toBe(minutes);
 	expect(byline).toContain(`${minutes} min read`);
+});
+
+test.each(articles)('the %s reading time skips both copies of the contents list', (_, Page) => {
+	const body = article(Page);
+	expect(visibleText(body)).toContain('On this page');
+	expect(readingText(body)).not.toContain('On this page');
+	expect(readingText(body)).toContain('Frequently asked questions');
 });
 
 test.each(articles)('the %s article links to the other guide and keeps prose free of em dashes', (_, Page, __, otherPath) => {

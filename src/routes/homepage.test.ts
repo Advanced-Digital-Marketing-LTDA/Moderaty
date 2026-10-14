@@ -138,14 +138,14 @@ test('homepage keeps the meme-culture voice alongside the factual disclosures', 
 		expect(regulars).toContain(rogue);
 	}
 	expect(body).toContain('Moderaty wants to');
-	expect(body).toMatch(/<h2 class="section-title[^"]*">Asked, answered\.<\/h2>/);
+	expect(body).toMatch(/<h2[^>]*class="section-title[^"]*">Asked, answered\.<\/h2>/);
 	const finalCta = body.split('class="final-cta')[1]?.split('</section>')[0];
 	expect(finalCta).toMatch(/<h2[^>]*>Go touch grass\. <span class="marker">/);
 });
 
-test('the restored Regulars and Manifesto sections are named landmarks', () => {
+test('the Regulars, Manifesto and FAQ sections are named landmarks', () => {
 	const { body } = renderHomepage();
-	for (const [section, heading] of [['regulars', 'Meet the regulars.'], ['manifesto', 'Moderaty wants to']] as const) {
+	for (const [section, heading] of [['regulars', 'Meet the regulars.'], ['manifesto', 'Moderaty wants to'], ['faq', 'Asked, answered.']] as const) {
 		const open = body.match(new RegExp(`<section[^>]*aria-labelledby="${section}-title"[^>]*>`));
 		expect(open).not.toBeNull();
 		expect(body).toMatch(new RegExp(`<h2[^>]*id="${section}-title"[^>]*>[^<]*${heading.replace('.', '\\.')}`));
