@@ -95,6 +95,30 @@ test('the locale is read from the exported LOCALE_COOKIE and applied to the html
 	expect(await response.text()).toContain('<html lang="pt-BR">');
 });
 
+test('a route title shadows the shell fallback so the served document has exactly one <title>', async () => {
+	mocks.getSessionUser.mockResolvedValue(null);
+	const event = {
+		cookies: { get: () => undefined, set: vi.fn() },
+		locals: {} as { user: unknown; dbDown?: boolean },
+		url: new URL('http://localhost/login'),
+		route: { id: '/login' }
+	};
+	const resolve = vi.fn(
+		async (_event: unknown, opts?: { transformPageChunk?: (input: { html: string; done: boolean }) => string }) =>
+			new Response(
+				opts?.transformPageChunk?.({
+					html: '<html lang="en"><head><title>Sign in | Moderaty</title><title>Moderaty</title></head><body></body></html>',
+					done: true
+				})
+			)
+	);
+
+	const body = await (await handle({ event, resolve } as never)).text();
+
+	expect(body.match(/<title>/g)).toHaveLength(1);
+	expect(body).toContain('<title>Sign in | Moderaty</title>');
+});
+
 test('a pt-BR cookie cannot mark an English-only surface pt-BR (MOD-11)', async () => {
 	// The html lang must describe the actual content: on the English-only app
 	// surface a stored pt-BR preference would otherwise claim a translation
