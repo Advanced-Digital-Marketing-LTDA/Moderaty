@@ -20,7 +20,7 @@
 	<ArticleContents headings={Object.values(sections)} />
 
 	<h2 id={sections.summary.id} tabindex="-1">{sections.summary.title}</h2>
-	<p>To deal with hate comments on YouTube, I match my response to what the commenter is doing, not to how much it stung. I keep useful criticism, reply when a clear answer helps other viewers, remove personal attacks that break my channel rules, hide repeat offenders from my channel, and report threats or doxxing to YouTube. When a comment gets under my skin, I close YouTube Studio for a bit. You can set boundaries without hosting a public cage match under your own video.</p>
+	<p>To deal with hate comments on YouTube, I match my response to what the commenter is doing, not to how much it stung. I keep useful criticism, reply when a clear answer helps other viewers, remove personal attacks that break my channel rules, hide repeat offenders from my channel, and report threats or doxxing to YouTube. When a comment gets under my skin, I close YouTube Studio for a bit. You decide what stays on your own channel.</p>
 
 	<h2 id={sections.takeaways.id} tabindex="-1">{sections.takeaways.title}</h2>
 	<ul aria-label="Key takeaways">
@@ -73,7 +73,7 @@
 	<p>YouTube is also <a href="https://blog.youtube/news-and-events/made-on-youtube-new-tools-power-creation-journey/" target="_blank" rel="noopener">testing opt-in AI comment moderation</a> that learns a channel&#x27;s moderation style. Check whether your channel has it before you rely on it.</p>
 	<p>I keep blocked-word rules narrow. Blocking a word such as “wrong” could hide a correction I want to see. After I change a filter, I check whether it held legitimate comments and adjust the rule if it went full friendly fire.</p>
 	<p>For an existing video, I review its comment controls in YouTube Studio. The <a href="https://support.google.com/youtube/answer/9482556?hl=en" target="_blank" rel="noopener">YouTube settings instructions</a> explain how to update one video and your channel defaults. Changing defaults affects new uploads only, so update existing videos one by one.</p>
-	<p>I set a review window I can stop at. When I catch myself rereading the same insult, I close the thread and go touch grass. You can also ask someone you trust to pass on useful feedback without repeating the abusive wording.</p>
+	<p>I set a review window I can stop at. When I catch myself rereading the same insult, I close the thread and step away from YouTube Studio for a while. You can also ask someone you trust to pass on useful feedback without repeating the abusive wording.</p>
 	<p>Spam is a different problem from hate. For crypto bots, fake giveaways and impersonators, see my guide on <a href={SPAM_COMMENTS.path}>how to stop spam and scam comments on YouTube</a>.</p>
 	<h3 id="channel-rules" tabindex="-1">Apply your channel rules consistently</h3>
 	<p>A short channel policy helps me act the same way every time. For example: “Disagreement and corrections are welcome. Keep replies about the video or the point being discussed. We remove personal attacks, threats and private information. Repeated abuse may lead us to hide your account from the channel.”</p>

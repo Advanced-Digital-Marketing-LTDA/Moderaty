@@ -31,3 +31,21 @@ test('the hate-comments safety guidance stays sincere', () => {
 	expect(safety).toContain('contact local emergency services');
 	expect(safety).not.toMatch(/bonk|touch grass|lol|hammer|ackchyually/i);
 });
+
+const sincereTopic = /threat|doxx|private information|rereading|under my skin|emergency/i;
+const punchline = /bonk|touch grass|cage match|lol\b|hammer|ackchyually|comment jail|friendly fire/i;
+
+test.each([
+	['hate comments', HateArticle],
+	['spam comments', SpamArticle]
+] as const)('the %s article keeps safety and wellbeing paragraphs free of punchlines', (_, Page) => {
+	const jokes = paragraphs(article(Page)).filter((text) => sincereTopic.test(text) && punchline.test(text));
+	expect(jokes).toEqual([]);
+});
+
+test.each([
+	['hate comments', HateArticle],
+	['spam comments', SpamArticle]
+] as const)('the %s article does not quantify how much spam or abuse a filter stops', (_, Page) => {
+	expect(visibleText(article(Page))).not.toMatch(/\b(?:stops?|catch(?:es)?|blocks?|removes?) (?:most|nearly all|almost all) (?:of the )?(?:spam|scams?|comments|abuse|hate)\b/i);
+});
