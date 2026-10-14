@@ -41,36 +41,25 @@ async function seedChargeGrant(chargeId: string, orgId = 'org-1', credits = 100)
 	});
 }
 
-async function seedHostedPeriod(includedCredits: number, consumedCredits = 0, orgId = 'org-1'): Promise<void> {
+/** Seeds a paid period: live by default, or with its whole window in the past. */
+async function seedHostedPeriod(includedCredits: number, consumedCredits = 0, orgId = 'org-1', expired = false): Promise<void> {
 	const now = Date.now();
+	const [start, end] = expired ? [now - 2 * 86_400_000, now - 86_400_000] : [now - 60_000, now + 60_000];
+	const key = expired ? `expired-${orgId}` : orgId;
 	await testDb().db.insert(stripeSubscriptionPeriods).values({
 		orgId,
 		subscriptionId: `sub-${orgId}`,
-		invoiceId: `in-${orgId}`,
-		periodKey: `period-${orgId}`,
-		periodStart: new Date(now - 60_000).toISOString(),
-		periodEnd: new Date(now + 60_000).toISOString(),
+		invoiceId: `in-${key}`,
+		periodKey: `period-${key}`,
+		periodStart: new Date(start).toISOString(),
+		periodEnd: new Date(end).toISOString(),
 		includedCredits,
 		consumedCredits,
 		status: 'paid'
 	});
 }
 
-/** Seeds a paid period whose window lies entirely in the past. */
-async function seedExpiredPeriod(includedCredits: number, consumedCredits: number, orgId = 'org-1'): Promise<void> {
-	const now = Date.now();
-	await testDb().db.insert(stripeSubscriptionPeriods).values({
-		orgId,
-		subscriptionId: `sub-${orgId}`,
-		invoiceId: `in-expired-${orgId}`,
-		periodKey: `period-expired-${orgId}`,
-		periodStart: new Date(now - 2 * 86_400_000).toISOString(),
-		periodEnd: new Date(now - 86_400_000).toISOString(),
-		includedCredits,
-		consumedCredits,
-		status: 'paid'
-	});
-}
+const seedExpiredPeriod = (includedCredits: number, consumedCredits: number) => seedHostedPeriod(includedCredits, consumedCredits, 'org-1', true);
 
 describe('rollover contract', () => {
 	test('an expired paid period contributes nothing to the balance', async () => {
