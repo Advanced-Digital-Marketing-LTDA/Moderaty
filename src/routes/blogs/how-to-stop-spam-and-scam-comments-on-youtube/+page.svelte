@@ -1,13 +1,15 @@
 <script lang="ts">
 	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
 	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
+	import ArticleByline from '$lib/components/blogs/ArticleByline.svelte';
 	import { BLOG_AUTHOR } from '$lib/blogs/author';
 	import { HATE_COMMENTS } from '$lib/blogs/hate-comments';
-	import { SPAM_COMMENTS, SPAM_COMMENT_SECTIONS, SPAM_RULE_EXAMPLES } from '$lib/blogs/spam-comments';
+	import { SPAM_COMMENTS, SPAM_COMMENTS_EDITION, SPAM_COMMENT_SECTIONS, SPAM_RULE_EXAMPLES } from '$lib/blogs/spam-comments';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
 	const impersonationPolicy = 'https://support.google.com/youtube/answer/2801947?hl=en';
 	const spamPolicy = 'https://support.google.com/youtube/answer/2801973?hl=en';
+	const heading = Object.fromEntries(SPAM_COMMENT_SECTIONS.map(({ id, title }) => [id, title]));
 </script>
 
 <BlogMeta {...SPAM_COMMENTS} origin={data.siteOrigin} article />
@@ -17,60 +19,61 @@
 </nav>
 <article class="blog-article">
 	<h1>{SPAM_COMMENTS.title}</h1>
-	<p class="byline">By <a href="#author">{BLOG_AUTHOR.name}</a></p>
-	<p>To stop spam and scam comments on your YouTube channel, start with YouTube’s comment filters and review queue. Hold links and recurring scam phrases, remove deceptive comments, and report impersonators. Add narrow custom rules for patterns that keep returning, then check the matches for legitimate comments before choosing stronger actions.</p>
+	<ArticleByline authorHref="#author" {...SPAM_COMMENTS_EDITION} />
+	<h2 id="summary">Summary</h2>
+	<p>Every YouTube channel eventually meets the Crypto Bot: “I made $8,412 in 3 days thanks to…” No you didn’t, Chad. To stop spam and scam comments on my YouTube channel, I start with YouTube Studio’s comment filters and Held queue. I hold links and recurring scam phrases, remove deceptive comments, and report impersonators to YouTube. Then I add narrow custom rules for the patterns that keep coming back, and I check every match for legitimate comments before I reach for the hammer.</p>
 	<section aria-labelledby="takeaways">
 		<h2 id="takeaways">Key Takeaways</h2>
 		<ul>
-			<li>Use native controls first. Check both Published and Held comments, including replies.</li>
-			<li>A familiar avatar, repeated message, link, or phone number needs context. None proves a scam on its own.</li>
-			<li>Start pattern rules with hold for review. Test warnings and useful links alongside suspicious examples.</li>
+			<li>Start with YouTube’s native controls. Check both Published and Held comments, including replies.</li>
+			<li>A familiar avatar, repeated message, link or phone number needs context. None of them proves a scam on its own.</li>
+			<li>Start every pattern rule on hold for review. Test it against warnings and useful links as well as suspicious examples.</li>
 			<li>Report impersonation to YouTube and tell viewers which account and contact routes you use.</li>
 		</ul>
 	</section>
 	<ArticleContents headings={SPAM_COMMENT_SECTIONS} />
 
-	<h2 id="native-controls" tabindex="-1">Start with YouTube’s comment controls</h2>
-	<p>Open YouTube Studio, choose Community, and review Published and Held. <a href="https://support.google.com/youtube/answer/9482367?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener noreferrer">YouTube’s review guide</a> explains these tabs. Inspect replies under your own comments too, since a deceptive reply can appear to be part of your conversation.</p>
-	<p><a href="https://support.google.com/youtube/answer/9483359?hl=en" target="_blank" rel="noopener noreferrer">YouTube offers Basic, Strict, and Hold all moderation.</a> Basic holds potentially inappropriate comments; Strict holds a broader range; Hold all requires approval before comments appear. Review what the filters catch.</p>
+	<h2 id="native-controls" tabindex="-1">{heading['native-controls']}</h2>
+	<p>I start with YouTube Studio’s comment filters and Held queue before I build anything custom. In YouTube Studio, I choose Community and review both Published and Held. <a href="https://support.google.com/youtube/answer/9482367?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener noreferrer">YouTube’s review guide</a> explains these tabs. I inspect the replies under my own comments too, because a deceptive reply can look like part of my conversation. That is where the fake “giveaway admin” likes to lurk.</p>
+	<p><a href="https://support.google.com/youtube/answer/9483359?hl=en" target="_blank" rel="noopener noreferrer">YouTube offers Basic, Strict, and Hold all moderation.</a> Basic holds potentially inappropriate comments; Strict holds a broader range; Hold all requires your approval before any comment appears. Whichever level I pick, I review what the filters catch.</p>
 	<ol>
 		<li>For an existing video, open Content, select the video, then Show more. Adjust Comments and ratings and save. <a href="https://support.google.com/youtube/answer/9482556?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener noreferrer">Upload defaults apply to new videos and posts</a>; they do not update your older uploads.</li>
 		<li>Open Settings, Community moderation, then Content controls. Turn on Link text to hold comments with hashtags and URLs. Add specific recurring phrases to Blocked words and save. Follow the current <a href="https://support.google.com/youtube/answer/16622701?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener noreferrer">channel moderation settings instructions</a>.</li>
-		<li>Review the Held tab and approve legitimate comments. <a href="https://support.google.com/youtube/answer/9483359?hl=en" target="_blank" rel="noopener noreferrer">YouTube keeps held comments for up to 60 days.</a> Approved users bypass word and link filters; your own comments and moderators’ comments also bypass link blocking.</li>
+		<li>Review the Held tab and approve legitimate comments. <a href="https://support.google.com/youtube/answer/9483359?hl=en" target="_blank" rel="noopener noreferrer">YouTube keeps held comments for up to 60 days.</a> Approved users bypass word and link filters; your own comments and your moderators’ comments also bypass link blocking.</li>
 	</ol>
-	<p>During a surge you cannot review, pause comments on the affected video. Existing comments remain; YouTube stops new ones until you turn comments back on. Use <a href="#false-positives">false-positive checks</a> as you tighten your settings.</p>
+	<p>When a bot swarm shows up faster than I can review, I pause comments on that video. Existing comments stay up, and YouTube stops new ones until I turn comments back on. I run <a href="#false-positives">false-positive checks</a> as I tighten the settings, so real viewers don’t catch a stray bonk.</p>
 
-	<h2 id="impersonation" tabindex="-1">Check creator impersonation comments</h2>
-	<p>Check the account behind a message that claims to be you or your team. Compare its handle and channel URL with your real account. A copied photo or similar display name is not enough to establish identity. YouTube’s <a href={impersonationPolicy} target="_blank" rel="noopener noreferrer">impersonation policy</a> covers deceptive copying and comments that falsely suggest another person or entity wrote them.</p>
-	<p>A prize message asking a viewer to pay a fee or move to a messaging app deserves review. Save the comment and account links somewhere private, then use the <a href="#reporting">reporting steps</a>. Avoid opening the linked destination to investigate.</p>
-	<p>Publish a short notice from your own account describing your real contact routes and giveaway process. For example, if it reflects your practice: “I do not ask winners to pay a delivery fee in comments. Check the channel handle before replying.” Keep the notice accurate for your channel, and avoid repeating the impersonator’s contact details.</p>
+	<h2 id="impersonation" tabindex="-1">{heading['impersonation']}</h2>
+	<p>A creator impersonation comment copies your name or photo to trick your viewers, so compare the account’s handle and channel URL with your real account. Someone using my profile picture and a handle like “Andrew Weilbacher ✓ Official” is not me. A copied photo or similar display name does not establish identity. YouTube’s <a href={impersonationPolicy} target="_blank" rel="noopener noreferrer">impersonation policy</a> covers deceptive copying and comments that falsely suggest another person or entity wrote them.</p>
+	<p>I review every prize message that asks a viewer to pay a fee or move to a messaging app. I save the comment and account links somewhere private, then follow the <a href="#reporting">reporting steps</a>. I don’t open the linked destination to investigate; curiosity is how you get pwned.</p>
+	<p>I recommend a short notice from your own account that describes your real contact routes and giveaway process. For example, if it matches your practice: “I do not ask winners to pay a delivery fee in comments. Check the channel handle before replying.” Keep the notice accurate for your channel, and leave out the impersonator’s contact details. No free advertising for the scammer.</p>
 
-	<h2 id="repeated-comments" tabindex="-1">Review repeated and copied messages</h2>
-	<p>Compare the message with the video and nearby discussion. Repeated praise can come from real viewers; repeated off-topic promotion or requests to exchange subscriptions need a different decision. <a href={spamPolicy} target="_blank" rel="noopener noreferrer">YouTube’s spam policy</a> covers high-volume repetitive or deceptive comments used to drive traffic or engagement, including sub-for-sub schemes.</p>
-	<p>Search Studio for a distinctive phrase and inspect the results. If you find the same unwanted solicitation across several videos, remove the comments and consider hiding that account. <a href="https://support.google.com/youtube/answer/9482361?hl=en" target="_blank" rel="noopener noreferrer">Hide from channel applies across your channel.</a> Check the account before acting; similar text alone does not prove that two viewers are the same person.</p>
-	<p>A custom keyword rule can hold a recurring phrase. It matches the text of each comment; it does not count how often someone posted or detect duplicate campaigns. Keep a useful correction even if several viewers raise it. For insults or criticism, use the separate guide to <a href={HATE_COMMENTS.path}>dealing with hate comments on YouTube</a>.</p>
+	<h2 id="repeated-comments" tabindex="-1">{heading['repeated-comments']}</h2>
+	<p>Read repeated comments in context before you act: repeated praise can come from real viewers (hi, mom), while “sub4sub?” under every upload needs a different decision. <a href={spamPolicy} target="_blank" rel="noopener noreferrer">YouTube’s spam policy</a> covers high-volume repetitive or deceptive comments used to drive traffic or engagement, including sub-for-sub schemes.</p>
+	<p>I search YouTube Studio for a distinctive phrase and inspect the results. If I find the same unwanted solicitation across several videos, I remove those comments and consider hiding the account. <a href="https://support.google.com/youtube/answer/9482361?hl=en" target="_blank" rel="noopener noreferrer">Hide from channel applies across your channel.</a> I check the account before acting, because similar text does not prove that two viewers are the same person.</p>
+	<p>A custom keyword rule can hold a recurring phrase. It matches the text of each comment; it does not count how often someone posted or detect duplicate campaigns. I keep a useful correction even when ten viewers point it out. If ten people noticed, I probably deserved it. For insults or criticism, see my separate guide to <a href={HATE_COMMENTS.path}>dealing with hate comments on YouTube</a>.</p>
 
-	<h2 id="suspicious-links" tabindex="-1">Hold suspicious links for review</h2>
-	<p>Use YouTube’s link-hold control before building a long list of domains. Judge a held comment from its wording and relevance without visiting the destination. A request for passwords, payment, or off-platform prize collection gives you a reason to investigate and report; a source link that supports a correction may be useful.</p>
-	<p>The invented URL <code>https://example.invalid/prize</code> below is a non-working example. Do not post real scam links in a public warning. A text rule that matches <code>https?://</code> can find that marker, but it cannot establish whether a website is safe or catch every way someone might refer to a destination.</p>
-	<p>Review useful links that your filters hold, such as a viewer’s source for a factual correction. Remove or narrow a rule if it keeps catching the discussion you want.</p>
+	<h2 id="suspicious-links" tabindex="-1">{heading['suspicious-links']}</h2>
+	<p>Hold suspicious links for review with YouTube’s link-hold control before you build a long list of blocked domains. I judge a held comment from its wording and relevance without visiting the destination. A request for passwords, payment or off-platform prize collection gives me a reason to investigate and report; a source link that supports a correction may be useful.</p>
+	<p>The invented URL <code>https://example.invalid/prize</code> below is a non-working example. I never post real scam links in a public warning, and you shouldn’t either. A text rule that matches <code>https?://</code> can find that marker, but it cannot tell whether a website is safe or catch every way someone might point to a destination.</p>
+	<p>I review the useful links my filters hold, such as a viewer’s source for a factual correction. If a rule keeps catching the discussion I want, I remove or narrow it.</p>
 
-	<h2 id="phone-number-patterns" tabindex="-1">Check phone-number requests in context</h2>
-	<p>Read the number together with the request. A message that claims you selected a prize winner and asks them to contact an unfamiliar account needs scrutiny. A viewer discussing a public support number or quoting a scam warning may have a legitimate reason to include digits.</p>
-	<p>The example rule below looks for “WhatsApp” or “Telegram” followed by a number in a limited format. It holds matching text for a person to review. It cannot verify the account’s identity, and it will miss other wording and formats. The number in the example is fictional; none of these examples comes from a real viewer.</p>
-	<p>Use a rule for a recurring pattern you have observed on your channel. Avoid blocking all numbers: timestamps, prices, and technical details are part of ordinary discussion.</p>
+	<h2 id="phone-number-patterns" tabindex="-1">{heading['phone-number-patterns']}</h2>
+	<p>A phone number alone does not mean a scam; read the number together with the request. “Congrats, you were selected by Andrew! Message me on Telegram” is a scam wearing my face, and it needs scrutiny. A viewer discussing a public support number or quoting a scam warning may have a legitimate reason to include digits.</p>
+	<p>The example rule below looks for “WhatsApp” or “Telegram” followed by a number in a limited format. It holds matching text for a person to review. It cannot verify the account’s identity, and it misses other wording and formats. The number in the example is fictional; none of these examples comes from a real viewer.</p>
+	<p>My advice: write a rule for a recurring pattern you have seen on your own channel. Don’t block all numbers. Timestamps, prices and technical details belong in ordinary discussion, and “4:12” is not a crime.</p>
 
-	<h2 id="reporting" tabindex="-1">Report scams and impersonation</h2>
+	<h2 id="reporting" tabindex="-1">{heading['reporting']}</h2>
 	<ol>
 		<li>Save the comment link, the account’s channel URL, and a dated screenshot privately before clearing the comment. Redact personal details if you share evidence with someone helping you moderate.</li>
-		<li>On YouTube, open the comment’s three-dot menu, select Report, choose the reason that fits, and submit. You can also use Report spam or abuse in Studio. <a href="https://support.google.com/youtube/answer/2802027?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener noreferrer">YouTube reviews reports; reporting does not guarantee removal.</a></li>
+		<li>On YouTube, open the comment’s three-dot menu, select Report, choose the reason that fits, and submit. You can also use Report spam or abuse in YouTube Studio. <a href="https://support.google.com/youtube/answer/2802027?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener noreferrer">YouTube reviews reports; reporting does not guarantee removal.</a></li>
 		<li>For an impersonating account, open its channel description, select …more, then Report user and follow the prompts. Use the <a href={impersonationPolicy} target="_blank" rel="noopener noreferrer">impersonation reporting route</a> as well as reporting the deceptive comment.</li>
-		<li>Remove the comment or hide the account when you need to protect your channel. Hiding and reporting have different scopes; you can do both. Do not ask your audience to confront the account.</li>
+		<li>Remove the comment or hide the account when you need to protect your channel. Hiding and reporting have different scopes, and you can do both. Do not ask your audience to confront the account.</li>
 	</ol>
-	<p>YouTube’s <a href="https://support.google.com/youtube/answer/15535966?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener noreferrer">moderation guide</a> distinguishes removing a comment, reporting spam or abuse, and hiding a user. Use those native reporting controls even if another tool handles your routine holds.</p>
+	<p>YouTube’s <a href="https://support.google.com/youtube/answer/15535966?hl=en&co=GENIE.Platform%3DDesktop" target="_blank" rel="noopener noreferrer">moderation guide</a> separates removing a comment, reporting spam or abuse, and hiding a user. I would still use those native reporting controls even if another tool handles your routine holds.</p>
 
-	<h2 id="custom-rules" tabindex="-1">Test custom moderation rules</h2>
-	<p>Start with hold for review so you can inspect matches before making an irreversible choice. These invented examples were tested against Moderaty’s source rule matcher. They illustrate text matching, not scam-detection accuracy or results on a live channel.</p>
+	<h2 id="custom-rules" tabindex="-1">{heading['custom-rules']}</h2>
+	<p>Test a custom moderation rule by starting it on hold for review, so you can inspect matches before you make an irreversible choice. These invented examples were tested against Moderaty’s source rule matcher. They show how text matching works, not scam-detection accuracy or results on a live channel.</p>
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll this named table region.) -->
 	<div class="table-scroll" role="region" aria-labelledby="rules-caption" tabindex="0">
 		<table>
@@ -83,36 +86,36 @@
 			</tbody>
 		</table>
 	</div>
-	<p>In Moderaty, keyword rules match a phrase without regard to case; regex rules match a text pattern. A blocked-user rule takes the author’s channel ID, not a display name. <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/rules.ts" target="_blank" rel="noopener noreferrer">The source matcher</a> validates regex patterns and chooses longer patterns first. An overlapping rule can therefore determine the action. Review your existing rules before adding one.</p>
-	<p>Protected handles skip rules and AI scoring. Confirm an account before protecting it. For other retrieved comments, Moderaty applies matching rules before AI scoring. Its <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/moderation.ts" target="_blank" rel="noopener noreferrer">toxicity scoring</a> does not establish that an account is genuine or that a link is safe.</p>
+	<p>In Moderaty, keyword rules match a phrase without regard to case, and regex rules match a text pattern. A blocked-user rule takes the author’s channel ID, not a display name. <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/rules.ts" target="_blank" rel="noopener noreferrer">The source matcher</a> validates regex patterns and tries longer patterns first, so an overlapping rule can decide the action. I review my existing rules before adding one.</p>
+	<p>Protected handles skip rules and AI scoring, so I confirm an account before protecting it. For other retrieved comments, Moderaty applies matching rules before AI scoring. Its <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/moderation.ts" target="_blank" rel="noopener noreferrer">toxicity scoring</a> does not establish that an account is genuine or that a link is safe.</p>
 
-	<h2 id="false-positives" tabindex="-1">Protect legitimate comments</h2>
-	<p>Test each pattern with comments you want to keep as well as comments you want to hold. Include a warning that quotes the scam phrase, a useful source URL, and an ordinary question. The following invented cases show why a match needs review.</p>
+	<h2 id="false-positives" tabindex="-1">{heading['false-positives']}</h2>
+	<p>Protect legitimate comments by testing each pattern with comments you want to keep as well as comments you want to hold. I include a warning that quotes the scam phrase, a useful source URL, and an ordinary question. These invented cases show why a match needs a human, not just a regex with main-character energy.</p>
 	<ul>
 		<li>“They asked me to pay a delivery fee. Is that a scam?” matches the fee phrase while warning you about it.</li>
-		<li>“The source is https://example.invalid/reference” matches the link marker without establishing harmful intent.</li>
+		<li>“The source is https://example.invalid/reference” matches the link marker without showing harmful intent.</li>
 		<li>“The calculation at 4:12 should use 2026 prices” contains numbers but does not match the phone example.</li>
 		<li>“Send a message to collect your prize” misses these rules. A non-match gives you no assurance that a comment is safe.</li>
 	</ul>
-	<p>Check the Held queue after changing native filters. <a href="https://support.google.com/youtube/answer/9483359?hl=en" target="_blank" rel="noopener noreferrer">YouTube acknowledges that its filters can make mistakes.</a> Approve legitimate comments and narrow phrases that keep catching useful discussion.</p>
-	<p>Check Moderaty’s action status as well as its review queue. A pending decision can remain public until the YouTube hold succeeds. <a href="/terms#s9">Held and rejected comments can be restored from Moderaty’s audit log.</a> Deletions are permanent, and you cannot lift an author ban in Moderaty.</p>
+	<p>I check the Held queue after changing native filters. <a href="https://support.google.com/youtube/answer/9483359?hl=en" target="_blank" rel="noopener noreferrer">YouTube acknowledges that its filters can make mistakes.</a> I approve legitimate comments and narrow phrases that keep catching useful discussion.</p>
+	<p>I check Moderaty’s action status as well as its review queue. A pending decision can stay public until the YouTube hold succeeds. <a href="/terms#s9">Held and rejected comments can be restored from Moderaty’s audit log.</a> Deletions are permanent, and you cannot lift an author ban in Moderaty.</p>
 
-	<h2 id="preview-rules" tabindex="-1">Check the channel preview before broader use</h2>
-	<p>Moderaty’s source implementation retrieves published top-level comments. It does not sweep replies or YouTube’s Held queue. Access, quota, pagination, and failures affect coverage, so keep using Studio to inspect those areas. These limits come from the <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/youtube.ts" target="_blank" rel="noopener noreferrer">current retrieval source</a>; this guide does not verify a hosted channel run.</p>
-	<p>To explore the workflow, <a href="/login">sign in to Moderaty</a>, connect a channel you own or are authorized to manage, and open its Rules tab. Saving a rule adds it to active moderation; begin with a hold action. The channel page’s Dry run control previews a selected history window without changing comments on YouTube. It is not a preview of an unsaved rule.</p>
-	<p>You get one free moderation dry-run attempt per channel, used when it starts even if it fails. It spends no credits. Inspect the audit log and any partial-run status before relying on the results. This differs from the feedback preview, which covers one page of up to 100 comments. <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/routes/(app)/channels/%5Bid%5D/%2Bpage.svelte" target="_blank" rel="noopener noreferrer">The channel-page source</a> documents the moderation preview controls.</p>
-	<p>Channel connection requests Google’s <code>youtube.force-ssl</code> permission with offline access. This scope is broader than comment access alone. Check the consent screen and <a href="/privacy">Moderaty’s privacy information</a> before granting access. You can revoke it through <a href="https://security.google.com/settings/security/permissions" target="_blank" rel="noopener noreferrer">Google’s third-party access settings</a>.</p>
-	<p>At the October 8, 2026 pricing check, hosted Moderaty costs US$5 per month for 100 AI classifications shared between moderation and enabled feedback digests. A digest classification can use an additional credit for the same comment. Rule and protected-handle moderation decisions use no credit. Self-hosting has separate infrastructure and OpenAI costs; the US$49 lifetime offer also uses your own OpenAI key and is limited to 1,000 lifetime places. Check <a href="/pricing">current plans and pricing</a> before purchasing.</p>
+	<h2 id="preview-rules" tabindex="-1">{heading['preview-rules']}</h2>
+	<p>Moderaty is a YouTube comment moderation tool, and its source implementation retrieves published top-level comments. It does not sweep replies or YouTube’s Held queue. Access, quota, pagination and failures affect coverage, so I keep using YouTube Studio to inspect those areas. These limits come from the <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/youtube.ts" target="_blank" rel="noopener noreferrer">current retrieval source</a>; this guide does not verify a hosted channel run.</p>
+	<p>If you want to take it for a spin, <a href="/login">sign in to Moderaty</a>, connect a channel you own or are authorized to manage, and open its Rules tab. Saving a rule adds it to active moderation, so I’d begin with a hold action. The channel page’s Dry run control previews a selected history window without changing comments on YouTube. It does not preview an unsaved rule.</p>
+	<p>You get one free moderation dry-run attempt per channel, used when it starts even if it fails. It spends no credits. I’d inspect the audit log and any partial-run status before relying on the results. The feedback preview is separate and covers one page of up to 100 comments. <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/routes/(app)/channels/%5Bid%5D/%2Bpage.svelte" target="_blank" rel="noopener noreferrer">The channel-page source</a> documents the moderation preview controls.</p>
+	<p>Channel connection requests Google’s <code>youtube.force-ssl</code> permission with offline access. This scope is broader than comment access alone, and I’d rather tell you that up front. Check the consent screen and <a href="/privacy">Moderaty’s privacy information</a> before granting access. You can revoke it through <a href="https://security.google.com/settings/security/permissions" target="_blank" rel="noopener noreferrer">Google’s third-party access settings</a>.</p>
+	<p>At the October 8, 2026 pricing check, hosted Moderaty costs US$5 per month for 100 AI classifications shared between moderation and enabled feedback digests. A digest classification can use an additional credit for the same comment. Rule and protected-handle moderation decisions use no credit. Self-hosting has separate infrastructure and OpenAI costs; the US$49 lifetime offer also uses your own OpenAI key and is limited to 1,000 lifetime places. Check <a href="/pricing">current plans and pricing</a> before purchasing, since they can change.</p>
 
-	<h2 id="faq" tabindex="-1">Frequently asked questions</h2>
+	<h2 id="faq" tabindex="-1">{heading['faq']}</h2>
 	<h3>Can I stop all spam comments?</h3>
-	<p>No filter can guarantee that. Combine native holds, review, and reporting. Check for missed comments as well as legitimate ones that a filter caught.</p>
+	<p>No filter can guarantee that, and anyone who promises otherwise is selling something (probably crypto). I combine native holds, review and reporting, and I check for missed comments as well as legitimate ones a filter caught.</p>
 	<h3>Does a phone number or Telegram mention prove a scam?</h3>
-	<p>No. Check the account and the request. A rule match tells you which text matched; a person still needs to assess the comment.</p>
+	<p>No. I check the account and the request. A rule match tells me which text matched; a person still needs to assess the comment.</p>
 	<h3>Should I delete repeated comments?</h3>
-	<p>Read their context first. Repeated corrections or questions may be useful. Apply your channel rules to repetitive promotion, and report conduct that violates YouTube’s policy.</p>
+	<p>Read their context first. Repeated corrections or questions may be useful. I apply my channel rules to repetitive promotion and report conduct that violates YouTube’s policy.</p>
 	<h3>Does Moderaty replace YouTube’s spam review?</h3>
-	<p>No. Continue reviewing replies and Held comments in Studio and report impersonators there. Moderaty’s source-confirmed retrieval and text rules have the limits described above.</p>
+	<p>No, and I don’t want it to pretend otherwise. I keep reviewing replies and Held comments in YouTube Studio and report impersonators there. Moderaty’s source-confirmed retrieval and text rules have the limits described above.</p>
 
 	<section id="author" aria-labelledby="author-heading">
 		<h2 id="author-heading">About the author</h2>
@@ -121,7 +124,6 @@
 </article>
 
 <style>
-	.byline { font-size: 15px; color: var(--text-2); }
 	code { white-space: normal; overflow-wrap: anywhere; font-size: 0.85em; }
 	ul, ol { padding-left: 24px; margin-bottom: 24px; }
 	li { margin-bottom: 12px; }

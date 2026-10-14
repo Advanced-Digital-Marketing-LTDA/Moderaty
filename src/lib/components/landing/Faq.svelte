@@ -4,9 +4,9 @@
 	import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 </script>
 
-<section id="faq" class="section">
+<section id="faq" class="section" aria-labelledby="faq-title">
 	<Reveal>
-		<h2 class="section-title">Common questions</h2>
+		<h2 id="faq-title" class="section-title">Asked, answered.</h2>
 	</Reveal>
 	<Reveal delay={0.05}>
 		<div class="faq-list">

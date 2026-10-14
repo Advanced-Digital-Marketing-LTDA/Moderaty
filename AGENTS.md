@@ -406,6 +406,36 @@ only for a documented, maintainer-approved compatibility exception. Use tabs
 and SvelteKit `+page`, `+layout`, and `+server` conventions. Prefer `$lib`
 imports, platform APIs, and installed dependencies.
 
+## Editorial Voice (public copy)
+
+Moderaty's public copy (landing page, blog, marketing, social) has a **funny,
+meme-culture voice**. It is a maintainer decision; do not flatten it into
+neutral corporate copy during SEO, claims, or legal passes.
+
+- **Jokes live in headlines, leads, eyebrows, and fictional examples.** The
+  house cast: trolls get the hammer, comments get bonked, the Ackchyually
+  Guy, the Edge Lord, the Crypto Bot, the Brigadier, "go touch grass",
+  "choose your fighter". Reuse and extend it.
+- **Facts stay literal.** Coverage limits (published top-level comments
+  only; no replies, live chat, or YouTube's Held queue), irreversible
+  actions (deletes, bans), dry-run caveats, pricing, OAuth scope, and
+  privacy/retention statements are written plainly, never as a punchline,
+  and the copy guard tests must keep passing.
+- **A joke never overclaims.** No "never read another hate comment", "catches
+  everything", invented stats, or accuracy numbers.
+- **No jokes about** threats, doxxing, self-harm, creator mental health,
+  emergency or law-enforcement guidance, legal pages, consent, account
+  deletion, or billing failures. Those passages stay sincere.
+- **Punch at archetypes, not people.** Mock trolls, spam bots, and scammers;
+  never real people, protected groups, or viewers giving genuine criticism.
+  No slurs, censored or not. Example comments are fictional and labeled so.
+- **Blog posts are first person**, written as the founder and YouTube
+  creator (`BLOG_AUTHOR`): "I hold links", "my rule is". Share opinions and
+  advice in that voice, but never invent personal anecdotes, quotes, or
+  numbers the author has not supplied.
+- SEO `<title>`, meta descriptions, and keyword lines may stay plain; put
+  the joke in the visible headline instead.
+
 ## Commits, Security, and Licensing
 
 Use focused, imperative commits such as `step N: <change>` or `chore: <change>`.

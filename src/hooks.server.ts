@@ -96,7 +96,8 @@ export const handle: Handle = async (input) => {
 		}
 		const html = errorPage
 			.split('%sveltekit.status%').join(String(status))
-			.split('%sveltekit.error.message%').join(escapeHtml(body.message ?? 'Internal Error'));
+			.split('%sveltekit.error.message%').join(escapeHtml(body.message ?? 'Internal Error'))
+			.split('<!-- support-reference -->').join(body.supportReference ? `<p>Support reference: <code>${escapeHtml(body.supportReference)}</code></p>` : '');
 		return correlate(new Response(html, { status, headers: { 'content-type': 'text/html; charset=utf-8' } }), event);
 	}
 };
@@ -232,6 +233,7 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 		emitOperationalEvent({ type: 'request_not_found', severity: 'warn', category: 'not_found', route: event.route.id, requestId: event.locals?.requestId });
 	} else {
 		emitOperationalEvent({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', route: event.route.id, requestId: event.locals?.requestId, diagnosticError: error });
+		return { message, supportReference: event.locals?.requestId };
 	}
 	return { message };
 };

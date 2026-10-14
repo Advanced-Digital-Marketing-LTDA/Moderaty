@@ -1216,6 +1216,7 @@ test('drains the oldest pending feedback preview under a fresh lease — the rot
 		feedbackPreview: { commentsClassified: 2, commentsFailed: 0, pooled: 0, hasMore: false },
 		results: {}
 	});
+	expect(body).not.toHaveProperty('bookkeepingError');
 	expect(body.feedbackPreview).not.toHaveProperty('findings');
 	expect(JSON.stringify(body)).not.toContain('marker-excerpt-abc');
 	expect(JSON.stringify(body)).not.toContain('marker-summary-xyz');
@@ -1466,12 +1467,9 @@ test('a deadline-aborted preview still gets its retry tick on the documented */1
 	expect((await res.json()).feedbackPreview).toMatchObject({ commentsClassified: 1 });
 });
 
-test('a lease-release failure after a drained preview still counts the tick as worked', async () => {
-	// The finally's UPDATE can transiently reject; if the rejection escaped
-	// it would override `{ ran: true }`, letting the handler claim a second
-	// channel's remote work on the spent deadline (codex, PR #178). The
-	// release must fail loudly and preserve the result — the stale lease
-	// self-expires anyway.
+test('a lease-release failure after a drained preview marks the tick failed but keeps the lease bounded', async () => {
+	// A transient release failure must be reported without dispatching another
+	// workload on the spent deadline. The stale lease self-expires.
 	await seedChannel('UC-prev');
 	await seedChannel('UC-rot');
 	await seedPendingPreview('UC-prev');
@@ -1504,7 +1502,7 @@ test('a lease-release failure after a drained preview still counts the tick as w
 	expect(mocks.runFeedbackPreview).toHaveBeenCalledTimes(1);
 	// `ran` survived the release failure — no second workload this tick.
 	expect(mocks.runChannel).not.toHaveBeenCalled();
-	expect(body).toMatchObject({ ok: true, results: {} });
+	expect(body).toMatchObject({ ok: true, bookkeepingError: true, results: {} });
 	expect(body.feedbackPreview).toMatchObject({ commentsClassified: 1 });
 	expectResponseDiagnostic(body, 'leaseRelease', 'lease_release');
 	// Loud, not silent — and the failed release leaves the lease in place

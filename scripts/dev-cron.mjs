@@ -81,7 +81,10 @@ function failureDetail(payload, field) {
  */
 export function formatTickFailure(payload, problems, fallback = '') {
 	const diagnostics = tickDiagnostics(payload);
-	const details = diagnostics.map((item) => `${item.sweep}: ${formatCronFailure(item)}`);
+	const leaseRelease = diagnostics.find((item) => item.operation === 'lease_release');
+	// The terminal release failure changes the tick verdict; keep it ahead of details that may be truncated.
+	const orderedDiagnostics = leaseRelease ? [leaseRelease, ...diagnostics.filter((item) => item !== leaseRelease)] : diagnostics;
+	const details = orderedDiagnostics.map((item) => `${item.sweep}: ${formatCronFailure(item)}`);
 	details.push(...problems.filter((problem) => !diagnostics.some((item) => problem.startsWith(`${item.sweep}:`))));
 	let summary = details.map((detail) => detail.replace(/[\r\n\u2028\u2029]/g, ' ').slice(0, 500)).join('; ') || fallback;
 	const id = sanitizeCronFailure({ cronRunId: payload?.cronRunId }).cronRunId;
@@ -153,7 +156,12 @@ function detailProblems(payload) {
 		if (payload[field]) problems.push(`${field}: ${failureDetail(payload, field)}`);
 	}
 	if (payload.budgetExhausted) problems.push('sweeps consumed the run budget — no channel claimed');
-	if (payload.bookkeepingError) problems.push('run-health bookkeeping write failed');
+	if (payload.bookkeepingError) {
+		const operations = new Set(tickDiagnostics(payload).map(({ operation }) => operation));
+		if (operations.has('lease_release')) problems.push('lease release failed');
+		if (operations.has('run_health_write')) problems.push('run-health bookkeeping write failed');
+		if (!operations.has('lease_release') && !operations.has('run_health_write')) problems.push('run-health bookkeeping write failed');
+	}
 	// The dry-run drain, feedback digest, and pending-preview drain ride the
 	// same 200 as top-level fields; all catch their failures into `{ error }`
 	// so a broken aux job must not read as a healthy tick (codex). Success
