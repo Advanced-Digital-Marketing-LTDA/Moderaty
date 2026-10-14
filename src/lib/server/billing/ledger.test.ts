@@ -56,6 +56,44 @@ async function seedHostedPeriod(includedCredits: number, consumedCredits = 0, or
 	});
 }
 
+/** Seeds a paid period whose window lies entirely in the past. */
+async function seedExpiredPeriod(includedCredits: number, consumedCredits: number, orgId = 'org-1'): Promise<void> {
+	const now = Date.now();
+	await testDb().db.insert(stripeSubscriptionPeriods).values({
+		orgId,
+		subscriptionId: `sub-${orgId}`,
+		invoiceId: `in-expired-${orgId}`,
+		periodKey: `period-expired-${orgId}`,
+		periodStart: new Date(now - 2 * 86_400_000).toISOString(),
+		periodEnd: new Date(now - 86_400_000).toISOString(),
+		includedCredits,
+		consumedCredits,
+		status: 'paid'
+	});
+}
+
+describe('rollover contract', () => {
+	test('an expired paid period contributes nothing to the balance', async () => {
+		await seedOrg('org-1', 7);
+		await seedExpiredPeriod(100, 40);
+		expect(await getCredits('org-1')).toBe(7);
+	});
+
+	test('renewal never carries the previous period remainder forward', async () => {
+		await seedOrg('org-1', 5);
+		await seedExpiredPeriod(100, 40);
+		await seedHostedPeriod(100, 30);
+		expect(await getCredits('org-1')).toBe(5 + 70);
+	});
+
+	test('expiry leaves the purchased balance untouched', async () => {
+		await seedOrg('org-1', 250);
+		await seedExpiredPeriod(100, 0);
+		expect(await getCredits('org-1')).toBe(250);
+		expect((await testDb().db.select().from(organizations).where(eq(organizations.id, 'org-1')).get())?.creditsRemaining).toBe(250);
+	});
+});
+
 describe('drainPendingReversals crash-consistency', () => {
 	test('a delayed grant drains an earlier refund without overriding newer consent', async () => {
 		await seedOrg('org-1', 100);
