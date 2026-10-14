@@ -127,3 +127,17 @@ test('hero shows the animated review-queue demo with its labeled illustrative co
 	expect(hero).not.toContain('Illustrative moderation workflow');
 	expect(hero).not.toContain('workflow-example');
 });
+
+test('homepage keeps the meme-culture voice alongside the factual disclosures', () => {
+	const { body } = renderHomepage();
+	const hero = body.split('id="top"')[1]?.split('</section>')[0];
+	expect(hero).toMatch(/<h1[^>]*>Trolls get <span class="marker">the hammer\.<\/span><\/h1>/);
+	const regulars = body.split('id="regulars"')[1]?.split('</section>')[0];
+	expect(regulars).toContain('Meet the regulars.');
+	for (const rogue of ['The Ackchyually Guy', 'The Edge Lord', 'The Crypto Bot', 'The Brigadier']) {
+		expect(regulars).toContain(rogue);
+	}
+	expect(body).toContain('Moderaty wants to');
+	expect(body).toMatch(/<h2 class="section-title[^"]*">Asked, answered\.<\/h2>/);
+	expect(body).toContain('Go touch grass.');
+});

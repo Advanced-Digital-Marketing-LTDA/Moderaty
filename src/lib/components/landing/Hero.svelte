@@ -8,17 +8,17 @@
 	<div class="hero-grid">
 		<div class="hero-copy">
 			<Reveal amount={0.1}>
-				<p class="eyebrow"><span class="eyebrow-mark">{'//'}</span> AI comment moderation for YouTube creators</p>
+				<p class="eyebrow"><span class="eyebrow-mark">{'//'}</span> AI YouTube comment moderation. Your rules come first.</p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.08}>
-				<h1>AI YouTube comment moderation. <span class="marker">Your rules come first.</span></h1>
+				<h1>Trolls get <span class="marker">the hammer.</span></h1>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.16}>
 				<p class="sub">
-					Your comment section shouldn't require another full-time job. Moderaty checks
-					published top-level comments on your connected YouTube channels, applies your
-					rules first, uses AI scoring for the rest, and sends uncertain decisions to
-					a review queue. No automated replies. No posting as you.
+					Reading the comments is the job nobody hired you for. Moderaty checks published
+					top-level comments on your connected YouTube channels so you don't have to: your
+					rules swing first, AI scoring handles the rest, and the "is this a joke or a threat?"
+					ones wait in your review queue. No auto-replies. No posting as you. Just bonks.
 				</p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.24}>

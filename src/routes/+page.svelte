@@ -2,6 +2,8 @@
 	import Nav from '$lib/components/landing/Nav.svelte';
 	import Hero from '$lib/components/landing/Hero.svelte';
 	import HomepageContent from '$lib/components/landing/HomepageContent.svelte';
+	import Regulars from '$lib/components/landing/Regulars.svelte';
+	import Manifesto from '$lib/components/landing/Manifesto.svelte';
 	import Faq from '$lib/components/landing/Faq.svelte';
 	import FinalCta from '$lib/components/landing/FinalCta.svelte';
 	import Footer from '$lib/components/landing/Footer.svelte';
@@ -59,6 +61,8 @@
 <main>
 	<Hero />
 	<HomepageContent />
+	<Regulars />
+	<Manifesto />
 	<Faq />
 	<FinalCta />
 </main>
