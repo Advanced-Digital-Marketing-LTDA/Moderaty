@@ -124,5 +124,6 @@ test('hero shows the animated review-queue demo with its labeled illustrative co
 	expect(hero).toMatch(/role="figure"[^>]*aria-label="Illustrative demonstration of the Moderaty review queue"/);
 	expect(hero).toContain('an illustrative night');
 	expect(hero).toContain('live-dot');
-	expect(hero).toContain('Illustrative moderation workflow');
+	expect(hero).not.toContain('Illustrative moderation workflow');
+	expect(hero).not.toContain('workflow-example');
 });
