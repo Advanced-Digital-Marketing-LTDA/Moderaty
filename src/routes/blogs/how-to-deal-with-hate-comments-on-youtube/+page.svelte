@@ -27,7 +27,7 @@
 		<li><a href="#criticism-or-attack">A negative comment can still contain useful feedback.</a> Separate the point from the insult before you decide what to do.</li>
 		<li><a href="#reply-to-negative-comments">Reply when you can answer a question, correct a mistake or clarify your video.</a> You owe a personal attack nothing.</li>
 		<li><a href="#remove-or-hide">Let your channel rules decide when you remove or hide comments.</a> Report threats, doxxing and serious harassment to YouTube.</li>
-		<li><a href="#reduce-hate-comments">YouTube filters and review queues cut what you have to read</a>, but check what they hold before you approve or reject it.</li>
+		<li><a href="#reduce-hate-comments">YouTube filters and review queues can reduce what you have to read</a>, but check what they hold before you approve or reject it.</li>
 	</ul>
 
 	<h2 id={sections.action.id} tabindex="-1">{sections.action.title}</h2>

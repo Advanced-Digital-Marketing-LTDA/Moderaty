@@ -47,7 +47,9 @@ test.each([
 	['hate comments', HateArticle],
 	['spam comments', SpamArticle]
 ] as const)('the %s article does not quantify how much spam or abuse a filter stops', (_, Page) => {
-	expect(visibleText(article(Page))).not.toMatch(/\b(?:stops?|catch(?:es)?|blocks?|removes?) (?:most|nearly all|almost all) (?:of the )?(?:spam|scams?|comments|abuse|hate)\b/i);
+	const text = visibleText(article(Page));
+	expect(text).not.toMatch(/\b(?:stops?|catch(?:es)?|blocks?|removes?) (?:most|nearly all|almost all) (?:of the )?(?:spam|scams?|comments|abuse|hate)\b/i);
+	expect(text).not.toMatch(/\b(?:filters|queues) (?:cut|reduce|shrink|halve)\b/i);
 });
 
 test('the spam article does not credit the author with testing the author did not report', () => {
