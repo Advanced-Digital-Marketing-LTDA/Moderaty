@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Reveal from './Reveal.svelte';
+	import BonkQueue from './BonkQueue.svelte';
 	import { LOGIN_URL } from '$lib/landing/links';
 </script>
 
@@ -29,6 +30,7 @@
 			</Reveal>
 		</div>
 		<Reveal class="hero-queue" amount={0.1} delay={0.2}>
+			<BonkQueue />
 			<div class="workflow-example">
 				<p class="example-heading">Illustrative moderation workflow</p>
 				<ol>
@@ -132,6 +134,7 @@
 		line-height: 1.7;
 	}
 	.workflow-example {
+		margin-top: 16px;
 		border: 1px solid var(--line);
 		border-radius: var(--radius);
 		background: var(--surface);
