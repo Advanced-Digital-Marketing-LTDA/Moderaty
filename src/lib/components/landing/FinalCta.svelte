@@ -42,7 +42,7 @@
 		margin: 0;
 	}
 	.intro {
-		margin: 24px 0 0;
+		margin: 24px auto 0;
 		max-width: 54ch;
 		line-height: 1.6;
 		color: rgb(244 244 248 / 0.7);
