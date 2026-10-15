@@ -36,7 +36,12 @@ export function run(argv, log = console) {
 		log.info(`Ratchet baseline updated: ${options.baseline}`);
 		return 0;
 	}
-	const { failures, improvements } = compare(current, JSON.parse(readFileSync(options.baseline, 'utf8')), ratchets);
+	let baseline;
+	try { baseline = JSON.parse(readFileSync(options.baseline, 'utf8')); } catch (error) {
+		if (error?.code === 'ENOENT') throw new Error(`Baseline file not found: ${options.baseline}. Run "npm run ratchet:update" and commit the result.`);
+		throw error;
+	}
+	const { failures, improvements } = compare(current, baseline, ratchets);
 	for (const item of improvements) {
 		log.warn(`::warning::Ratchet "${item.id}" improved (${item.baseline} -> ${item.current}); run "npm run ratchet:update" and commit to lock the gain in.`);
 	}

@@ -10,7 +10,8 @@ describe('forbiddenPushReason', () => {
 		'git push origin +dev',
 		'git push origin main',
 		'git push origin HEAD:main',
-		'git push origin HEAD:refs/heads/main'
+		'git push origin HEAD:refs/heads/main',
+		'git push origin dev\ngit push --force'
 	])('blocks %s', command => expect(forbiddenPushReason(command)).not.toBeNull());
 
 	test.each([
@@ -18,6 +19,8 @@ describe('forbiddenPushReason', () => {
 		'git push origin dev',
 		'git push origin feature/maintain-docs',
 		'git commit -m "never push --force"',
+		'git push origin dev\ngit log main',
+		'git push origin dev\ngit checkout -f main',
 		'git status'
 	])('allows %s', command => expect(forbiddenPushReason(command)).toBeNull());
 

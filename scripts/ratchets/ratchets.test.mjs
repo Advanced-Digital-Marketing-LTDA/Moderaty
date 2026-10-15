@@ -77,6 +77,11 @@ describe('compare', () => {
 		expect(() => compare(base, baseline)).toThrow(/no valid integer/);
 	});
 
+	test('a current value that was not measured throws instead of passing', () => {
+		const { 'explicit-any': _omitted, ...partial } = base;
+		expect(() => compare(partial, base)).toThrow(/no measured integer for "explicit-any"/);
+	});
+
 	test('only the selected ratchet is judged', () => {
 		const { failures } = compare({ ...base, 'explicit-any': 99 }, { ...base, 'explicit-any': 1 }, ['test']);
 		expect(failures).toEqual([]);
@@ -107,7 +112,7 @@ describe('run', () => {
 
 	test('a missing baseline file fails loudly instead of passing', () => {
 		const root = repo({ 'src/a.ts': 'export {};\n' });
-		expect(() => run(['--root', root], quietLog())).toThrow(/ENOENT/);
+		expect(() => run(['--root', root], quietLog())).toThrow(/Baseline file not found: .*baselines\.json.*npm run ratchet:update/);
 	});
 
 	test('unknown arguments and ratchet names are rejected', () => {

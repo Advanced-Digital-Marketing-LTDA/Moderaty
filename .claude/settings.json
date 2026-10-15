@@ -12,8 +12,10 @@
 	},
 	"permissions": {
 		"deny": [
-			"Read(./.env)",
-			"Read(./.worktrees/dev/.env)",
+			"Read(**/.env)",
+			"Read(**/.env.local)",
+			"Read(**/.env.production)",
+			"Read(**/.env.development)",
 			"Bash(rm -rf:*)",
 			"Bash(sudo:*)",
 			"Bash(chmod 777:*)",

@@ -65,7 +65,8 @@ export function compare(current, baseline, ratchets = RATCHETS) {
 		if (!Number.isInteger(base) || base < 0) {
 			throw new Error(`Ratchet baseline has no valid integer for "${metric.id}"; run "npm run ratchet:update" and commit the result.`);
 		}
-		const now = current[metric.id];
+		const now = current?.[metric.id];
+		if (!Number.isInteger(now)) throw new Error(`Ratchet run has no measured integer for "${metric.id}"; the metric was not measured.`);
 		const worse = metric.direction === 'down' ? now > base : now < base;
 		const better = metric.direction === 'down' ? now < base : now > base;
 		const detail = { id: metric.id, direction: metric.direction, baseline: base, current: now };
