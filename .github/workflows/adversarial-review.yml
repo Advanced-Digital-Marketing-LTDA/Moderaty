@@ -46,26 +46,6 @@ jobs:
           echo "$(npm root --global)/@anthropic-ai/claude-code-linux-x64" >> "$GITHUB_PATH"
       - name: Verify Claude CLI installation
         run: claude --version
-      # Temporary Haiku OAuth diagnostic (no prompt/token/error body logged).
-      - name: Temporary Haiku OAuth diagnostic
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: |
-          set +e
-          claude --model haiku --print --output-format json --max-turns 1 "Reply OK." > "$RUNNER_TEMP/haiku-status.json" 2> "$RUNNER_TEMP/haiku-status.err"
-          cli_exit=$?
-          set -e
-          node -e '
-            const fs = require("node:fs");
-            let obj;
-            try { obj = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/haiku-status.json", "utf8")); } catch { obj = {}; }
-            const status = obj.api_error_status ?? obj.error_status ?? null;
-            const problem = String(obj.result ?? obj.error ?? "");
-            const type = status===429 || /429|rate.limit/i.test(problem) ? "rate-limit" : status===401 ? "authentication" : status===403 ? "access" : status===404 ? "model-not-found" : status ? "provider-error" : obj.is_error ? "unclassified-error" : "none";
-            console.log("Haiku diagnostic: " + JSON.stringify({is_error: obj.is_error ?? null, terminal_reason: obj.terminal_reason ?? null, status, type}));
-            if(obj.is_error) process.exitCode=1;
-          '
-          if [ "$cli_exit" -ne 0 ]; then echo "::error::Claude CLI exited nonzero; raw provider output withheld"; exit "$cli_exit"; fi
       - name: Adversarial review (two passes, findings verified)
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
