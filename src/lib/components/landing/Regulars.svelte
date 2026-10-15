@@ -3,6 +3,8 @@
 
 	type Rogue = {
 		name: string;
+		/** Screen-reader description of the animated card. */
+		label: string;
 		quote: string;
 		body: string;
 		verdict: string;
@@ -15,6 +17,7 @@
 	const ROGUES: Rogue[] = [
 		{
 			name: 'The Ackchyually Guy',
+			label: 'Fictional example: the Ackchyually Guy posts a long, polite correction of your video. Stamp: held for review.',
 			quote: '"Ackchyually, your point at 4:12 is wrong…"',
 			body: 'Four hundred words correcting your thumbnail. Technically polite. Spiritually exhausting.',
 			verdict: 'HELD FOR REVIEW',
@@ -24,6 +27,7 @@
 		},
 		{
 			name: 'The Edge Lord',
+			label: 'Fictional example: the Edge Lord posts slurs and calls them dark humor. Stamp: banned.',
 			quote: '"It\'s just dark humor bro. Cope."',
 			body: 'Slurs in a trench coat made of irony. Peaked in 2016. Never evolved.',
 			verdict: 'BANNED',
@@ -34,6 +38,7 @@
 		},
 		{
 			name: 'The Crypto Bot',
+			label: 'Fictional example: the Crypto Bot posts a fake get-rich-quick crypto claim. Stamp: deleted by a rule.',
 			quote: '"I made $8,412 in 3 days thanks to..."',
 			body: "No you didn't, Chad.",
 			verdict: 'DELETED BY A RULE',
@@ -42,6 +47,7 @@
 		},
 		{
 			name: 'The Brigadier',
+			label: 'Fictional example: the Brigadier arrives from a drama video to pile on. Stamp: held for review.',
 			quote: '"Coming from the drama video. L + ratio +"',
 			body: 'Arrives four minutes after the video drops. Three hundred friends behind him.',
 			verdict: 'HELD FOR REVIEW',
@@ -64,7 +70,7 @@
 				class="rogue-slot {i % 2 === 0 ? 'slot-left' : 'slot-right'} {r.offset ? 'slot-offset' : ''}"
 				delay={i * 0.06}
 			>
-				<article class="rogue-card {r.rotateClass}">
+				<article class="rogue-card {r.rotateClass}" aria-label={r.label}>
 					<span class="stamp rogue-stamp {r.verdictClass}">{r.verdict}</span>
 					<h3 class="rogue-name">{r.name}</h3>
 					<p class="rogue-quote">{r.quote}</p>

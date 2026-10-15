@@ -90,7 +90,7 @@
 	});
 </script>
 
-<div bind:this={root} class="brackets queue" role="figure" aria-label="Illustrative demonstration of the Moderaty review queue">
+<div bind:this={root} class="brackets queue" role="figure" aria-label="Illustrative demonstration of the Moderaty review queue: fictional comments arrive one at a time, rules and AI scores stamp each one approved, held, rejected, deleted or banned, and counters track incoming, actioned and read-by-you totals.">
 	<div class="brackets-inner">
 		<!-- Panel header -->
 		<div class="panel-head">
