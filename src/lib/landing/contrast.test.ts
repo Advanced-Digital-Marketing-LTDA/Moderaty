@@ -96,3 +96,18 @@ describe('public text contrast (MSG-6)', () => {
 		}
 	);
 });
+
+describe('dimmed rows (CodeAnt finding on PR #244)', () => {
+	test('a settled queue row keeps its reason text at 4.5:1 after the row opacity is applied', () => {
+		const source = readFileSync(join(ROOT, 'src/lib/components/landing/BonkQueue.svelte'), 'utf8');
+		const rowOpacity = Number(source.match(/\.row-settled\s*\{[^}]*?opacity:\s*([\d.]+)/)?.[1]);
+		if (!Number.isFinite(rowOpacity)) throw new Error('.row-settled must declare an opacity');
+		const settledReason = source.match(/\.row-settled\s+\.row-reason\s*\{[^}]*?(?<![-\w])color:\s*([^;]+);/)?.[1].trim();
+		const reasonColour = settledReason ?? source.match(/\.row-reason\s*\{[^}]*?(?<![-\w])color:\s*([^;]+);/)?.[1].trim();
+		const tokenAlpha = alphaOf(readFileSync(join(ROOT, 'src/app.css'), 'utf8').match(/--text-muted:\s*rgb\(244 244 248 \/ ([\d.]+%?)\)/)![1]);
+		const alpha = reasonColour === 'var(--text-muted)' ? tokenAlpha : reasonColour === 'var(--text)' ? 1 : NaN;
+		if (Number.isNaN(alpha)) throw new Error(`Unrecognised reason colour "${reasonColour}"`);
+		expect(onSurface(alpha * rowOpacity)).toBeGreaterThanOrEqual(MIN_RATIO);
+	});
+});
+
