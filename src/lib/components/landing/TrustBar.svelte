@@ -57,7 +57,7 @@
 		text-transform: uppercase;
 		line-height: 1.6;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.5);
+		color: var(--text-muted);
 		margin: 0;
 	}
 	@media (min-width: 768px) {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Nav from '$lib/components/landing/Nav.svelte';
+	import SkipLink from '$lib/components/landing/SkipLink.svelte';
 	import Hero from '$lib/components/landing/Hero.svelte';
 	import HomepageContent from '$lib/components/landing/HomepageContent.svelte';
 	import Regulars from '$lib/components/landing/Regulars.svelte';
@@ -58,8 +59,9 @@
 	{@html jsonLd(faqPage)}
 </svelte:head>
 
+<SkipLink />
 <Nav />
-<main>
+<main id="main-content" tabindex="-1">
 	<Hero />
 	<HomepageContent />
 	<Regulars />

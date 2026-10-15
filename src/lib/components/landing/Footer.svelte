@@ -111,7 +111,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.16em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.lgpd-note {
 		margin: 20px 0 0;
@@ -121,7 +121,7 @@
 		line-height: 1.7;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.capy {
 		display: block;
@@ -139,7 +139,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.55);
+		color: var(--text-muted);
 		text-decoration: none;
 		transition: color 200ms ease;
 	}
@@ -161,7 +161,7 @@
 		text-transform: uppercase;
 		line-height: 1.6;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.4);
+		color: var(--text-muted);
 	}
 	@media (min-width: 1024px) {
 		.footer-grid {

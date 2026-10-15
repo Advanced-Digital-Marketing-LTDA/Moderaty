@@ -93,7 +93,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.16em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.section-title {
 		margin: 64px 0 0;

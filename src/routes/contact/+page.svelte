@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Nav from '$lib/components/landing/Nav.svelte';
+	import SkipLink from '$lib/components/landing/SkipLink.svelte';
 	import Footer from '$lib/components/landing/Footer.svelte';
 
 	// data.optInText is CONTACT_OPT_IN_TEXT itself — the exact sentence logged
@@ -22,9 +23,10 @@
 	/>
 </svelte:head>
 
+<SkipLink />
 <Nav />
 
-<main class="contact-main">
+<main id="main-content" tabindex="-1" class="contact-main">
 	<div class="contact-inner">
 		<h1 class="title">Contact Moderaty</h1>
 		<p class="lede">
@@ -139,7 +141,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.55);
+		color: var(--text-muted);
 	}
 	.contact-form input[type='text'],
 	.contact-form input[type='email'],
@@ -184,7 +186,7 @@
 		margin: 14px 0 0;
 		font-size: 12px;
 		line-height: 1.6;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.success-title {
 		margin: 0 0 10px;

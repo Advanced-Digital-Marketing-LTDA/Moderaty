@@ -189,7 +189,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.4);
+		color: var(--text-muted);
 	}
 	.counters {
 		display: grid;
@@ -207,7 +207,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.counter-value {
 		font-family: var(--font-mono);
@@ -290,6 +290,6 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
-		color: rgb(244 244 248 / 0.4);
+		color: var(--text-muted);
 	}
 </style>

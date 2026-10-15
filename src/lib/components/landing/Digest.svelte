@@ -89,7 +89,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.18em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.terminal-body {
 		padding: 16px;
@@ -98,7 +98,7 @@
 		line-height: 2;
 		overflow-x: auto;
 	}
-	.t-dim { color: rgb(244 244 248 / 0.45); }
+	.t-dim { color: var(--text-muted); }
 	.t-lit { color: rgb(244 244 248 / 0.85); }
 	.t-mid { color: rgb(244 244 248 / 0.7); }
 	.t-amber { color: var(--amber); font-weight: 600; }
@@ -108,7 +108,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
-		color: rgb(244 244 248 / 0.35);
+		color: var(--text-muted);
 	}
 	@media (min-width: 768px) {
 		.section-title {

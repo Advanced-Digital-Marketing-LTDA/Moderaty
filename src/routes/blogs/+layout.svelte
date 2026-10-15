@@ -1,10 +1,11 @@
 <script lang="ts">
 	import Nav from '$lib/components/landing/Nav.svelte';
+	import SkipLink from '$lib/components/landing/SkipLink.svelte';
 	import Footer from '$lib/components/landing/Footer.svelte';
 	let { children } = $props();
 </script>
 
-<a href="#blog-content" class="skip-link">Skip to content</a>
+<SkipLink target="blog-content" />
 <Nav />
 <main id="blog-content" class="blog-content" tabindex="-1">
 	{@render children()}
@@ -12,17 +13,6 @@
 <Footer />
 
 <style>
-	.skip-link {
-		position: fixed;
-		top: 8px;
-		left: 16px;
-		z-index: 100;
-		padding: 12px 16px;
-		background: var(--paper);
-		color: var(--ink);
-		transform: translateY(-160%);
-	}
-	.skip-link:focus { transform: translateY(0); }
 	.blog-content {
 		max-width: 832px;
 		margin: 0 auto;

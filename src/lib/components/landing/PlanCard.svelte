@@ -85,7 +85,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.18em;
-		color: rgb(244 244 248 / 0.55);
+		color: var(--text-muted);
 		margin: 0;
 	}
 	.price-row {
@@ -106,7 +106,7 @@
 		font-size: 14px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.55);
+		color: var(--text-muted);
 	}
 	.mint {
 		color: var(--mint);
@@ -121,7 +121,7 @@
 		text-transform: uppercase;
 		line-height: 1.6;
 		letter-spacing: 0.12em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.plan-body {
 		margin: 16px 0 0;
@@ -185,7 +185,7 @@
 		line-height: 1.7;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	:global(.plan-body .inline-link) {
 		color: inherit;

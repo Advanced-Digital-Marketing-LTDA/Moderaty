@@ -60,7 +60,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.22em;
-		color: rgb(244 244 248 / 0.55);
+		color: var(--text-muted);
 		margin: 0;
 	}
 	.eyebrow-mark {
@@ -119,7 +119,7 @@
 	.reassurance {
 		margin: 24px 0 0;
 		max-width: 60ch;
-		color: rgb(244 244 248 / 0.55);
+		color: var(--text-muted);
 		font-family: var(--font-mono);
 		font-size: 12px;
 		line-height: 1.7;

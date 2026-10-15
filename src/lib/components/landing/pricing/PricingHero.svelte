@@ -52,7 +52,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.18em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.qa-body {
 		margin: 0;
