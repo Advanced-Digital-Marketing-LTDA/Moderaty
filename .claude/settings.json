@@ -1,0 +1,38 @@
+{
+	"extraKnownMarketplaces": {
+		"claude-code-plugins": {
+			"source": {
+				"source": "github",
+				"repo": "anthropics/claude-code"
+			}
+		}
+	},
+	"enabledPlugins": {
+		"pr-review-toolkit@claude-code-plugins": true
+	},
+	"permissions": {
+		"deny": [
+			"Read(./.env)",
+			"Read(./.worktrees/dev/.env)",
+			"Bash(rm -rf:*)",
+			"Bash(sudo:*)",
+			"Bash(chmod 777:*)",
+			"Bash(ssh:*)",
+			"Bash(dd:*)",
+			"Bash(> /dev/:*)"
+		]
+	},
+	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "Bash",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-forbidden-push.mjs\""
+					}
+				]
+			}
+		]
+	}
+}

@@ -1,0 +1,27 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+// AGENTS.md: never force-push, never push to main. Exit code 2 blocks the tool
+// call and shows the reason to the agent; any malformed input blocks too.
+const FORCE = /\bgit\s+push\b[^;&|\n]*(?:\s--force(?:-with-lease)?\b|\s-[a-zA-Z]*f[a-zA-Z]*\b|\s\+\S)/;
+const TO_MAIN = /\bgit\s+push\b[^;&|\n]*\s(?:\S+:)?(?:refs\/heads\/)?main\b/;
+
+export function forbiddenPushReason(command) {
+	if (typeof command !== 'string') throw new Error('Hook input has no string tool_input.command');
+	if (FORCE.test(command)) return 'git push --force is forbidden by AGENTS.md';
+	if (TO_MAIN.test(command)) return 'pushing to main is forbidden by AGENTS.md; only the human merges dev to main';
+	return null;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+	try {
+		const input = JSON.parse(readFileSync(0, 'utf8'));
+		if (input?.tool_name !== 'Bash') process.exit(0);
+		const reason = forbiddenPushReason(input.tool_input?.command);
+		if (reason) { console.error(`Blocked: ${reason}`); process.exit(2); }
+	} catch (error) {
+		console.error(`Blocked: push guard could not read hook input: ${error instanceof Error ? error.message : String(error)}`);
+		process.exit(2);
+	}
+}

@@ -1,0 +1,11 @@
+{
+	"skipped-tests": 0,
+	"focused-tests": 0,
+	"test-cases": 3257,
+	"assertions": 9864,
+	"ts-suppressions": 0,
+	"lint-suppressions": 2,
+	"coverage-suppressions": 0,
+	"explicit-any": 10,
+	"double-casts": 33
+}

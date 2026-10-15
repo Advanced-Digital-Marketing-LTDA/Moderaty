@@ -85,6 +85,34 @@ Day-to-day work commits directly to `dev`; pull requests are optional
   both together (`fix: review — <what>`). A fix without its reproducing
   test is not done.
 
+## Review Tooling (before push and in CI)
+
+Before pushing, inside Claude Code:
+
+- Run the `pr-review-toolkit` agents `pr-test-analyzer` and
+  `silent-failure-hunter` on every change. The plugin is enabled in
+  `.claude/settings.json`.
+- Run the `adversarial-review` project skill
+  (`.claude/skills/adversarial-review/SKILL.md`) before every push.
+- For changes to auth, owner-scoping (`channels.userId` scoping, `requireUser`)
+  or tests, also run gstack `/cso` and `/test-audit`. gstack is installed on the
+  human's machine, not by this repo.
+- Warp validate-changes-match-specs is not wired up yet; add it once tasks
+  carry a written spec.
+
+In CI on every PR, independent of the author:
+
+- `ratchets.yml` — test, suppress and type ratchets
+  (`scripts/ratchets/`, baselines in `.github/ratchets/baselines.json`).
+  Counts must not move the wrong way; the base branch's scripts and baselines
+  judge the PR. Locking in an improvement is `npm run ratchet:update`; raising
+  a baseline to hide a regression is never acceptable.
+- `adversarial-review.yml` — `adversarial-review --passes 2 --verify`.
+- `claude-code-review.yml` — claude-code-action running the PR Review Toolkit
+  agents.
+- Both Claude workflows authenticate with the `CLAUDE_CODE_OAUTH_TOKEN` repo
+  secret.
+
 ## Invariants (execution plan v3, section 4.1 — re-read before every step)
 
 - **I1 — Everything external is optional.** Treat every field of every
