@@ -109,8 +109,15 @@ describe('dimmed rows (review findings on PR #244)', () => {
 		if (literal) return alphaOf(literal[1]);
 		throw new Error(`Unrecognised text colour "${value}"`);
 	};
-	const declared = (source: string, selector: string): string | undefined =>
-		source.match(new RegExp(`${selector.replaceAll('.', '\\.')}\\s*\\{[^}]*?(?<![-\\w])color:\\s*([^;]+);`))?.[1].trim();
+	/** Text colour set by the rule whose selector list contains `selector`. */
+	const declared = (source: string, selector: string): string | undefined => {
+		for (const [, selectors, body] of source.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+			if (!selectors.split(',').some((candidate) => candidate.trim() === selector)) continue;
+			const colour = body.match(/(?<![-\w])color:\s*([^;]+);/)?.[1].trim();
+			if (colour) return colour;
+		}
+		return undefined;
+	};
 
 	const source = css('src/lib/components/landing/BonkQueue.svelte');
 	const rowOpacity = Number(source.match(/\.row-settled\s*\{[^}]*?opacity:\s*([\d.]+)/)?.[1]);
