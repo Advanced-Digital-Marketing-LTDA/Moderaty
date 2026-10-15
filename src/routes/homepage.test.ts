@@ -121,7 +121,7 @@ test('hero shows the animated review-queue demo with its labeled illustrative co
 	const { body } = renderHomepage();
 	const hero = body.split('id="top"')[1]?.split('</section>')[0];
 	expect(hero).toBeDefined();
-	expect(hero).toMatch(/role="figure"[^>]*aria-label="Illustrative demonstration of the Moderaty review queue"/);
+	expect(hero).toMatch(/role="figure"[^>]*aria-label="Illustrative demonstration of the Moderaty review queue: fictional comments arrive one at a time, rules and AI scores stamp each one approved, held, rejected, deleted or banned, and counters track incoming, actioned and read-by-you totals\."/);
 	expect(hero).toContain('an illustrative night');
 	expect(hero).toContain('live-dot');
 	expect(hero).not.toContain('Illustrative moderation workflow');
@@ -165,4 +165,26 @@ test('the hero keeps threats out of the punchline', () => {
 	const hero = renderHomepage().body.split('id="top"')[1]?.split('</section>')[0];
 	expect(hero).toContain('Just bonks.');
 	expect(hero).not.toMatch(/threat/i);
+});
+
+test('the Regulars section comes right after the hero', () => {
+	const { body } = renderHomepage();
+	const hero = body.indexOf('id="top"');
+	const regulars = body.indexOf('id="regulars"');
+	const howItWorks = body.indexOf('id="how-it-works"');
+	expect(hero).toBeGreaterThan(-1);
+	expect(regulars).toBeGreaterThan(hero);
+	expect(howItWorks).toBeGreaterThan(regulars);
+});
+
+test('each animated Regulars card carries a descriptive label naming the fictional archetype and its stamp', () => {
+	const { body } = renderHomepage();
+	const regulars = body.split('id="regulars"')[1]?.split('</section>')[0] ?? '';
+	const labels = [...regulars.matchAll(/<article[^>]*aria-label="([^"]*)"/g)].map((match) => match[1]);
+	expect(labels).toEqual([
+		'Fictional example: the Ackchyually Guy posts a long, polite correction of your video. Stamp: held for review.',
+		'Fictional example: the Edge Lord posts slurs and calls them dark humor. Stamp: banned.',
+		'Fictional example: the Crypto Bot posts a fake get-rich-quick crypto claim. Stamp: deleted by a rule.',
+		'Fictional example: the Brigadier arrives from a drama video to pile on. Stamp: held for review.'
+	]);
 });

@@ -61,8 +61,8 @@
 <Nav />
 <main>
 	<Hero />
-	<HomepageContent />
 	<Regulars />
+	<HomepageContent />
 	<Manifesto />
 	<Faq />
 	<FinalCta />
