@@ -97,17 +97,34 @@ describe('public text contrast (MSG-6)', () => {
 	);
 });
 
-describe('dimmed rows (CodeAnt finding on PR #244)', () => {
-	test('a settled queue row keeps its reason text at 4.5:1 after the row opacity is applied', () => {
-		const source = readFileSync(join(ROOT, 'src/lib/components/landing/BonkQueue.svelte'), 'utf8');
-		const rowOpacity = Number(source.match(/\.row-settled\s*\{[^}]*?opacity:\s*([\d.]+)/)?.[1]);
-		if (!Number.isFinite(rowOpacity)) throw new Error('.row-settled must declare an opacity');
-		const settledReason = source.match(/\.row-settled\s+\.row-reason\s*\{[^}]*?(?<![-\w])color:\s*([^;]+);/)?.[1].trim();
-		const reasonColour = settledReason ?? source.match(/\.row-reason\s*\{[^}]*?(?<![-\w])color:\s*([^;]+);/)?.[1].trim();
-		const tokenAlpha = alphaOf(readFileSync(join(ROOT, 'src/app.css'), 'utf8').match(/--text-muted:\s*rgb\(244 244 248 \/ ([\d.]+%?)\)/)![1]);
-		const alpha = reasonColour === 'var(--text-muted)' ? tokenAlpha : reasonColour === 'var(--text)' ? 1 : NaN;
-		if (Number.isNaN(alpha)) throw new Error(`Unrecognised reason colour "${reasonColour}"`);
-		expect(onSurface(alpha * rowOpacity)).toBeGreaterThanOrEqual(MIN_RATIO);
-	});
-});
+describe('dimmed rows (review findings on PR #244)', () => {
+	const css = (file: string) => readFileSync(join(ROOT, file), 'utf8');
+	const tokenAlpha = () => alphaOf(css('src/app.css').match(/--text-muted:\s*rgb\(244 244 248 \/ ([\d.]+%?)\)/)![1]);
 
+	/** Alpha a text colour declaration resolves to; unknown forms throw so a new colour cannot slip past. */
+	const colourAlpha = (value: string): number => {
+		if (value === 'var(--text-muted)') return tokenAlpha();
+		if (value === 'var(--text)' || value === 'var(--paper)') return 1;
+		const literal = value.match(/^rgb\(244 244 248 \/ ([\d.]+%?)\)$/);
+		if (literal) return alphaOf(literal[1]);
+		throw new Error(`Unrecognised text colour "${value}"`);
+	};
+	const declared = (source: string, selector: string): string | undefined =>
+		source.match(new RegExp(`${selector.replaceAll('.', '\\.')}\\s*\\{[^}]*?(?<![-\\w])color:\\s*([^;]+);`))?.[1].trim();
+
+	const source = css('src/lib/components/landing/BonkQueue.svelte');
+	const rowOpacity = Number(source.match(/\.row-settled\s*\{[^}]*?opacity:\s*([\d.]+)/)?.[1]);
+
+	test('the settled row declares its opacity', () => {
+		expect(Number.isFinite(rowOpacity)).toBe(true);
+	});
+
+	test.each(['row-reason', 'row-author', 'row-text'])(
+		'a settled queue row keeps .%s at 4.5:1 after the row opacity is applied',
+		(name) => {
+			const value = declared(source, `.row-settled .${name}`) ?? declared(source, `.${name}`);
+			if (!value) throw new Error(`.${name} must declare a text colour`);
+			expect(onSurface(colourAlpha(value) * rowOpacity)).toBeGreaterThanOrEqual(MIN_RATIO);
+		}
+	);
+});

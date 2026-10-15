@@ -292,6 +292,7 @@
 		letter-spacing: 0.12em;
 		color: var(--text-muted);
 	}
-	/* The settled row is dimmed to 0.55 opacity, which would multiply into the muted colour. */
-	.row-settled .row-reason { color: var(--text); }
+	/* The settled row is dimmed to 0.55 opacity, which multiplies into the muted text colours. */
+	.row-settled .row-reason,
+	.row-settled .row-author { color: var(--text); }
 </style>
