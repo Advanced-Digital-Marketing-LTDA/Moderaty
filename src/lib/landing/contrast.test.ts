@@ -48,7 +48,8 @@ const svelteFiles = (dir: string): string[] =>
 
 const publicStyleFiles = [
 	...svelteFiles(join(ROOT, 'src/lib/components/landing')),
-	join(ROOT, 'src/routes/contact/+page.svelte')
+	join(ROOT, 'src/routes/contact/+page.svelte'),
+	join(ROOT, 'src/app.css')
 ];
 
 describe('contrast test helpers', () => {
