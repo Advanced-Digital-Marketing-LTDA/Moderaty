@@ -5,15 +5,18 @@ import { pathToFileURL } from 'node:url';
 // AGENTS.md: never force-push, never push to main. Exit code 2 blocks the tool
 // call and shows the reason to the agent; any malformed input blocks too.
 // `git` plus any global options (-C <dir>, -c k=v, --no-pager, ...), then the
-// push subcommand. Anchoring on the subcommand keeps `git commit -m "push --force"` allowed.
-const PUSH = String.raw`\bgit(?:\s+(?:-[Cc]\s+\S+|-{1,2}[^\s;&|]+))*\s+push\b[^;&|\n]*`;
-const FORCE = new RegExp(PUSH + String.raw`(?:\s--force(?:-with-lease)?\b|\s-[a-zA-Z]*f[a-zA-Z]*\b|\s\+\S)`);
-const TO_MAIN = new RegExp(PUSH + String.raw`\s(?:\S+:)?(?:refs\/heads\/)?main\b`);
+// push subcommand; the arguments after it are captured and judged separately.
+// Anchoring on the subcommand keeps `git commit -m "push --force"` allowed.
+const PUSH = /\bgit(?:\s+(?:-[Cc]\s+\S+|-{1,2}[^\s;&|]+))*\s+push\b([^;&|\n]*)/g;
+const FORCE_ARGS = /\s--force(?:-with-lease)?\b|\s-[a-zA-Z]*f[a-zA-Z]*\b|\s\+\S/;
+const MAIN_ARG = /\s(?:\S+:)?(?:refs\/heads\/)?main\b/;
 
 export function forbiddenPushReason(command) {
 	if (typeof command !== 'string') throw new Error('Hook input has no string tool_input.command');
-	if (FORCE.test(command)) return 'git push --force is forbidden by AGENTS.md';
-	if (TO_MAIN.test(command)) return 'pushing to main is forbidden by AGENTS.md; only the human merges dev to main';
+	for (const [, args] of command.matchAll(PUSH)) {
+		if (FORCE_ARGS.test(args)) return 'git push --force is forbidden by AGENTS.md';
+		if (MAIN_ARG.test(args)) return 'pushing to main is forbidden by AGENTS.md; only the human merges dev to main';
+	}
 	return null;
 }
 
