@@ -30,7 +30,7 @@ describe('measure', () => {
 	test('counts each metric in the files it applies to, exactly', () => {
 		const root = repo({
 			'src/a.test.ts': "it('a', () => { expect(1).toBe(1); expect(2).toBe(2); });\nit.skip('b', () => {});\ntest.only('c', () => {});\nxit('d', () => {});\n",
-			'src/b.ts': '// @ts-ignore\nconst x: any = 1;\nconst y = x as any;\nconst z = y as unknown as string;\n// eslint-disable-next-line\n',
+			'src/b.ts': '// @ts-ignore\nconst x: any = 1;\nconst y = x as any;\nconst r: Record<string, any> = {};\nconst z = y as unknown as string;\n// eslint-disable-next-line\n',
 			'src/c.svelte': '<!-- svelte-ignore a11y_x -->\n<script lang="ts">let v: any[] = [];</script>\n',
 			'src/d.js': 'const q: any = 1; // not typed source, so not counted as a type escape\n',
 			'scripts/ratchets/self.test.mjs': "it.skip('x'); // skipped: ratchet files are excluded\n"
@@ -38,7 +38,7 @@ describe('measure', () => {
 		expect(measure(root)).toEqual({
 			'skipped-tests': 2, 'focused-tests': 1, 'test-cases': 3, assertions: 2,
 			'ts-suppressions': 1, 'lint-suppressions': 2, 'coverage-suppressions': 0,
-			'explicit-any': 3, 'double-casts': 1
+			'explicit-any': 4, 'double-casts': 1
 		});
 	});
 

@@ -11,7 +11,10 @@ describe('forbiddenPushReason', () => {
 		'git push origin main',
 		'git push origin HEAD:main',
 		'git push origin HEAD:refs/heads/main',
-		'git push origin dev\ngit push --force'
+		'git push origin dev\ngit push --force',
+		'git -C ../repo push --force origin dev',
+		'git -c core.x=1 push origin main',
+		'git --no-pager push -f'
 	])('blocks %s', command => expect(forbiddenPushReason(command)).not.toBeNull());
 
 	test.each([
@@ -21,7 +24,8 @@ describe('forbiddenPushReason', () => {
 		'git commit -m "never push --force"',
 		'git push origin dev\ngit log main',
 		'git push origin dev\ngit checkout -f main',
-		'git status'
+		'git status',
+		'git -C ../repo log --oneline main'
 	])('allows %s', command => expect(forbiddenPushReason(command)).toBeNull());
 
 	test('a non-string command throws instead of passing', () => {

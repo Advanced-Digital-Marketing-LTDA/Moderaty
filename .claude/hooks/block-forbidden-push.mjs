@@ -4,8 +4,11 @@ import { pathToFileURL } from 'node:url';
 
 // AGENTS.md: never force-push, never push to main. Exit code 2 blocks the tool
 // call and shows the reason to the agent; any malformed input blocks too.
-const FORCE = /\bgit\s+push\b[^;&|\n]*(?:\s--force(?:-with-lease)?\b|\s-[a-zA-Z]*f[a-zA-Z]*\b|\s\+\S)/;
-const TO_MAIN = /\bgit\s+push\b[^;&|\n]*\s(?:\S+:)?(?:refs\/heads\/)?main\b/;
+// `git` plus any global options (-C <dir>, -c k=v, --no-pager, ...), then the
+// push subcommand. Anchoring on the subcommand keeps `git commit -m "push --force"` allowed.
+const PUSH = String.raw`\bgit(?:\s+(?:-[Cc]\s+\S+|-{1,2}[^\s;&|]+))*\s+push\b[^;&|\n]*`;
+const FORCE = new RegExp(PUSH + String.raw`(?:\s--force(?:-with-lease)?\b|\s-[a-zA-Z]*f[a-zA-Z]*\b|\s\+\S)`);
+const TO_MAIN = new RegExp(PUSH + String.raw`\s(?:\S+:)?(?:refs\/heads\/)?main\b`);
 
 export function forbiddenPushReason(command) {
 	if (typeof command !== 'string') throw new Error('Hook input has no string tool_input.command');

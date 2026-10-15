@@ -27,7 +27,7 @@ export const METRICS = [
 	{ ratchet: 'suppress', id: 'coverage-suppressions', direction: 'down', files: SOURCE,
 		pattern: /\b(?:istanbul|c8|v8)\s+ignore\b/g },
 	{ ratchet: 'type', id: 'explicit-any', direction: 'down', files: TYPED,
-		pattern: /:\s*any\b|\bas\s+any\b|<any[,>]|\bany\[\]/g },
+		pattern: /:\s*any\b|\bas\s+any\b|<any[,>]|,\s*any\s*>|\bany\[\]/g },
 	{ ratchet: 'type', id: 'double-casts', direction: 'down', files: TYPED,
 		pattern: /\bas\s+unknown\s+as\b/g }
 ];

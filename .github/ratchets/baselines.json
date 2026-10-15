@@ -6,6 +6,6 @@
 	"ts-suppressions": 0,
 	"lint-suppressions": 2,
 	"coverage-suppressions": 0,
-	"explicit-any": 10,
+	"explicit-any": 11,
 	"double-casts": 33
 }
