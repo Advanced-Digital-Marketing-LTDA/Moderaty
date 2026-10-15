@@ -1,0 +1,47 @@
+name: Adversarial review
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: adversarial-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Fork PRs never receive secrets, so the job is skipped for them (shown as
+    # skipped in the checks list). A missing token on a same-repo PR fails loudly.
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.19.0'
+      - name: Require the Claude OAuth token
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo '::error::CLAUDE_CODE_OAUTH_TOKEN is not set; the adversarial review cannot run.'
+            exit 1
+          fi
+      - name: Install the reviewer and the Claude CLI it drives
+        run: npm install --global --ignore-scripts --no-audit --no-fund adversarial-review@2.11.1 @anthropic-ai/claude-code@2.1.300
+      - name: Adversarial review (two passes, findings verified)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          adversarial-review --provider claude --base "$BASE_SHA" \
+            --passes 2 --verify --fail-on high --fail-on-empty
