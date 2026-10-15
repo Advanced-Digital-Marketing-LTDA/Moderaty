@@ -21,6 +21,25 @@ const contrast = (a: number[], b: number[]) => {
 };
 const onSurface = (alpha: number) => contrast(INK.map((c, i) => c * alpha + LIGHTEST_SURFACE[i] * (1 - alpha)), LIGHTEST_SURFACE);
 
+const ALPHA_COLOUR = /(?<![-\w])color:\s*rgb\(244 244 248 \/ ([\d.]+%?)\)/g;
+
+/** Alpha as a 0-1 number from `0.6` or `60%`; anything else is a broken test input, not a pass. */
+function alphaOf(raw: string): number {
+	const value = raw.endsWith('%') ? Number(raw.slice(0, -1)) / 100 : Number(raw);
+	if (!Number.isFinite(value) || value < 0 || value > 1) throw new Error(`Unreadable colour alpha "${raw}"`);
+	return value;
+}
+
+/** Translucent text colours in a stylesheet or component that fall below the minimum contrast. */
+function lowContrastColours(source: string): string[] {
+	return source
+		.split('\n')
+		.filter((line) => !DECORATIVE.test(line))
+		.flatMap((line) => [...line.matchAll(ALPHA_COLOUR)])
+		.filter((m) => onSurface(alphaOf(m[1])) < MIN_RATIO)
+		.map((m) => m[0]);
+}
+
 const svelteFiles = (dir: string): string[] =>
 	readdirSync(dir).flatMap((name) => {
 		const path = join(dir, name);
@@ -32,6 +51,30 @@ const publicStyleFiles = [
 	join(ROOT, 'src/routes/contact/+page.svelte')
 ];
 
+describe('contrast test helpers', () => {
+	test.each([
+		['0.6', 0.6],
+		['60%', 0.6],
+		['35%', 0.35],
+		['.5', 0.5]
+	])('alphaOf(%s) normalises to %d', (raw, expected) => {
+		expect(alphaOf(raw)).toBeCloseTo(expected);
+	});
+
+	test('alphaOf fails loudly instead of returning NaN', () => {
+		expect(() => alphaOf('abc')).toThrow(/alpha/i);
+		expect(() => alphaOf('150%')).toThrow(/alpha/i);
+	});
+
+	test('the scan catches both decimal and percentage alphas below 4.5:1', () => {
+		expect(lowContrastColours('a { color: rgb(244 244 248 / 0.35); }')).toEqual(['color: rgb(244 244 248 / 0.35)']);
+		expect(lowContrastColours('a { color: rgb(244 244 248 / 35%); }')).toEqual(['color: rgb(244 244 248 / 35%)']);
+		expect(lowContrastColours('a { color: rgb(244 244 248 / 60%); }')).toEqual([]);
+		expect(lowContrastColours('a { border-color: rgb(244 244 248 / 0.2); }')).toEqual([]);
+		expect(lowContrastColours('.t-arrow { color: rgb(244 244 248 / 0.4); }')).toEqual([]);
+	});
+});
+
 describe('public text contrast (MSG-6)', () => {
 	test('the checker itself rejects the alphas the audit measured below 4.5:1', () => {
 		expect(onSurface(0.35)).toBeLessThan(MIN_RATIO);
@@ -41,21 +84,15 @@ describe('public text contrast (MSG-6)', () => {
 
 	test('--text-muted meets 4.5:1 on the lightest surface', () => {
 		const css = readFileSync(join(ROOT, 'src/app.css'), 'utf8');
-		const match = css.match(/--text-muted:\s*rgb\(244 244 248 \/ ([\d.]+)\)/);
+		const match = css.match(/--text-muted:\s*rgb\(244 244 248 \/ ([\d.]+%?)\)/);
 		if (!match) throw new Error('--text-muted must be defined in app.css as rgb(244 244 248 / alpha)');
-		expect(onSurface(Number(match[1]))).toBeGreaterThanOrEqual(MIN_RATIO);
+		expect(onSurface(alphaOf(match[1]))).toBeGreaterThanOrEqual(MIN_RATIO);
 	});
 
 	test.each(publicStyleFiles.map((file) => [file.replace(ROOT, ''), file]))(
 		'%s declares no translucent text colour below 4.5:1',
 		(_name, file) => {
-			const failures = readFileSync(file, 'utf8')
-				.split('\n')
-				.filter((line) => !DECORATIVE.test(line))
-				.flatMap((line) => [...line.matchAll(/(?<![-\w])color:\s*rgb\(244 244 248 \/ ([\d.]+)\)/g)])
-				.filter((m) => onSurface(Number(m[1])) < MIN_RATIO)
-				.map((m) => m[0]);
-			expect(failures).toEqual([]);
+			expect(lowContrastColours(readFileSync(file, 'utf8'))).toEqual([]);
 		}
 	);
 });

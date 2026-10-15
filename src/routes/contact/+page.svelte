@@ -128,7 +128,7 @@
 		margin: 16px 0 32px;
 		max-width: 52ch;
 		line-height: 1.6;
-		color: rgb(244 244 248 / 0.6);
+		color: var(--text-muted);
 	}
 	.contact-form {
 		display: grid;
@@ -164,7 +164,7 @@
 		margin: 0;
 		font-size: 12px;
 		line-height: 1.5;
-		color: rgb(244 244 248 / 0.6);
+		color: var(--text-muted);
 	}
 	.check {
 		display: flex;
@@ -201,7 +201,7 @@
 	}
 	.success-note {
 		font-size: 13px;
-		color: rgb(244 244 248 / 0.6);
+		color: var(--text-muted);
 	}
 	.success .btn {
 		margin-top: 8px;
