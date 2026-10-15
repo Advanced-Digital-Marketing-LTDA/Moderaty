@@ -137,3 +137,12 @@ describe('ratchets workflow', () => {
 		expect(workflow).not.toContain('continue-on-error');
 	});
 });
+
+describe('review workflows', () => {
+	test.each(['ratchets.yml', 'adversarial-review.yml', 'claude-code-review.yml'])('%s pins every action to a full commit SHA', name => {
+		const workflow = readFileSync(new URL(`../../.github/workflows/${name}`, import.meta.url), 'utf8');
+		const uses = [...workflow.matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)].map(match => match[1]);
+		expect(uses.length).toBeGreaterThan(0);
+		for (const ref of uses) expect(ref).toMatch(/@[0-9a-f]{40}$/);
+	});
+});
