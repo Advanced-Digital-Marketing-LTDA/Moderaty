@@ -4,10 +4,10 @@ import { pathToFileURL } from 'node:url';
 
 // AGENTS.md: never force-push, never push to main. Exit code 2 blocks the tool
 // call and shows the reason to the agent; any malformed input blocks too.
-// `git` plus any global options (-C <dir>, -c k=v, --no-pager, ...), then the
+// `git` plus any global options (-C <dir>, -c k=v, --git-dir <dir>, --no-pager, ...), then the
 // push subcommand; the arguments after it are captured and judged separately.
 // Anchoring on the subcommand keeps `git commit -m "push --force"` allowed.
-const PUSH = /\bgit(?:\s+(?:-[Cc]\s+\S+|-{1,2}[^\s;&|]+))*\s+push\b([^;&|\n]*)/g;
+const PUSH = /\bgit(?:\s+(?:-[Cc]\s+\S+|--(?:git-dir|work-tree|namespace|exec-path|super-prefix|config-env)\s+\S+|-{1,2}[^\s;&|]+))*\s+push\b([^;&|\n]*)/g;
 const FORCE_ARGS = /\s--force(?:-with-lease)?\b|\s-[a-zA-Z]*f[a-zA-Z]*\b|\s\+\S/;
 const MAIN_ARG = /\s(?:\S+:)?(?:refs\/heads\/)?main\b/;
 

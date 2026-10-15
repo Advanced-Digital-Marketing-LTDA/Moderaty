@@ -14,7 +14,9 @@ describe('forbiddenPushReason', () => {
 		'git push origin dev\ngit push --force',
 		'git -C ../repo push --force origin dev',
 		'git -c core.x=1 push origin main',
-		'git --no-pager push -f'
+		'git --no-pager push -f',
+		'git --git-dir /tmp/repo push --force',
+		'git --work-tree . --git-dir=.git push origin main'
 	])('blocks %s', command => expect(forbiddenPushReason(command)).not.toBeNull());
 
 	test.each([
