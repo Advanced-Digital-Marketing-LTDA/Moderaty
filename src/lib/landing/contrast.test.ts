@@ -90,6 +90,15 @@ describe('public text contrast (MSG-6)', () => {
 		expect(onSurface(alphaOf(match[1]))).toBeGreaterThanOrEqual(MIN_RATIO);
 	});
 
+	test('placeholder text resets the browser default opacity so the token alpha is the only alpha', () => {
+		const css = readFileSync(join(ROOT, 'src/app.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+		const rule = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].find(([, selectors]) =>
+			selectors.split(',').some((selector) => selector.trim() === 'input::placeholder')
+		);
+		if (!rule) throw new Error('app.css must style input::placeholder');
+		expect(rule[2].match(/(?<![-\w])opacity:\s*([\d.]+)/)?.[1]).toBe('1');
+	});
+
 	test.each(publicStyleFiles.map((file) => [file.replace(ROOT, ''), file]))(
 		'%s declares no translucent text colour below 4.5:1',
 		(_name, file) => {
