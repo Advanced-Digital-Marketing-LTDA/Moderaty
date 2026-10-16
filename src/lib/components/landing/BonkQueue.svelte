@@ -248,7 +248,9 @@
 		border-color: rgb(244 244 248 / 0.25);
 		background: var(--ink);
 	}
-	.row-settled {
+	/* Dim the text, not the row: a parent opacity would also dim the verdict stamp below 4.5:1. */
+	.row-settled .row-body,
+	.row-settled .row-reason {
 		opacity: 0.55;
 	}
 	.row-main {
@@ -292,7 +294,7 @@
 		letter-spacing: 0.12em;
 		color: var(--text-muted);
 	}
-	/* The settled row is dimmed to 0.55 opacity, which multiplies into the muted text colours. */
+	/* The settled row body is dimmed to 0.55 opacity, which multiplies into the muted text colours. */
 	.row-settled .row-reason,
 	.row-settled .row-author { color: var(--text); }
 </style>

@@ -49,6 +49,10 @@ const svelteFiles = (dir: string): string[] =>
 const publicStyleFiles = [
 	...svelteFiles(join(ROOT, 'src/lib/components/landing')),
 	join(ROOT, 'src/routes/contact/+page.svelte'),
+	join(ROOT, 'src/routes/contact/verify/+page.svelte'),
+	join(ROOT, 'src/routes/+page.svelte'),
+	join(ROOT, 'src/routes/pricing/+page.svelte'),
+	join(ROOT, 'src/routes/blogs/+layout.svelte'),
 	join(ROOT, 'src/app.css')
 ];
 
@@ -129,11 +133,26 @@ describe('dimmed rows (review findings on PR #244)', () => {
 		return undefined;
 	};
 
-	const source = css('src/lib/components/landing/BonkQueue.svelte');
-	const rowOpacity = Number(source.match(/\.row-settled\s*\{[^}]*?opacity:\s*([\d.]+)/)?.[1]);
+	const declaredOpacity = (source: string, selector: string): string | undefined => {
+		for (const [, selectors, body] of source.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+			if (!selectors.split(',').some((candidate) => candidate.trim() === selector)) continue;
+			const opacity = body.match(/(?<![-\w])opacity:\s*([\d.]+)/)?.[1];
+			if (opacity) return opacity;
+		}
+		return undefined;
+	};
 
-	test('the settled row declares its opacity', () => {
+	const source = css('src/lib/components/landing/BonkQueue.svelte');
+	const rowOpacity = Number(source.match(/\.row-settled \.row-body,\s*\.row-settled \.row-reason\s*\{[^}]*?opacity:\s*([\d.]+)/)?.[1]);
+
+	test('the settled row dims its body, not the whole row', () => {
 		expect(Number.isFinite(rowOpacity)).toBe(true);
+	});
+
+	test('the verdict stamp is not dimmed with the settled row', () => {
+		// A parent opacity multiplies into the stamp, taking the red and mint labels under 4.5:1.
+		expect(declaredOpacity(source, '.row-settled')).toBeUndefined();
+		expect(declaredOpacity(source, '.stamp-settled')).toBe('1');
 	});
 
 	test.each(['row-reason', 'row-author', 'row-text'])(
