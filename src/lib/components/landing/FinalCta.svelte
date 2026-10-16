@@ -71,7 +71,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	@media (min-width: 768px) {
 		.title {

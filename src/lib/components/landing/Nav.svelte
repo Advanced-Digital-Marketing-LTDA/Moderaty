@@ -93,7 +93,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.16em;
-		color: rgb(244 244 248 / 0.55);
+		color: var(--text-muted);
 		text-decoration: none;
 		transition: color 200ms ease;
 	}

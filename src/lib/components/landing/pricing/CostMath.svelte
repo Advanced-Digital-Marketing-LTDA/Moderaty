@@ -151,7 +151,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.18em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.terminal-body {
 		padding: 16px;
@@ -160,7 +160,7 @@
 		line-height: 2;
 		overflow-x: auto;
 	}
-	.t-dim { color: rgb(244 244 248 / 0.45); }
+	.t-dim { color: var(--text-muted); }
 	.t-lit { color: rgb(244 244 248 / 0.85); }
 	.calculator-grid {
 		display: grid;
@@ -181,7 +181,7 @@
 	.calculator > label:not(:first-of-type) { margin-top: 12px; }
 	.calculator input { width: 100%; box-sizing: border-box; }
 	.calculator > strong { display: block; margin-top: 16px; color: var(--mint); font-family: var(--font-mono); font-size: 20px; }
-	.calculator > strong span, .forecast span { color: rgb(244 244 248 / 0.5); font-size: 11px; font-weight: 400; }
+	.calculator > strong span, .forecast span { color: var(--text-muted); font-size: 11px; font-weight: 400; }
 	.month-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 	.forecast { margin: 16px 0 0; color: var(--mint); font-family: var(--font-mono); font-size: 18px; }
 	.input-error { margin: 12px 0 0; color: var(--brand); font-size: 12px; }
@@ -194,7 +194,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
-		color: rgb(244 244 248 / 0.35);
+		color: var(--text-muted);
 	}
 	@media (min-width: 768px) {
 		.section-title {

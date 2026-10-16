@@ -63,6 +63,7 @@
 	--text: #f4f4f2;
 	--text-2: #9b9ba4;
 	--text-3: #5c5c66;
+	--text-muted: rgb(244 244 248 / 0.6);
 	--accent: #ff3131;
 	--accent-press: #e02b2b;
 	--ok: #3ddc84;
@@ -389,7 +390,8 @@ input:focus, select:focus, textarea:focus {
 	border-color: var(--accent);
 	outline: none;
 }
-input::placeholder, textarea::placeholder { color: rgb(244 244 248 / 35%); }
+/* Firefox dims placeholders by default; reset it so the token alpha is the only alpha. */
+input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1; }
 form.inline { display: inline; }
 
 /* ── redesign primitives (spec §7 / Step 1.3) ───────────── */

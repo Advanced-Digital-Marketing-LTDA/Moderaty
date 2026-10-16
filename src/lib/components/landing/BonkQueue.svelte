@@ -189,7 +189,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.4);
+		color: var(--text-muted);
 	}
 	.counters {
 		display: grid;
@@ -207,7 +207,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.counter-value {
 		font-family: var(--font-mono);
@@ -242,13 +242,18 @@
 		border: 1px solid var(--line);
 		background: rgb(11 11 20 / 0.6);
 		padding: 10px 12px;
+	}
+	.row-body,
+	.row-reason {
 		transition: opacity 350ms cubic-bezier(0.23, 1, 0.32, 1);
 	}
 	.row-incoming {
 		border-color: rgb(244 244 248 / 0.25);
 		background: var(--ink);
 	}
-	.row-settled {
+	/* Dim the text, not the row: a parent opacity would also dim the verdict stamp below 4.5:1. */
+	.row-settled .row-body,
+	.row-settled .row-reason {
 		opacity: 0.55;
 	}
 	.row-main {
@@ -290,6 +295,9 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
-		color: rgb(244 244 248 / 0.4);
+		color: var(--text-muted);
 	}
+	/* The settled row body is dimmed to 0.55 opacity, which multiplies into the muted text colours. */
+	.row-settled .row-reason,
+	.row-settled .row-author { color: var(--text); }
 </style>

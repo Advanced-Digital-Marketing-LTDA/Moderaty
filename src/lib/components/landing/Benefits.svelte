@@ -93,7 +93,7 @@
 		font-size: 14px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.5);
+		color: var(--text-muted);
 	}
 	.chunk-title {
 		margin: 24px 0 0;

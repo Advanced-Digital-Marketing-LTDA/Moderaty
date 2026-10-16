@@ -4,6 +4,7 @@
 	// loading, so loading/empty/error states cannot occur and SSR always
 	// renders the populated page.
 	import Nav from '$lib/components/landing/Nav.svelte';
+	import SkipLink from '$lib/components/landing/SkipLink.svelte';
 	import PricingHero from '$lib/components/landing/pricing/PricingHero.svelte';
 	import PricingPlans from '$lib/components/landing/pricing/PricingPlans.svelte';
 	import CostMath from '$lib/components/landing/pricing/CostMath.svelte';
@@ -57,8 +58,9 @@
 	{@html jsonLd(faqPage)}
 </svelte:head>
 
+<SkipLink />
 <Nav />
-<main>
+<main id="main-content" tabindex="-1">
 	<PricingHero />
 	<PricingPlans />
 	<CostMath />
