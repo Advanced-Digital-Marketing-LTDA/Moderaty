@@ -1,8 +1,10 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
-const ROOT = new URL('../../..', import.meta.url).pathname;
+const rootFrom = (url: string) => fileURLToPath(new URL('../../..', url));
+const ROOT = rootFrom(import.meta.url);
 const MIN_RATIO = 4.5;
 // Lightest surface that landing text sits on (--surface-2 in app.css); the worst case for light-on-dark text.
 const LIGHTEST_SURFACE = [0x16, 0x16, 0x1b];
@@ -65,6 +67,12 @@ const publicStyleFiles = [
 	join(ROOT, 'src/routes/blogs/+layout.svelte'),
 	join(ROOT, 'src/app.css')
 ];
+
+describe('repository root', () => {
+	test('a checkout path with spaces resolves to a real filesystem path', () => {
+		expect(rootFrom('file:///work/my repo/src/lib/landing/contrast.test.ts')).toBe('/work/my repo/');
+	});
+});
 
 describe('contrast test helpers', () => {
 	test.each([
@@ -167,11 +175,25 @@ describe('dimmed rows (review findings on PR #244)', () => {
 		return undefined;
 	};
 
+	const declaredTransition = (source: string, selector: string): string | undefined => {
+		for (const [, selectors, body] of source.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+			if (!selectors.split(',').some((candidate) => candidate.trim() === selector)) continue;
+			const transition = body.match(/(?<![-\w])transition:\s*([^;]+);/)?.[1].trim();
+			if (transition) return transition;
+		}
+		return undefined;
+	};
+
 	const source = css('src/lib/components/landing/BonkQueue.svelte');
 	const rowOpacity = Number(source.match(/\.row-settled \.row-body,\s*\.row-settled \.row-reason\s*\{[^}]*?opacity:\s*([\d.]+)/)?.[1]);
 
 	test('the settled row dims its body, not the whole row', () => {
 		expect(Number.isFinite(rowOpacity)).toBe(true);
+	});
+
+	test.each(['.row-body', '.row-reason'])('%s fades when the row settles instead of dimming instantly', (selector) => {
+		// The opacity change moved from .row to its children, so the transition must move with it.
+		expect(declaredTransition(source, selector)).toMatch(/^opacity\b/);
 	});
 
 	test('the verdict stamp is not dimmed with the settled row', () => {

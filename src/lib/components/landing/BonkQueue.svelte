@@ -242,6 +242,9 @@
 		border: 1px solid var(--line);
 		background: rgb(11 11 20 / 0.6);
 		padding: 10px 12px;
+	}
+	.row-body,
+	.row-reason {
 		transition: opacity 350ms cubic-bezier(0.23, 1, 0.32, 1);
 	}
 	.row-incoming {
