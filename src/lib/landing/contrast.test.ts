@@ -30,12 +30,22 @@ function alphaOf(raw: string): number {
 	return value;
 }
 
+/** CSS rules of a stylesheet, or of the `<style>` blocks of a component; comments are dropped. */
+function cssRules(source: string): { selectors: string[]; body: string }[] {
+	const css = source.includes('<style')
+		? [...source.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n')
+		: source;
+	return [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({
+		selectors: m[1].split(',').map((selector) => selector.trim()),
+		body: m[2]
+	}));
+}
+
 /** Translucent text colours in a stylesheet or component that fall below the minimum contrast. */
 function lowContrastColours(source: string): string[] {
-	return source
-		.split('\n')
-		.filter((line) => !DECORATIVE.test(line))
-		.flatMap((line) => [...line.matchAll(ALPHA_COLOUR)])
+	return cssRules(source)
+		.filter((rule) => !rule.selectors.every((selector) => DECORATIVE.test(selector)))
+		.flatMap((rule) => [...rule.body.matchAll(ALPHA_COLOUR)])
 		.filter((m) => onSurface(alphaOf(m[1])) < MIN_RATIO)
 		.map((m) => m[0]);
 }
@@ -81,6 +91,21 @@ describe('contrast test helpers', () => {
 });
 
 describe('public text contrast (MSG-6)', () => {
+	const LOW = 'color: rgb(244 244 248 / 0.35)';
+
+	test('a rule whose selectors are all decorative is exempt', () => {
+		expect(lowContrastColours(`<style>.t-arrow { ${LOW}; }</style>`)).toEqual([]);
+	});
+
+	test('a grouped rule with one informative selector is still scanned', () => {
+		expect(lowContrastColours(`<style>.t-arrow, .row-reason { ${LOW}; }</style>`)).toEqual([LOW]);
+	});
+
+	test('a colour declared across several lines is still scanned', () => {
+		const multiline = `<style>.note {\n\tcolor:\n\t\trgb(244 244 248 / 0.35);\n}</style>`;
+		expect(lowContrastColours(multiline)).toHaveLength(1);
+	});
+
 	test('the checker itself rejects the alphas the audit measured below 4.5:1', () => {
 		expect(onSurface(0.35)).toBeLessThan(MIN_RATIO);
 		expect(onSurface(0.45)).toBeLessThan(MIN_RATIO);
