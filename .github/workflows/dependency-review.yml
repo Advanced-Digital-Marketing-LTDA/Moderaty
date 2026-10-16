@@ -9,6 +9,6 @@ permissions:
 
 jobs:
   dependency-review:
-    uses: Advanced-Digital-Marketing-LTDA/Langlo/.github/workflows/reusable-dependency-review.yml@76601f820e777b65e4d69d5e01650d226e87e6c7 # Langlo PR 41 head; bump to its merge commit after it merges
+    uses: Advanced-Digital-Marketing-LTDA/Langlo/.github/workflows/reusable-dependency-review.yml@d9a11b097c0094b7d8b50a7fa0d4fbe0851ca9c8 # Langlo main, merge of PR 41
     with:
       comment-summary-in-pr: always
