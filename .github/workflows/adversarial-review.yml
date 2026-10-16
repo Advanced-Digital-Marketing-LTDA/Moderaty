@@ -16,7 +16,7 @@ jobs:
   review:
     # Fork PRs never receive secrets, so the job is skipped for them (shown as
     # skipped in the checks list). A missing token on a same-repo PR fails loudly.
-    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
