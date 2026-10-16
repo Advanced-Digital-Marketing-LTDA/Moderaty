@@ -46,10 +46,10 @@ jobs:
           echo "$(npm root --global)/@anthropic-ai/claude-code-linux-x64" >> "$GITHUB_PATH"
       - name: Verify Claude CLI installation
         run: claude --version
-      - name: Adversarial review (one pass, findings verified)
+      - name: Adversarial review (two passes, findings verified)
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           adversarial-review --provider claude --model haiku --base "$BASE_SHA" \
-            --passes 1 --verify --fail-on high --fail-on-empty
+            --passes 2 --verify --fail-on high --fail-on-empty
