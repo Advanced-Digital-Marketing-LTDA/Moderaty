@@ -6,7 +6,7 @@ export const SPAM_COMMENTS = {
 
 // readingMinutes is the rendered article's word count at 200 words per minute,
 // rounded up; article-standards.test.ts recomputes it from the final text.
-export const SPAM_COMMENTS_EDITION = { updated: '2026-10-14', readingMinutes: 12 } as const;
+export const SPAM_COMMENTS_EDITION = { updated: '2026-10-20', readingMinutes: 12 } as const;
 
 export const SPAM_COMMENT_SECTIONS = [
 	{ id: 'native-controls', title: 'Which YouTube comment controls stop spam?' },

@@ -25,8 +25,11 @@ test.each([
 	expect(source).toMatch(/<main id="main-content" tabindex="-1"/);
 });
 
-test('blog pages keep their own #blog-content target behind the shared component', () => {
-	const source = read('./blogs/+layout.svelte');
+test('editorial pages keep their own #blog-content target behind the shared component', () => {
+	for (const path of ['./blogs/+layout.svelte', './guides/+layout.svelte']) {
+		expect(read(path)).toContain('<EditorialLayout>{@render children()}</EditorialLayout>');
+	}
+	const source = read('../lib/components/blogs/EditorialLayout.svelte');
 	expect(source).toContain('<SkipLink target="blog-content" />');
 	expect(source).toContain('<main id="blog-content"');
 });

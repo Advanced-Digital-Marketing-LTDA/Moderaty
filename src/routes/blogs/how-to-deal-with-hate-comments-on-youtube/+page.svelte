@@ -5,6 +5,7 @@
 	import { BLOG_AUTHOR } from '$lib/blogs/author';
 	import { HATE_COMMENTS, HATE_COMMENTS_EDITION, HATE_COMMENT_SECTIONS as sections } from '$lib/blogs/hate-comments';
 	import { SPAM_COMMENTS } from '$lib/blogs/spam-comments';
+	import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
 </script>
@@ -94,6 +95,7 @@
 	<h3>Should I reply to someone who is insulting me?</h3>
 	<p>Only if you can add something useful, such as a factual correction or a clear answer. You can remove or report abuse under your rules without debating the commenter. Not every troll deserves a main-character moment.</p>
 
+	<p>For the wider workflow, my <a href={MODERATION_GUIDE.path}>YouTube comment moderation guide for creators</a> connects these decisions with native settings, review routines and testing automation.</p>
 	<h2 id={sections.author.id} tabindex="-1">{sections.author.title}</h2>
 	<p>{BLOG_AUTHOR.bio}</p>
 </article>

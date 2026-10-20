@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { HATE_COMMENTS } from '$lib/blogs/hate-comments';
 import { SPAM_COMMENTS } from '$lib/blogs/spam-comments';
+import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 
 // The crawlable surface: marketing, legal, and the two public utility
 // pages. Everything else — the (app) console, OAuth/consent/invite/verify
@@ -17,11 +18,12 @@ export const PUBLIC_PAGES = [
 	'/dpa',
 	'/blogs/',
 	HATE_COMMENTS.path,
-	SPAM_COMMENTS.path
+	SPAM_COMMENTS.path,
+	MODERATION_GUIDE.path
 ] as const;
 
 // Pages whose own route renders <link rel="canonical">; the root layout covers the rest.
-const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path];
+const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path, MODERATION_GUIDE.path];
 const LAYOUT_CANONICAL_PAGES = PUBLIC_PAGES.filter((path) => !SELF_CANONICAL_PAGES.includes(path));
 
 // Runtime-rendered editorial and legal pages need the configured origin, not a session or DB.
@@ -29,6 +31,7 @@ export const PUBLIC_BLOG_ROUTE_IDS = [
 	'/blogs',
 	HATE_COMMENTS.path.slice(0, -1),
 	SPAM_COMMENTS.path.slice(0, -1),
+	MODERATION_GUIDE.path.slice(0, -1),
 	'/privacy',
 	'/terms',
 	'/dpa'
@@ -138,6 +141,7 @@ export function llmsTxt(): string {
 		`- [Blogs](${link('/blogs/')}) — YouTube comment moderation advice`,
 		`- [${HATE_COMMENTS.title}](${link(HATE_COMMENTS.path)}) — choosing a response to hurtful comments`,
 		`- [${SPAM_COMMENTS.title}](${link(SPAM_COMMENTS.path)}) — native controls and review for recurring spam patterns`,
+		`- [${MODERATION_GUIDE.title}](${link(MODERATION_GUIDE.path)}) — choosing actions, settings and a review workflow`,
 		'',
 		'## Legal',
 		'',

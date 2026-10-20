@@ -64,7 +64,7 @@ const publicStyleFiles = [
 	join(ROOT, 'src/routes/contact/verify/+page.svelte'),
 	join(ROOT, 'src/routes/+page.svelte'),
 	join(ROOT, 'src/routes/pricing/+page.svelte'),
-	join(ROOT, 'src/routes/blogs/+layout.svelte'),
+	join(ROOT, 'src/lib/components/blogs/EditorialLayout.svelte'),
 	join(ROOT, 'src/app.css')
 ];
 

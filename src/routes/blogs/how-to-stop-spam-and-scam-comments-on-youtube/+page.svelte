@@ -3,6 +3,7 @@
 	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
 	import ArticleByline from '$lib/components/blogs/ArticleByline.svelte';
 	import { BLOG_AUTHOR } from '$lib/blogs/author';
+	import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 	import { HATE_COMMENTS } from '$lib/blogs/hate-comments';
 	import { SPAM_COMMENTS, SPAM_COMMENTS_EDITION, SPAM_COMMENT_SECTIONS, SPAM_RULE_EXAMPLES } from '$lib/blogs/spam-comments';
 	import type { PageData } from './$types';
@@ -117,6 +118,7 @@
 	<h3>Does Moderaty replace YouTube’s spam review?</h3>
 	<p>No, and I don’t want it to pretend otherwise. I keep reviewing replies and Held comments in YouTube Studio and report impersonators there. Moderaty’s source-confirmed retrieval and text rules have the limits described above.</p>
 
+	<p>For the wider workflow, my <a href={MODERATION_GUIDE.path}>YouTube comment moderation guide for creators</a> connects spam review with native settings, handling criticism and testing automation.</p>
 	<section id="author" aria-labelledby="author-heading">
 		<h2 id="author-heading">About the author</h2>
 		<p>{BLOG_AUTHOR.bio}</p>
