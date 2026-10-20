@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
+	import TableScroll from '$lib/components/blogs/TableScroll.svelte';
 	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
 	import ArticleByline from '$lib/components/blogs/ArticleByline.svelte';
 	import { BLOG_AUTHOR } from '$lib/blogs/author';
@@ -75,8 +76,7 @@
 
 	<h2 id="custom-rules" tabindex="-1">{heading['custom-rules']}</h2>
 	<p>Test a custom moderation rule by starting it on hold for review, so you can inspect matches before you make an irreversible choice. These invented examples were tested against Moderaty’s source rule matcher. They show how text matching works, not scam-detection accuracy or results on a live channel.</p>
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll this named table region.) -->
-	<div class="table-scroll" role="region" aria-labelledby="rules-caption" tabindex="0">
+	<TableScroll captionId="rules-caption">
 		<table>
 			<caption id="rules-caption">Synthetic hold rules and their limitations</caption>
 			<thead><tr><th scope="col">Rule type and pattern</th><th scope="col">Matching example</th><th scope="col">Review limit</th></tr></thead>
@@ -86,7 +86,7 @@
 				{/each}
 			</tbody>
 		</table>
-	</div>
+	</TableScroll>
 	<p>In Moderaty, keyword rules match a phrase without regard to case, and regex rules match a text pattern. A blocked-user rule takes the author’s channel ID, not a display name. <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/rules.ts" target="_blank" rel="noopener noreferrer">The source matcher</a> validates regex patterns and tries longer patterns first, so an overlapping rule can decide the action. I review my existing rules before adding one.</p>
 	<p>Protected handles skip rules and AI scoring, so I confirm an account before protecting it. For other retrieved comments, Moderaty applies matching rules before AI scoring. Its <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/moderation.ts" target="_blank" rel="noopener noreferrer">toxicity scoring</a> does not establish that an account is genuine or that a link is safe.</p>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
+	import TableScroll from '$lib/components/blogs/TableScroll.svelte';
 	import ArticleByline from '$lib/components/blogs/ArticleByline.svelte';
 	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
 	import { BLOG_AUTHOR } from '$lib/blogs/author';
@@ -34,8 +35,7 @@
 
 	<h2 id="choose-an-action" tabindex="-1">Start with the comment</h2>
 	<p>One rule for difficult comments can hide a useful correction or leave a harmful pattern untouched. The Crypto Bot does not get to set my channel rules, and neither does a keyword match. I match my response to what the viewer wrote and what my channel rules allow.</p>
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll this named table region.) -->
-	<div class="table-scroll" role="region" aria-labelledby="decision-caption" tabindex="0">
+	<TableScroll captionId="decision-caption">
 		<table>
 			<caption id="decision-caption">Choose a response by comment type</caption>
 			<thead><tr><th scope="col">If the comment is…</th><th scope="col">My next step</th></tr></thead>
@@ -46,7 +46,7 @@
 				<tr><th scope="row">Ambiguous or dependent on context</th><td>I check the surrounding discussion before deciding. I use a hold option where the moderation surface offers one.</td></tr>
 			</tbody>
 		</table>
-	</div>
+	</TableScroll>
 	<p>For decisions about criticism, hate and harassment, see <a href={HATE_COMMENTS.path}>how to deal with hate comments on YouTube</a>. For scam and impersonation patterns, see <a href={SPAM_COMMENTS.path}>how to stop spam and scam comments on your YouTube channel</a>.</p>
 	<p>A report asks YouTube to assess a suspected violation; it does not guarantee removal. YouTube explains the process in its <a href="https://support.google.com/youtube/answer/2802027?hl=en" target="_blank" rel="noopener">reporting instructions</a>. I keep that decision separate from removing a comment under my own channel rules.</p>
 	<p>Hiding a user affects more than one comment. YouTube says it hides activity including comments, live chats and Community posts from the user and associated accounts. The user gets no notification, but past activity from associated accounts remains visible. I check the <a href="https://support.google.com/youtube/answer/9482361?hl=en" target="_blank" rel="noopener">hide or unhide users instructions</a> before choosing this broader action.</p>

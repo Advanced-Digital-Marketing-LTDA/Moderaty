@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
+	import TableScroll from '$lib/components/blogs/TableScroll.svelte';
 	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
 	import ArticleByline from '$lib/components/blogs/ArticleByline.svelte';
 	import { BLOG_AUTHOR } from '$lib/blogs/author';
@@ -33,8 +34,7 @@
 
 	<h2 id={sections.action.id} tabindex="-1">{sections.action.title}</h2>
 	<p>Here is the cheat sheet I use. These fictional examples show the difference between common moderation choices. They are not quotes from real viewers. I often combine actions, and I report a serious threat right away without replying or warning the person first.</p>
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll this named table region.) -->
-	<div class="table-scroll" role="region" aria-labelledby="actions-caption" tabindex="0">
+	<TableScroll captionId="actions-caption">
 		<table>
 			<caption id="actions-caption">Actions for hate comments</caption>
 			<thead><tr><th scope="col">What you see</th><th scope="col">Possible action</th><th scope="col">Why</th></tr></thead>
@@ -46,7 +46,7 @@
 				<tr><th scope="row">A threat or someone sharing your private address.</th><td>Save evidence, report it and consider hiding the person.</td><td>Get help outside YouTube if you feel unsafe.</td></tr>
 			</tbody>
 		</table>
-	</div>
+	</TableScroll>
 
 	<h2 id={sections.criticism.id} tabindex="-1">{sections.criticism.title}</h2>
 	<p>Criticism gives you something specific to check; a personal attack targets you. “The music makes your voice hard to hear” is an audio bug report. “Your voice is disgusting” is someone having a bad day at my expense. On YouTube, “hate comment” covers both, plus everything in between, so I ask one question first: can I verify anything in this comment?</p>
