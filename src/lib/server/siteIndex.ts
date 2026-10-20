@@ -4,7 +4,7 @@ import { HATE_COMMENTS } from '$lib/blogs/hate-comments';
 import { SPAM_COMMENTS } from '$lib/blogs/spam-comments';
 import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 
-// The crawlable surface: marketing, legal, and the two public utility
+// The crawlable surface: marketing, legal, public utility and editorial
 // pages. Everything else — the (app) console, OAuth/consent/invite/verify
 // flow pages, and /api — is authenticated or single-use and stays out of
 // the sitemap on purpose.
