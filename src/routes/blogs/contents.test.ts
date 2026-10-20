@@ -46,7 +46,7 @@ test('section targets can receive keyboard focus after following a contents link
 
 
 test('preserved H3 deep links have a scroll offset larger than the fixed navigation', () => {
-	const source = readFileSync(new URL('./+layout.svelte', import.meta.url), 'utf8');
+	const source = readFileSync(new URL('../../lib/components/blogs/EditorialLayout.svelte', import.meta.url), 'utf8');
 	const css = compile(source, { generate: 'server' }).css!.code;
 	const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)];
 	const h3Offset = rules.filter(([, selector]) => selector.includes('h3[id]'))

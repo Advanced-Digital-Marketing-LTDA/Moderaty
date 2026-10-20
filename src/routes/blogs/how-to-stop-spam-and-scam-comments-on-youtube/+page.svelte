@@ -1,8 +1,10 @@
 <script lang="ts">
 	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
+	import TableScroll from '$lib/components/blogs/TableScroll.svelte';
 	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
 	import ArticleByline from '$lib/components/blogs/ArticleByline.svelte';
 	import { BLOG_AUTHOR } from '$lib/blogs/author';
+	import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 	import { HATE_COMMENTS } from '$lib/blogs/hate-comments';
 	import { SPAM_COMMENTS, SPAM_COMMENTS_EDITION, SPAM_COMMENT_SECTIONS, SPAM_RULE_EXAMPLES } from '$lib/blogs/spam-comments';
 	import type { PageData } from './$types';
@@ -74,8 +76,7 @@
 
 	<h2 id="custom-rules" tabindex="-1">{heading['custom-rules']}</h2>
 	<p>Test a custom moderation rule by starting it on hold for review, so you can inspect matches before you make an irreversible choice. These invented examples were tested against Moderaty’s source rule matcher. They show how text matching works, not scam-detection accuracy or results on a live channel.</p>
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to scroll this named table region.) -->
-	<div class="table-scroll" role="region" aria-labelledby="rules-caption" tabindex="0">
+	<TableScroll captionId="rules-caption">
 		<table>
 			<caption id="rules-caption">Synthetic hold rules and their limitations</caption>
 			<thead><tr><th scope="col">Rule type and pattern</th><th scope="col">Matching example</th><th scope="col">Review limit</th></tr></thead>
@@ -85,7 +86,7 @@
 				{/each}
 			</tbody>
 		</table>
-	</div>
+	</TableScroll>
 	<p>In Moderaty, keyword rules match a phrase without regard to case, and regex rules match a text pattern. A blocked-user rule takes the author’s channel ID, not a display name. <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/rules.ts" target="_blank" rel="noopener noreferrer">The source matcher</a> validates regex patterns and tries longer patterns first, so an overlapping rule can decide the action. I review my existing rules before adding one.</p>
 	<p>Protected handles skip rules and AI scoring, so I confirm an account before protecting it. For other retrieved comments, Moderaty applies matching rules before AI scoring. Its <a href="https://github.com/Bonobo791/Moderaty/blob/main/src/lib/server/moderation.ts" target="_blank" rel="noopener noreferrer">toxicity scoring</a> does not establish that an account is genuine or that a link is safe.</p>
 
@@ -117,6 +118,7 @@
 	<h3>Does Moderaty replace YouTube’s spam review?</h3>
 	<p>No, and I don’t want it to pretend otherwise. I keep reviewing replies and Held comments in YouTube Studio and report impersonators there. Moderaty’s source-confirmed retrieval and text rules have the limits described above.</p>
 
+	<p>For the wider workflow, my <a href={MODERATION_GUIDE.path}>YouTube comment moderation guide for creators</a> connects spam review with native settings, handling criticism and testing automation.</p>
 	<section id="author" aria-labelledby="author-heading">
 		<h2 id="author-heading">About the author</h2>
 		<p>{BLOG_AUTHOR.bio}</p>

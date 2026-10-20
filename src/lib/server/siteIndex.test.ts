@@ -219,7 +219,7 @@ test('a canonical page fails loudly when APP_URL is missing instead of emitting 
 });
 
 test('every sitemap page is either canonicalised by the layout or by its own route', () => {
-	const selfManaged = ['/', '/blogs/', '/blogs/how-to-deal-with-hate-comments-on-youtube/', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube/'];
+	const selfManaged = ['/', '/blogs/', '/blogs/how-to-deal-with-hate-comments-on-youtube/', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube/', '/guides/youtube-comment-moderation/'];
 	for (const path of PUBLIC_PAGES) {
 		expect(canonicalUrl(path) !== null || selfManaged.includes(path)).toBe(true);
 	}
