@@ -5,7 +5,11 @@ import type { SessionUser } from '$lib/server/session';
 
 declare global {
 	namespace App {
-		// interface Error {}
+		interface Error {
+			message: string;
+			/** Opaque server-generated request ID, safe to share with support. */
+			supportReference?: string;
+		}
 		interface Locals {
 			/** Server-generated opaque correlation, never copied from request headers. */
 			requestId: string;

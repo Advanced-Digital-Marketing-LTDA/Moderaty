@@ -9,7 +9,7 @@ import { FAQ_ENTRIES } from './faq';
 import { PRICING_FAQ_ENTRIES } from './pricing-faq';
 import { TICKS_HOSTED, TICKS_HOSTED_DETAILED, TICKS_LIFETIME, TICKS_LIFETIME_DETAILED } from './plans';
 
-vi.mock('$app/state', () => ({ page: { data: { locale: 'en' }, url: new URL('https://moderaty.example/pricing') } }));
+vi.mock('$app/state', () => ({ page: { data: { locale: 'en', canonical: 'https://moderaty.example/pricing' }, url: new URL('https://moderaty.example/pricing') } }));
 vi.mock('$lib/credit-pricing', async original => ({
 	...await original<typeof import('$lib/credit-pricing')>(),
 	expectedBundlePriceCents: vi.fn((size: number) => size === 500 ? 1234 : 5678)

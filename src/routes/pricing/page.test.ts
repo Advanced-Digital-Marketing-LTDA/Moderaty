@@ -3,8 +3,15 @@ import { expect, test, vi } from 'vitest';
 import { PRICING_FAQ_ENTRIES } from '$lib/landing/pricing-faq';
 import PricingPage from './+page.svelte';
 
+const mocks = vi.hoisted(() => ({ canonical: 'https://moderaty.example/pricing' as string | null }));
+
 vi.mock('$app/state', () => ({
-	page: { data: { locale: 'en' }, url: new URL('https://moderaty.example/pricing') }
+	page: {
+		get data() {
+			return { locale: 'en', canonical: mocks.canonical };
+		},
+		url: new URL('https://moderaty.example/pricing')
+	}
 }));
 
 test.each([
@@ -41,4 +48,27 @@ test('FAQ structured data matches the visible pricing FAQ source', () => {
 		name: q,
 		acceptedAnswer: { '@type': 'Answer', text: a }
 	})));
+});
+
+test('pricing card metadata uses absolute configured-origin URLs and Moderaty branding', () => {
+	const { head } = render(PricingPage);
+	const content = (attr: string, key: string) =>
+		[...head.matchAll(new RegExp(`<meta\\s+${attr}="${key}"\\s+content="([^"]*)"`, 'g'))].map((m) => m[1]);
+
+	expect(content('property', 'og:url')).toEqual(['https://moderaty.example/pricing']);
+	expect(content('property', 'og:site_name')).toEqual(['Moderaty']);
+	expect(content('property', 'og:image')).toEqual(['https://moderaty.example/og.png']);
+	expect(content('name', 'twitter:image')).toEqual(['https://moderaty.example/og.png']);
+	expect(content('name', 'twitter:card')).toEqual(['summary_large_image']);
+	expect(content('name', 'twitter:title')).toEqual(content('property', 'og:title'));
+	expect(content('name', 'twitter:description')).toEqual(content('property', 'og:description'));
+});
+
+test('rendering pricing without the layout canonical fails with a clear message instead of an opaque URL error', () => {
+	mocks.canonical = null;
+	try {
+		expect(() => render(PricingPage).head).toThrow(/pricing page needs the layout canonical/i);
+	} finally {
+		mocks.canonical = 'https://moderaty.example/pricing';
+	}
 });

@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import { error } from '@sveltejs/kit';
 import { DrizzleQueryError } from 'drizzle-orm';
+import errorTemplate from './error.html?raw';
 
 const mocks = vi.hoisted(() => ({
 	getSessionUser: vi.fn(),
@@ -41,8 +42,8 @@ function makeEvent() {
 	};
 }
 
-test.each(['/blogs', '/blogs/how-to-deal-with-hate-comments-on-youtube', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube'])(
-	'public blog %s stays available without database migrations or a valid session',
+test.each(['/blogs', '/blogs/how-to-deal-with-hate-comments-on-youtube', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube', '/guides/youtube-comment-moderation', '/privacy', '/terms', '/dpa'])(
+	'public page %s stays available without database migrations or a valid session',
 	async (routeId) => {
 		mocks.assertMigrationsCurrent.mockImplementation(async () => error(503, 'Migrations pending'));
 		mocks.getSessionUser.mockImplementation(async () => error(500, 'Session integrity failure'));
@@ -93,6 +94,30 @@ test('the locale is read from the exported LOCALE_COOKIE and applied to the html
 	const response = await handle({ event, resolve } as never);
 
 	expect(await response.text()).toContain('<html lang="pt-BR">');
+});
+
+test('a route title shadows the shell fallback so the served document has exactly one <title>', async () => {
+	mocks.getSessionUser.mockResolvedValue(null);
+	const event = {
+		cookies: { get: () => undefined, set: vi.fn() },
+		locals: {} as { user: unknown; dbDown?: boolean },
+		url: new URL('http://localhost/login'),
+		route: { id: '/login' }
+	};
+	const resolve = vi.fn(
+		async (_event: unknown, opts?: { transformPageChunk?: (input: { html: string; done: boolean }) => string }) =>
+			new Response(
+				opts?.transformPageChunk?.({
+					html: '<html lang="en"><head><title>Sign in | Moderaty</title><title>Moderaty</title></head><body></body></html>',
+					done: true
+				})
+			)
+	);
+
+	const body = await (await handle({ event, resolve } as never)).text();
+
+	expect(body.match(/<title>/g)).toHaveLength(1);
+	expect(body).toContain('<title>Sign in | Moderaty</title>');
 });
 
 test('a pt-BR cookie cannot mark an English-only surface pt-BR (MOD-11)', async () => {
@@ -439,7 +464,8 @@ function abortedRequestEvent(aborted: boolean) {
 	return {
 		request: new Request('http://localhost/channels/UC1/feedback', { method: 'POST', signal: controller.signal }),
 		url: new URL('http://localhost/channels/UC1/feedback'),
-		route: { id: '/(app)/channels/[id]/feedback' }
+		route: { id: '/(app)/channels/[id]/feedback' },
+		locals: { requestId: '7d70bcd5-3d71-4a32-9d25-5bbf322de95c' }
 	};
 }
 
@@ -479,7 +505,7 @@ test('a real unexpected error emits a loud safe category instead of the raw stac
 	expect(JSON.parse(err.mock.calls[0][0])).toMatchObject({ errorKind: 'TypeError', errorFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) });
 	expect(JSON.stringify(err.mock.calls)).not.toContain(boom.message);
 	expect(warn).not.toHaveBeenCalled();
-	expect(result).toEqual({ message: 'Internal Error' });
+	expect(result).toEqual({ message: 'Internal Error', supportReference: '7d70bcd5-3d71-4a32-9d25-5bbf322de95c' });
 });
 
 test('a framework 404 logs a short warn line, not an error with a stack', async () => {
@@ -621,9 +647,32 @@ test('unexpected resolve errors retain a generic outcome and correlated event ev
 	const event = { ...makeEvent(), request: new Request('http://localhost/?token=synthetic-private-value', { headers: { accept: 'application/json' } }) };
 	const response = await handle({ event, resolve: async () => { throw hostile; } } as never);
 	expect(response.status).toBe(500);
-	expect(await response.json()).toEqual({ message: 'Internal Error' });
+	const body = await response.json();
+	expect(body).toEqual({ message: 'Internal Error', supportReference: response.headers.get('x-request-id') });
 	expect(JSON.parse(errorLog.mock.calls[0][0])).toMatchObject({ requestId: response.headers.get('x-request-id'), type: 'unexpected_server_error', category: 'unexpected' });
 	expect(JSON.stringify(errorLog.mock.calls)).not.toContain('synthetic-private-value');
+});
+
+test('unexpected HTML errors show the same opaque support reference without exposing the thrown error', async () => {
+	const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+	const privateError = new Error('<script>private server detail</script>');
+	const event = { ...makeEvent(), request: new Request('http://localhost/', { headers: { accept: 'text/html' } }) };
+	const response = await handle({ event, resolve: async () => { throw privateError; } } as never);
+	const html = await response.text();
+	const reference = response.headers.get('x-request-id');
+	expect(reference).toMatch(/^[0-9a-f-]{36}$/);
+	expect(html).toContain(reference);
+	expect(html).not.toContain('<!-- support-reference -->');
+	expect(html).not.toContain(privateError.message);
+	expect(JSON.parse(errorLog.mock.calls[0][0])).toMatchObject({ requestId: reference, type: 'unexpected_server_error' });
+});
+
+test('the static SvelteKit fallback uses only native placeholders and an inert support-reference marker', () => {
+	expect([...new Set([...errorTemplate.matchAll(/%sveltekit[^%]*%/g)].map(([placeholder]) => placeholder))].sort()).toEqual([
+		'%sveltekit.status%',
+		'%sveltekit.error.message%'
+	].sort());
+	expect(errorTemplate).toContain('<!-- support-reference -->');
 });
 
 test.each(['/login', '/account-deleted'])('English fallback errors on %s keep English language and escape messages', async (path) => {
@@ -767,7 +816,12 @@ test.each([503, 500])('enhanced form hook failures return usable ActionResults (
 	const response = await handle({ event, resolve: async () => { throw failure; } } as never);
 	const result = await response.json();
 	expect(response.status).toBe(status);
-	expect(result).toEqual({ type: 'error', error: { message: status === 503 ? 'Deployment requires migrations' : 'Internal Error' } });
+	expect(result).toEqual({
+		type: 'error',
+		error: status === 503
+			? { message: 'Deployment requires migrations' }
+			: { message: 'Internal Error', supportReference: response.headers.get('x-request-id') }
+	});
 	expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
 	expect(JSON.stringify(result)).not.toContain('synthetic-private-value');
 });

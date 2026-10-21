@@ -218,6 +218,11 @@ export class CronDiagnostics {
 	report(label, cause) {
 		const diagnostic = describeCronFailure(cause, label, this.cronRunId);
 		if (this.failures.length < MAX_FAILURES) this.failures = [...this.failures, diagnostic];
+		else if (diagnostic.operation === 'lease_release' && !this.failures.some((failure) => failure.operation === 'lease_release')) {
+			// Keep the terminal release failure visible without allowing unbounded
+			// diagnostics. Earlier failures still occupy the first MAX_FAILURES - 1 slots.
+			this.failures = [...this.failures.slice(0, MAX_FAILURES - 1), diagnostic];
+		}
 		console.error('cron failure:', JSON.stringify(diagnostic));
 		return formatCronFailure(diagnostic);
 	}

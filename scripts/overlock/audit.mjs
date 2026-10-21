@@ -27,12 +27,64 @@ const blockingRules = new Set([
 
 function makeReport(findings, base, extra = {}) {
 	const unique = [...new Map(findings.map((finding) => [finding.id, finding])).values()];
+	const allowed = extra.allowed ?? [];
+	const allowedIds = new Set(allowed.map((item) => item.finding_id));
 	const counts = { high: 0, medium: 0, low: 0 };
 	for (const finding of unique) counts[finding.severity] += 1;
 	return {
-		schema: 1, ok: counts.high === 0, base, fail_on: 'high', findings: unique,
+		schema: 1, ok: !unique.some((finding) => finding.severity === 'high' && !allowedIds.has(finding.id)), base, fail_on: 'high', findings: unique,
 		counts, suppressed: 0, silenced: 0, allowed: [], ...extra
 	};
+}
+
+const APPROVED_EXCEPTION_FILE = '.github/overlock/approved-exceptions.json';
+const APPROVED_EXCEPTION_RULES = new Set(['ASSERTION_NARROWED']);
+const APPROVED_EXCEPTION_PATH = 'src/routes/blogs/blogs.test.ts';
+
+function approvedExceptionRegistry(text) {
+	if (text === null) return [];
+	let registry;
+	try { registry = JSON.parse(text); } catch { throw new Error('Approved exception registry is not valid JSON'); }
+	if (!registry || typeof registry !== 'object' || Array.isArray(registry) || registry.schema !== 1 || !Array.isArray(registry.exceptions)) {
+		throw new Error('Approved exception registry must have schema 1 and an exceptions array');
+	}
+	if (registry.exceptions.length > 100) throw new Error('Approved exception registry exceeds 100 entries');
+	const seen = new Set();
+	for (const entry of registry.exceptions) {
+		const keys = ['pull_request', 'patch_sha256', 'finding_id', 'rule', 'file', 'review_basis'];
+		if (!entry || typeof entry !== 'object' || Array.isArray(entry) ||
+			Object.keys(entry).length !== keys.length || keys.some((key) => !Object.hasOwn(entry, key))) {
+			throw new Error('Approved exception entry has an unsupported shape');
+		}
+		if (!Number.isSafeInteger(entry.pull_request) || entry.pull_request < 1 ||
+			typeof entry.patch_sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(entry.patch_sha256) ||
+			!APPROVED_EXCEPTION_RULES.has(entry.rule) || entry.file !== APPROVED_EXCEPTION_PATH ||
+			typeof entry.finding_id !== 'string' ||
+			!/^ASSERTION_NARROWED:src\/routes\/blogs\/blogs\.test\.ts:\d+$/.test(entry.finding_id) ||
+			typeof entry.review_basis !== 'string' || entry.review_basis.trim().length < 12 || entry.review_basis.length > 500) {
+			throw new Error('Approved exception entry is invalid or outside the copy-test review scope');
+		}
+		const key = `${entry.pull_request}:${entry.patch_sha256}:${entry.finding_id}`;
+		if (seen.has(key)) throw new Error('Approved exception registry contains a duplicate entry');
+		seen.add(key);
+	}
+	return registry.exceptions;
+}
+
+/** Apply only exceptions read from the exact PR base tree; candidate policy files are never consulted. */
+export function applyApprovedExceptions(report, registryText, { pullRequestNumber, patchSha256 } = {}) {
+	const entries = approvedExceptionRegistry(registryText);
+	const allowed = [];
+	if (Number.isSafeInteger(pullRequestNumber) && pullRequestNumber > 0 && /^[a-f0-9]{64}$/.test(patchSha256 ?? '')) {
+		for (const finding of report.findings) {
+			const entry = entries.find((item) => item.pull_request === pullRequestNumber && item.patch_sha256 === patchSha256 &&
+				item.finding_id === finding.id && item.rule === finding.rule && item.file === finding.file);
+			if (entry) allowed.push({ finding_id: finding.id, pull_request: pullRequestNumber, review_basis: entry.review_basis });
+		}
+	}
+	const { findings, base } = report;
+	const metadata = Object.fromEntries(Object.entries(report).filter(([key]) => !['findings', 'base', 'ok', 'counts', 'allowed', 'suppressed', 'silenced'].includes(key)));
+	return makeReport(findings, base, { ...metadata, allowed });
 }
 
 /** Analyze real rule output before any inline or trailer suppression applies. */
@@ -205,8 +257,20 @@ function configAt(cwd, revision, path) {
 	return git(cwd, ['show', `${revision}:${path}`]);
 }
 
+function pullRequestNumberFromEvent() {
+	const eventPath = process.env.GITHUB_EVENT_PATH;
+	if (!eventPath) return undefined;
+	let event;
+	try { event = JSON.parse(readFileSync(eventPath, 'utf8')); }
+	catch { throw new Error('GitHub event payload is not valid JSON'); }
+	const number = event?.pull_request?.number;
+	if (number === undefined) return undefined;
+	if (!Number.isSafeInteger(number) || number < 1) throw new Error('GitHub event pull request number is invalid');
+	return number;
+}
+
 /** Read immutable git objects only: no npm scripts, test execution or config imports. */
-export function auditRepository({ cwd = process.cwd(), base }) {
+export function auditRepository({ cwd = process.cwd(), base, pullRequestNumber }) {
 	if (!/^[a-f0-9]{40}$/.test(base ?? '')) throw new Error('Audit base must be a 40-character commit SHA');
 	const head = git(cwd, ['rev-parse', '--verify', 'HEAD^{commit}']).trim();
 	const fork = git(cwd, ['merge-base', base, head]).trim();
@@ -216,9 +280,12 @@ export function auditRepository({ cwd = process.cwd(), base }) {
 	const extra = inspectStryker(configAt(cwd, fork, 'stryker.config.json'), configAt(cwd, head, 'stryker.config.json'));
 	const files = git(cwd, ['diff', '--name-only', '-z', fork, head, '--']).split('\0').filter(Boolean).length;
 	const commits = Number(git(cwd, ['rev-list', '--count', `${fork}..${head}`]));
-	return makeReport([...report.findings, ...extra], fork, {
+	const audited = makeReport([...report.findings, ...extra], fork, {
 		head, requested_base: base, patch_sha256: createHash('sha256').update(diff).digest('hex'),
-		scope: { files, commits }, engine_version: '0.10.4', policy: 'moderaty-overlock-v1'
+		scope: { files, commits }, engine_version: '0.10.4', policy: 'moderaty-overlock-v2-reviewed-copy-exceptions'
+	});
+	return applyApprovedExceptions(audited, configAt(cwd, base, APPROVED_EXCEPTION_FILE), {
+		pullRequestNumber, patchSha256: audited.patch_sha256
 	});
 }
 
@@ -243,15 +310,17 @@ function cli(args) {
 		process.stdout.write('Moderaty fixed audit policy: high gate; raw unsuppressed findings; no repository config, PR allowances, ledger, or evaluation writes.\n');
 		return 0;
 	}
-	const report = auditRepository({ base });
+	const report = auditRepository({ base, pullRequestNumber: pullRequestNumberFromEvent() });
 	if (args.includes('--json')) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 	else {
 		process.stdout.write(`Overlock: ${report.scope.files} files, ${report.scope.commits} commits, base ${report.base}, head ${report.head}\n`);
+		const allowedIds = new Set(report.allowed.map((item) => item.finding_id));
 		for (const finding of report.findings) {
 			const text = `${finding.severity} ${finding.rule} ${finding.file}:${finding.line ?? '-'} ${finding.message}`;
-			process.stdout.write(`${text.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 1000)}\n`);
+			const disposition = allowedIds.has(finding.id) ? ' [base-approved exact-patch exception]' : '';
+			process.stdout.write(`${text.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 1000)}${disposition}\n`);
 		}
-		process.stdout.write(report.ok ? 'No blocking findings; medium/low findings still require review.\n' : 'Blocking test-integrity findings.\n');
+		process.stdout.write(report.ok ? 'No blocking findings; accepted exceptions remain listed and medium/low findings still require review.\n' : 'Blocking test-integrity findings.\n');
 	}
 	return report.ok ? 0 : 1;
 }

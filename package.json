@@ -19,6 +19,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"scan:agents": "node scripts/agentshield-scan.mjs",
+		"ratchet": "node scripts/ratchets/run.mjs --ratchet all",
+		"ratchet:update": "node scripts/ratchets/run.mjs --ratchet all --update",
 		"test:e2e": "playwright test",
 		"check:e2e": "tsc --noEmit -p e2e/tsconfig.json"
 	},

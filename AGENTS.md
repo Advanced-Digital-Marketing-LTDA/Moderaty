@@ -5,6 +5,10 @@
 Act as a pragmatic repository contributor: make the smallest safe change,
 validate it, and leave unrelated work untouched.
 
+## Scope discipline
+
+Change only what I explicitly ask you to change. Never remove, restyle, or "clean up" anything else (design, images, animations, layout, code, settings). If I ask for a text rewrite, touch text only. Standard development steps the repo requires (tests, evidence, checks) are expected; this rule means never changing or removing existing work based on assumptions about what I meant.
+
 ## Branching Model (sole full-stack dev + `dev` branch)
 
 One agent works the full stack. There are no per-layer agent boundaries.
@@ -84,6 +88,34 @@ Day-to-day work commits directly to `dev`; pull requests are optional
   Add the reproducing test, watch it fail, then fix, watch it pass, commit
   both together (`fix: review — <what>`). A fix without its reproducing
   test is not done.
+
+## Review Tooling (before push and in CI)
+
+Before pushing, inside Claude Code:
+
+- Run the `pr-review-toolkit` agents `pr-test-analyzer` and
+  `silent-failure-hunter` on every change. The plugin is enabled in
+  `.claude/settings.json`.
+- Run the `adversarial-review` project skill
+  (`.claude/skills/adversarial-review/SKILL.md`) before every push.
+- For changes to auth, owner-scoping (`channels.userId` scoping, `requireUser`)
+  or tests, also run gstack `/cso` and `/test-audit`. gstack is installed on the
+  human's machine, not by this repo.
+- Warp validate-changes-match-specs is not wired up yet; add it once tasks
+  carry a written spec.
+
+In CI on every PR, independent of the author:
+
+- `ratchets.yml` — test, suppress and type ratchets
+  (`scripts/ratchets/`, baselines in `.github/ratchets/baselines.json`).
+  Counts must not move the wrong way; the base branch's scripts and baselines
+  judge the PR. Locking in an improvement is `npm run ratchet:update`; raising
+  a baseline to hide a regression is never acceptable.
+- `adversarial-review.yml` — `adversarial-review --passes 2 --verify`.
+- `claude-code-review.yml` — claude-code-action running the PR Review Toolkit
+  agents.
+- Both Claude workflows authenticate with the `CLAUDE_CODE_OAUTH_TOKEN` repo
+  secret.
 
 ## Invariants (execution plan v3, section 4.1 — re-read before every step)
 
@@ -405,6 +437,36 @@ Use TypeScript and Svelte 5 runes (`$state`, `$derived`, `$props`, and
 only for a documented, maintainer-approved compatibility exception. Use tabs
 and SvelteKit `+page`, `+layout`, and `+server` conventions. Prefer `$lib`
 imports, platform APIs, and installed dependencies.
+
+## Editorial Voice (public copy)
+
+Moderaty's public copy (landing page, blog, marketing, social) has a **funny,
+meme-culture voice**. It is a maintainer decision; do not flatten it into
+neutral corporate copy during SEO, claims, or legal passes.
+
+- **Jokes live in headlines, leads, eyebrows, and fictional examples.** The
+  house cast: trolls get the hammer, comments get bonked, the Ackchyually
+  Guy, the Edge Lord, the Crypto Bot, the Brigadier, "go touch grass",
+  "choose your fighter". Reuse and extend it.
+- **Facts stay literal.** Coverage limits (published top-level comments
+  only; no replies, live chat, or YouTube's Held queue), irreversible
+  actions (deletes, bans), dry-run caveats, pricing, OAuth scope, and
+  privacy/retention statements are written plainly, never as a punchline,
+  and the copy guard tests must keep passing.
+- **A joke never overclaims.** No "never read another hate comment", "catches
+  everything", invented stats, or accuracy numbers.
+- **No jokes about** threats, doxxing, self-harm, creator mental health,
+  emergency or law-enforcement guidance, legal pages, consent, account
+  deletion, or billing failures. Those passages stay sincere.
+- **Punch at archetypes, not people.** Mock trolls, spam bots, and scammers;
+  never real people, protected groups, or viewers giving genuine criticism.
+  No slurs, censored or not. Example comments are fictional and labeled so.
+- **Blog posts are first person**, written as the founder and YouTube
+  creator (`BLOG_AUTHOR`): "I hold links", "my rule is". Share opinions and
+  advice in that voice, but never invent personal anecdotes, quotes, or
+  numbers the author has not supplied.
+- SEO `<title>`, meta descriptions, and keyword lines may stay plain; put
+  the joke in the visible headline instead.
 
 ## Commits, Security, and Licensing
 

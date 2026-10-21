@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { isNoIndexRoute, llmsTxt, PUBLIC_PAGES, robotsTxt, sitemapXml } from './siteIndex';
+import { canonicalUrl, isNoIndexRoute, llmsTxt, PUBLIC_PAGES, robotsTxt, sitemapXml } from './siteIndex';
 import { GET as robotsGet } from '../../routes/robots.txt/+server';
 import { GET as sitemapGet } from '../../routes/sitemap.xml/+server';
 import { GET as llmsGet } from '../../routes/llms.txt/+server';
@@ -191,4 +191,36 @@ test('the llms endpoint answers 200 text/plain with the built body', async () =>
 	expect(res.status).toBe(200);
 	expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8');
 	expect(await res.text()).toBe(llmsTxt());
+});
+
+test.each([
+	['/pricing', 'https://moderaty.example/pricing'],
+	['/pricing/', 'https://moderaty.example/pricing'],
+	['/contact', 'https://moderaty.example/contact'],
+	['/login', 'https://moderaty.example/login'],
+	['/privacy', 'https://moderaty.example/privacy'],
+	['/terms', 'https://moderaty.example/terms'],
+	['/dpa', 'https://moderaty.example/dpa']
+])('%s gets the configured-origin canonical %s', (pathname, expected) => {
+	expect(canonicalUrl(pathname)).toBe(expected);
+});
+
+test.each(['/', '/blogs/', '/blogs/how-to-deal-with-hate-comments-on-youtube/', '/dashboard', '/consent', '/api/health', '/unknown'])(
+	'%s gets no layout canonical: it owns its own or is not an indexable layout page',
+	(pathname) => {
+		expect(canonicalUrl(pathname)).toBeNull();
+	}
+);
+
+test('a canonical page fails loudly when APP_URL is missing instead of emitting a relative canonical', () => {
+	mocks.env.APP_URL = undefined;
+	expect(() => canonicalUrl('/pricing')).toThrow();
+	expect(canonicalUrl('/dashboard')).toBeNull();
+});
+
+test('every sitemap page is either canonicalised by the layout or by its own route', () => {
+	const selfManaged = ['/', '/blogs/', '/blogs/how-to-deal-with-hate-comments-on-youtube/', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube/', '/guides/youtube-comment-moderation/'];
+	for (const path of PUBLIC_PAGES) {
+		expect(canonicalUrl(path) !== null || selfManaged.includes(path)).toBe(true);
+	}
 });

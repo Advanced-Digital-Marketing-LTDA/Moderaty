@@ -1,7 +1,10 @@
 <script lang="ts">
 	import Nav from '$lib/components/landing/Nav.svelte';
+	import SkipLink from '$lib/components/landing/SkipLink.svelte';
 	import Hero from '$lib/components/landing/Hero.svelte';
 	import HomepageContent from '$lib/components/landing/HomepageContent.svelte';
+	import Regulars from '$lib/components/landing/Regulars.svelte';
+	import Manifesto from '$lib/components/landing/Manifesto.svelte';
 	import Faq from '$lib/components/landing/Faq.svelte';
 	import FinalCta from '$lib/components/landing/FinalCta.svelte';
 	import Footer from '$lib/components/landing/Footer.svelte';
@@ -43,6 +46,7 @@
 	<meta name="description" content={productDescription} />
 	<link rel="canonical" href={canonical} />
 	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Moderaty" />
 	<meta property="og:url" content={canonical} />
 	<meta property="og:title" content="AI YouTube Comment Moderation Software | Moderaty" />
 	<meta property="og:description" content={productDescription} />
@@ -55,10 +59,13 @@
 	{@html jsonLd(faqPage)}
 </svelte:head>
 
+<SkipLink />
 <Nav />
-<main>
+<main id="main-content" tabindex="-1">
 	<Hero />
+	<Regulars />
 	<HomepageContent />
+	<Manifesto />
 	<Faq />
 	<FinalCta />
 </main>

@@ -6,6 +6,7 @@
 import { expect, test } from 'vitest';
 
 import { LOCALE_COOKIE } from '$lib/i18n/locale';
+import { vi } from 'vitest';
 import { load } from './+layout.server';
 
 function loadLocale(pathname: string, cookie?: string, acceptLanguage = 'en') {
@@ -34,4 +35,24 @@ test.each(['/', '/dashboard', '/channels/UC1', '/org', '/consent'])(
 test('the browser language only resolves on bilingual paths', () => {
 	expect(loadLocale('/login', undefined, 'pt-BR,pt;q=0.9')).toBe('pt-BR');
 	expect(loadLocale('/dashboard', undefined, 'pt-BR,pt;q=0.9')).toBe('en');
+});
+
+vi.mock('$env/dynamic/private', () => ({ env: { APP_URL: 'https://moderaty.example' } }));
+
+test('public pages publish a canonical built from the configured origin and path only', () => {
+	const result = load({
+		cookies: { get: () => undefined },
+		request: { headers: { get: () => 'en' } },
+		url: new URL('https://other-host.example/pricing?utm_source=x#top')
+	} as never) as { canonical: string | null };
+	expect(result.canonical).toBe('https://moderaty.example/pricing');
+});
+
+test('non-public pages publish no canonical', () => {
+	const result = load({
+		cookies: { get: () => undefined },
+		request: { headers: { get: () => 'en' } },
+		url: new URL('https://moderaty.example/dashboard')
+	} as never) as { canonical: string | null };
+	expect(result.canonical).toBeNull();
 });

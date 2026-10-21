@@ -2,11 +2,11 @@
 	import Reveal from './Reveal.svelte';
 </script>
 
-<section class="manifesto">
+<section class="manifesto" aria-labelledby="manifesto-title">
 	<div class="manifesto-grid">
 		<Reveal>
-			<h2 class="manifesto-title">
-				Every other comment tool wants to grow your channel. Moderaty wants to
+			<h2 id="manifesto-title" class="manifesto-title">
+				Engagement tools want to grow your channel. Moderaty wants to
 				<span class="marker">protect you.</span>
 			</h2>
 		</Reveal>

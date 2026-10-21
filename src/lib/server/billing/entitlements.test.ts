@@ -5,7 +5,7 @@ import { setupTestDb, testDb } from '$lib/server/testdb';
 import { organizations, stripeLifetimeEntitlements, stripeLifetimeSlots, stripeSubscriptionPeriods, stripePendingReversals, stripeDisputeReversals } from '$lib/server/db/schema';
 import { claimLifetimeSlot, grantSubscriptionPeriod, lifetimeSlotsRemaining, releaseLifetimeForPayment, applySubscriptionSnapshot, disputeSubscriptionPeriod, restoreDisputedSubscriptionPeriod, revokeLifetimeForDispute, restoreLifetimeForDispute, refundSubscriptionPeriod } from './entitlements';
 import { consumeCredit, getCredits } from './ledger';
-import { LIFETIME_SLOT_LIMIT } from './plans';
+import { HOSTED_INCLUDED_CREDITS, LIFETIME_SLOT_LIMIT } from './plans';
 
 setupTestDb(['organizations', 'stripe_subscription_periods', 'stripe_lifetime_entitlements', 'stripe_lifetime_slots', 'stripe_pending_reversals', 'stripe_dispute_reversals', 'credit_transactions', 'stripe_auto_topup_recoveries']);
 
@@ -28,6 +28,20 @@ describe('subscription period entitlements', () => {
 		expect(first).toBe(true);
 		expect(second).toBe(false);
 		expect(await testDb().db.select().from(stripeSubscriptionPeriods)).toHaveLength(1);
+	});
+
+	test('a renewal invoice inserts a fresh period row and leaves the previous one unchanged', async () => {
+		const now = Date.now();
+		const boundary = new Date(now - 1000).toISOString();
+		const base = { orgId: 'org-1', subscriptionId: 'sub-1' };
+		expect(await grantSubscriptionPeriod({ ...base, invoiceId: 'in-1', chargeId: 'ch-1', periodKey: 'p1', periodStart: new Date(now - 86_400_000).toISOString(), periodEnd: boundary, eventCreated: 100, eventId: 'evt-1' })).toBe(true);
+		await testDb().db.update(stripeSubscriptionPeriods).set({ consumedCredits: 40 }).where(eq(stripeSubscriptionPeriods.invoiceId, 'in-1'));
+		expect(await grantSubscriptionPeriod({ ...base, invoiceId: 'in-2', chargeId: 'ch-2', periodKey: 'p2', periodStart: boundary, periodEnd: new Date(now + 86_400_000).toISOString(), eventCreated: 200, eventId: 'evt-2' })).toBe(true);
+		const periods = await testDb().db.select().from(stripeSubscriptionPeriods).all();
+		expect(periods).toHaveLength(2);
+		expect(periods.find(row => row.invoiceId === 'in-1')).toMatchObject({ includedCredits: HOSTED_INCLUDED_CREDITS, consumedCredits: 40 });
+		expect(periods.find(row => row.invoiceId === 'in-2')).toMatchObject({ includedCredits: HOSTED_INCLUDED_CREDITS, consumedCredits: 0 });
+		expect(await getCredits('org-1')).toBe(HOSTED_INCLUDED_CREDITS);
 	});
 
 	test('ignores an older subscription snapshot after a newer event', async () => {

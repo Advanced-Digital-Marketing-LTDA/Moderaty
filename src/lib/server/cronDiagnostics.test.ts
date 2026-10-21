@@ -24,6 +24,31 @@ test('reporting preserves earlier diagnostic snapshots and the bounded failure l
 	expect(log).toHaveBeenCalledTimes(25);
 });
 
+test('a lease-release diagnostic remains visible after the bounded list is full', () => {
+	const log = vi.spyOn(console, 'error').mockImplementation(vi.fn());
+	onTestFinished(log.mockRestore);
+	const diagnostics = new CronDiagnostics();
+	for (let index = 0; index < 20; index++) diagnostics.report('channel run', { code: 'ECONNRESET' });
+
+	diagnostics.report('lease release', { code: 'SQLITE_BUSY' });
+
+	expect(diagnostics.failures).toHaveLength(20);
+	expect(diagnostics.failures.at(-1)).toMatchObject({ sweep: 'leaseRelease', operation: 'lease_release', code: 'SQLITE_BUSY' });
+	expect(diagnostics.failures.filter((failure) => failure.operation === 'lease_release')).toHaveLength(1);
+	expect(log).toHaveBeenCalledTimes(21);
+});
+
+test('ordinary diagnostics keep the first twenty entries when the bounded list fills', () => {
+	const log = vi.spyOn(console, 'error').mockImplementation(vi.fn());
+	onTestFinished(log.mockRestore);
+	const diagnostics = new CronDiagnostics();
+	for (let index = 0; index < 21; index++) diagnostics.report('channel run', { code: index === 20 ? 'EPIPE' : 'ECONNRESET' });
+
+	expect(diagnostics.failures).toHaveLength(20);
+	expect(diagnostics.failures.every((failure) => failure.code === 'ECONNRESET')).toBe(true);
+	expect(log).toHaveBeenCalledTimes(21);
+});
+
 test.each([
 	[{ code: 'EAI_AGAIN', status: 503 }, 'dns', 'auto top-up sweep'],
 	[{ code: 'SQLITE_BUSY', name: 'AbortError', status: 503 }, 'database_busy', 'auto top-up sweep'],

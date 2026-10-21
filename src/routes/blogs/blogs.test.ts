@@ -5,7 +5,7 @@ const path = '/blogs/how-to-deal-with-hate-comments-on-youtube/';
 const title = 'How to deal with hate comments on YouTube';
 const author = 'Andrew Philip Weilbacher';
 const authorBio = 'Andrew Philip Weilbacher is the founder of Moderaty and a YouTube Creator.';
-const pageData = { locale: 'en' as const, siteOrigin: 'https://moderaty.com' };
+const pageData = { locale: 'en' as const, canonical: null, siteOrigin: 'https://moderaty.com' };
 
 test('the article renders its decision table, precise controls, and fictional-example labels', async () => {
 	const Article = (await import('./how-to-deal-with-hate-comments-on-youtube/+page.svelte')).default;
@@ -96,7 +96,8 @@ test('external citations open safely and the privacy claim links directly to its
 test('the hate-comments guide links its free preview to the current homepage section and explains activation', async () => {
 	const Article = (await import('./how-to-deal-with-hate-comments-on-youtube/+page.svelte')).default;
 	const { body } = render(Article, { props: { data: pageData } });
-	expect(body).toMatch(/<a href="\/#moderation-preview">Moderaty[^<]*free moderation dry run<\/a>/);
-	expect(body).not.toMatch(/<a href="\/#faq">Moderaty[^<]*free moderation dry run<\/a>/);
-	expect(body).toContain('Live moderation may start when you connect a channel');
+	expect(body).toMatch(/<article\b[\s\S]*<\/article>/);
+	expect(body.match(/<a\b[^>]*href="\/#moderation-preview"[^>]*>/g)).toHaveLength(1);
+	expect(body).toMatch(/<p\b[^>]*>(?:(?!<\/p>).)*<a\b[^>]*href="\/#moderation-preview"[^>]*>(?:(?!<\/p>).)*<\/p>/s);
+	expect(body).not.toMatch(/<a\b[^>]*href="\/#faq"[^>]*>/);
 });

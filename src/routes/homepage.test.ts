@@ -8,7 +8,7 @@ vi.mock('$app/state', () => ({
 }));
 
 const renderHomepage = (siteOrigin = 'https://moderaty.com') =>
-	render(Homepage, { props: { data: { siteOrigin, locale: 'en' as const } } });
+	render(Homepage, { props: { data: { siteOrigin, locale: 'en' as const, canonical: null } } });
 
 
 test('MC-3 homepage owns the commercial query, metadata, and canonical URL', () => {
@@ -115,4 +115,76 @@ test('direct preview links disclose that an active channel can keep moderating',
 	expect(preview).toBeDefined();
 	expect(preview).toMatch(/A dry run does not change YouTube comments or pause\s+live moderation\./);
 	expect(preview).toContain('live actions may continue while you preview');
+});
+
+test('hero shows the animated review-queue demo with its labeled illustrative counters', () => {
+	const { body } = renderHomepage();
+	const hero = body.split('id="top"')[1]?.split('</section>')[0];
+	expect(hero).toBeDefined();
+	expect(hero).toMatch(/role="figure"[^>]*aria-label="Illustrative demonstration of the Moderaty review queue: fictional comments arrive one at a time, rules and AI scores stamp each one approved, held, rejected, deleted or banned, and counters track incoming, actioned and read-by-you totals\."/);
+	expect(hero).toContain('an illustrative night');
+	expect(hero).toContain('live-dot');
+	expect(hero).not.toContain('Illustrative moderation workflow');
+	expect(hero).not.toContain('workflow-example');
+});
+
+test('homepage keeps the meme-culture voice alongside the factual disclosures', () => {
+	const { body } = renderHomepage();
+	const hero = body.split('id="top"')[1]?.split('</section>')[0];
+	expect(hero).toMatch(/<h1[^>]*>Trolls get <span class="marker">the hammer\.<\/span><\/h1>/);
+	const regulars = body.split('id="regulars"')[1]?.split('</section>')[0];
+	expect(regulars).toContain('Meet the regulars.');
+	for (const rogue of ['The Ackchyually Guy', 'The Edge Lord', 'The Crypto Bot', 'The Brigadier']) {
+		expect(regulars).toContain(rogue);
+	}
+	expect(body).toContain('Moderaty wants to');
+	expect(body).toMatch(/<h2[^>]*class="section-title[^"]*">Asked, answered\.<\/h2>/);
+	const finalCta = body.split('class="final-cta')[1]?.split('</section>')[0];
+	expect(finalCta).toMatch(/<h2[^>]*>Go touch grass\. <span class="marker">/);
+});
+
+test('the Regulars, Manifesto and FAQ sections are named landmarks', () => {
+	const { body } = renderHomepage();
+	for (const [section, heading] of [['regulars', 'Meet the regulars.'], ['manifesto', 'Moderaty wants to'], ['faq', 'Asked, answered.']] as const) {
+		const open = body.match(new RegExp(`<section[^>]*aria-labelledby="${section}-title"[^>]*>`));
+		expect(open).not.toBeNull();
+		expect(body).toMatch(new RegExp(`<h2[^>]*id="${section}-title"[^>]*>[^<]*${heading.replace('.', '\\.')}`));
+	}
+});
+
+test('the meme copy does not overclaim against competitors or the review queue', () => {
+	const { body } = renderHomepage();
+	expect(body).not.toMatch(/Every other comment tool/);
+	const hero = body.split('id="top"')[1]?.split('</section>')[0];
+	expect(hero).not.toContain("so you don't have to");
+	const finalCta = body.split('class="final-cta')[1]?.split('</section>')[0];
+	expect(finalCta).not.toMatch(/\bonly look at\b/i);
+});
+
+test('the hero keeps threats out of the punchline', () => {
+	const hero = renderHomepage().body.split('id="top"')[1]?.split('</section>')[0];
+	expect(hero).toContain('Just bonks.');
+	expect(hero).not.toMatch(/threat/i);
+});
+
+test('the Regulars section comes right after the hero', () => {
+	const { body } = renderHomepage();
+	const hero = body.indexOf('id="top"');
+	const regulars = body.indexOf('id="regulars"');
+	const howItWorks = body.indexOf('id="how-it-works"');
+	expect(hero).toBeGreaterThan(-1);
+	expect(regulars).toBeGreaterThan(hero);
+	expect(howItWorks).toBeGreaterThan(regulars);
+});
+
+test('each animated Regulars card carries a descriptive label naming the fictional archetype and its stamp', () => {
+	const { body } = renderHomepage();
+	const regulars = body.split('id="regulars"')[1]?.split('</section>')[0] ?? '';
+	const labels = [...regulars.matchAll(/<article[^>]*aria-label="([^"]*)"/g)].map((match) => match[1]);
+	expect(labels).toEqual([
+		'Fictional example: the Ackchyually Guy posts a long, polite correction of your video. Stamp: held for review.',
+		'Fictional example: the Edge Lord posts slurs and calls them dark humor. Stamp: banned.',
+		'Fictional example: the Crypto Bot posts a fake get-rich-quick crypto claim. Stamp: deleted by a rule.',
+		'Fictional example: the Brigadier arrives from a drama video to pile on. Stamp: held for review.'
+	]);
 });

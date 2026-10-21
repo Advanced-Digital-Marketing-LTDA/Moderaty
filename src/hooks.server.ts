@@ -10,6 +10,7 @@ import { getSessionUser, SESSION_COOKIE } from '$lib/server/session';
 import { isNoIndexRoute, PUBLIC_BLOG_ROUTE_IDS } from '$lib/server/siteIndex';
 import { emitOperationalEvent } from '$lib/server/operationalEvents';
 import { escapeHtml } from '$lib/server/emailText';
+import { dropShadowedFallbackTitle } from '$lib/server/documentTitle';
 import errorPage from './error.html?raw';
 
 type Event = Parameters<Handle>[0]['event'];
@@ -95,7 +96,8 @@ export const handle: Handle = async (input) => {
 		}
 		const html = errorPage
 			.split('%sveltekit.status%').join(String(status))
-			.split('%sveltekit.error.message%').join(escapeHtml(body.message ?? 'Internal Error'));
+			.split('%sveltekit.error.message%').join(escapeHtml(body.message ?? 'Internal Error'))
+			.split('<!-- support-reference -->').join(body.supportReference ? `<p>Support reference: <code>${escapeHtml(body.supportReference)}</code></p>` : '');
 		return correlate(new Response(html, { status, headers: { 'content-type': 'text/html; charset=utf-8' } }), event);
 	}
 };
@@ -157,7 +159,7 @@ const handleRequest: Handle = async ({ event, resolve }) => {
 	const resolveLocalized = () =>
 		resolve(event, {
 			transformPageChunk: ({ html, done }) =>
-				done ? html.replace('<html lang="en">', `<html lang="${locale}">`) : html
+				done ? dropShadowedFallbackTitle(html.replace('<html lang="en">', `<html lang="${locale}">`)) : html
 		});
 	// Internal surfaces carry X-Robots-Tag: noindex on every response — it
 	// reaches crawlers even on the 302 an anonymous visitor gets from an
@@ -231,6 +233,7 @@ export const handleError: HandleServerError = ({ error, event, status, message }
 		emitOperationalEvent({ type: 'request_not_found', severity: 'warn', category: 'not_found', route: event.route.id, requestId: event.locals?.requestId });
 	} else {
 		emitOperationalEvent({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', route: event.route.id, requestId: event.locals?.requestId, diagnosticError: error });
+		return { message, supportReference: event.locals?.requestId };
 	}
 	return { message };
 };
