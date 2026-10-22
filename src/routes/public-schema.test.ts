@@ -83,7 +83,7 @@ describe.each(pages)('%s public structured data', (_name, renderPage, faqEntries
 		});
 		expect(app).toMatchObject({
 			'@id': 'https://moderaty.com/#software', name: 'Moderaty', url: 'https://moderaty.com/',
-			publisher: { '@id': organization!['@id'] }, isPartOf: { '@id': website!['@id'] },
+			publisher: { '@id': organization?.['@id'] }, isPartOf: { '@id': website!['@id'] },
 			license: 'https://polyformproject.org/licenses/shield/1.0.0'
 		});
 	});
