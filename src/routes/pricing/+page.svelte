@@ -14,6 +14,7 @@
 	import { PRICING_FAQ_ENTRIES } from '$lib/landing/pricing-faq';
 	import { TOP_UP_BUNDLES_COPY } from '$lib/landing/plans';
 	import { jsonLd } from '$lib/landing/json-ld';
+	import { publicSoftwareSchema } from '$lib/landing/public-schema';
 	import { page } from '$app/state';
 
 	// The root layout publishes this page's canonical from the configured APP_URL;
@@ -27,6 +28,7 @@
 	const socialTitle = 'Protection, priced like a utility.';
 	const socialDescription =
 		'Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted: $5 a month for 100 AI classifications shared by moderation scoring and feedback digests, or $49 once for lifetime hosting (1,000 lifetime places, your own OpenAI key).';
+	const softwareApplication = $derived(publicSoftwareSchema(pageUrl, socialDescription));
 
 	const faqPage = {
 		'@context': 'https://schema.org',
@@ -56,6 +58,7 @@
 	<meta name="twitter:description" content={socialDescription} />
 	<meta name="twitter:image" content={socialImage} />
 	{@html jsonLd(faqPage)}
+	{@html jsonLd(softwareApplication)}
 </svelte:head>
 
 <SkipLink />
