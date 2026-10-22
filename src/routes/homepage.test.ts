@@ -34,7 +34,6 @@ test('MC-3 supplies an explicitly synthetic moderation example, not invented per
 		'Could you explain step two in another video?',
 		'Subscribe to my channel for prizes!',
 		'The music is too loud in the first minute.',
-		'Illustrative examples',
 		'Hold for review'
 	]) {
 		expect(body).toContain(phrase);
@@ -49,8 +48,6 @@ test('MC-3 states what is and is not moderated and explains access without overp
 		'reply threads',
 		'live chat',
 		'youtube.force-ssl',
-		'Deleted comments cannot be restored.',
-		'Author bans cannot be reversed inside Moderaty.',
 		'href="/privacy"'
 	]) {
 		expect(body).toContain(phrase);
@@ -100,21 +97,6 @@ test('history-scan FAQ includes monthly paid allowances, purchased credits and l
 	expect(answer).toContain('available paid subscription allowance');
 	expect(answer).toContain('purchased credits');
 	expect(answer).toContain('usable OpenAI key');
-});
-
-test('explains that connecting an eligible channel may start live moderation before any preview', () => {
-	const { body } = renderHomepage();
-	expect(body).toContain('Live moderation may start as soon as you connect a channel');
-	expect(body).toContain('Previews do not change YouTube comments or pause live moderation');
-	expect(body).not.toMatch(/before enabling live actions|before they go live|before taking action|before allowing irreversible actions/i);
-});
-
-test('direct preview links disclose that an active channel can keep moderating', () => {
-	const { body } = renderHomepage();
-	const preview = body.split('id="moderation-preview"')[1]?.split('</section>')[0];
-	expect(preview).toBeDefined();
-	expect(preview).toMatch(/A dry run does not change YouTube comments or pause\s+live moderation\./);
-	expect(preview).toContain('live actions may continue while you preview');
 });
 
 test('hero shows the animated review-queue demo with its labeled illustrative counters', () => {

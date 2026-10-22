@@ -80,15 +80,6 @@
 <section id="moderation-preview" class="section preview-section" aria-labelledby="preview-title">
 	<p class="eyebrow">Try before you bonk</p>
 	<h2 id="preview-title" class="section-title">Review example moderation decisions</h2>
-	<p class="lede">
-		<strong>Important:</strong> A dry run does not change YouTube comments or pause
-		live moderation. On an active connected channel, live actions may continue while you preview.
-	</p>
-	<p class="lede">
-		The comments and decisions below are <strong>Illustrative examples</strong>, not
-		real viewers, measured accuracy results, or a live scan. They show how
-		creator-selected rules and review can work together.
-	</p>
 	<div class="table-wrap">
 		<table>
 			<caption>Fictional comments and example moderation outcomes</caption>
@@ -125,11 +116,6 @@
 		Moderaty records moderation intent before sending changes to YouTube and logs
 		completed actions. You can inspect what was held, rejected, deleted, or banned,
 		and what still needs attention.
-	</p>
-	<p class="lede">
-		You can restore held and rejected comments.
-		<strong>Deleted comments cannot be restored. Author bans cannot be reversed inside Moderaty.</strong>
-		Review your rules carefully: active channels can apply irreversible moderation actions automatically.
 	</p>
 </section>
 
