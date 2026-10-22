@@ -26,7 +26,6 @@
 					<a href={LOGIN_URL} data-moderaty-event="connect_click" data-moderaty-placement="hero" class="btn-press cta-primary">Connect your YouTube channel</a>
 					<a href="/pricing" class="btn-press cta-ghost">See pricing</a>
 				</div>
-					<p class="reassurance">Each connected channel gets one free moderation dry run and one free feedback dry run; neither uses credits. Live moderation may start as soon as you connect a channel if your plan permits it. Previews do not change YouTube comments or pause live moderation.</p>
 			</Reveal>
 		</div>
 		<Reveal class="hero-queue" amount={0.1} delay={0.2}>
@@ -115,14 +114,6 @@
 	}
 	:global(.hero-queue) {
 		min-width: 0;
-	}
-	.reassurance {
-		margin: 24px 0 0;
-		max-width: 60ch;
-		color: var(--text-muted);
-		font-family: var(--font-mono);
-		font-size: 12px;
-		line-height: 1.7;
 	}
 	@media (min-width: 768px) {
 		h1 {
