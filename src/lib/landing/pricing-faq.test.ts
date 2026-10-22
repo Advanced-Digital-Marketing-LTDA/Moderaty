@@ -48,12 +48,24 @@ it('includes homepage pricing and disclosure copy in the claim-surface guardrail
 	expect(COMPONENT_SURFACES).toContain('../components/landing/HomepageContent.svelte');
 });
 
-it('does not claim every moderation action is reversible in homepage copy', () => {
+it('does not add a universal reversibility claim to homepage copy', () => {
 	const content = readFileSync(
 		new URL('../components/landing/HomepageContent.svelte', import.meta.url),
 		'utf8'
 	).replace(/\s+/g, ' ');
 	expect(content).not.toMatch(/every action reversible|reversible, always/i);
+});
+
+it('keeps the Terms page specific about which moderation actions can be reversed', () => {
+	const terms = readFileSync(
+		new URL('../components/landing/legal/Terms.svelte', import.meta.url),
+		'utf8'
+	).replace(/\s+/g, ' ');
+	expect(terms).toMatch(/Hold and reject actions can be reversed from the audit log, restoring the comment on YouTube\./i);
+	expect(terms).toMatch(/Deleted comments cannot be restored or reversed/i);
+	expect(terms).toMatch(/author bans cannot be lifted or reversed/i);
+	expect(terms).toMatch(/both are permanent once executed/i);
+	expect(terms).not.toMatch(/every action reversible|reversible, always/i);
 });
 
 const COMPONENT_CLAIM_LINES = COMPONENT_SURFACES.flatMap((path) =>

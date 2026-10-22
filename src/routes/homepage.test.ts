@@ -10,6 +10,8 @@ vi.mock('$app/state', () => ({
 const renderHomepage = (siteOrigin = 'https://moderaty.com') =>
 	render(Homepage, { props: { data: { siteOrigin, locale: 'en' as const, canonical: null } } });
 
+const visibleText = (html: string) => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
 
 test('MC-3 homepage owns the commercial query, metadata, and canonical URL', () => {
 	const { head } = renderHomepage();
@@ -27,17 +29,40 @@ test('MC-3 renders the approved rules-first hero and working conversion paths', 
 	expect(body).toContain('href="/pricing"');
 });
 
+test('homepage does not promise live-moderation timing or free preview terms in the hero', () => {
+	const { body } = renderHomepage();
+	const hero = body.split('id="top"')[1]?.split('</section>')[0];
+	expect(hero).toBeDefined();
+	const heroText = visibleText(hero ?? '');
+	expect(heroText).not.toContain(
+		'Each connected channel gets one free moderation dry run and one free feedback dry run; neither uses credits. Live moderation may start as soon as you connect a channel if your plan permits it. Previews do not change YouTube comments or pause live moderation.'
+	);
+	expect(heroText).not.toContain(
+		'Each connected channel gets one free moderation dry run and one free feedback dry run; neither uses credits.'
+	);
+	expect(heroText).not.toContain('Live moderation may start as soon as you connect a channel if your plan permits it.');
+	expect(heroText).not.toContain('Previews do not change YouTube comments or pause live moderation.');
+	expect(body).not.toMatch(/before enabling live actions|before they go live|before taking action|before allowing irreversible actions/i);
+});
+
 test('MC-3 supplies an explicitly synthetic moderation example, not invented performance claims', () => {
 	const { body } = renderHomepage();
+	const preview = body.split('id="moderation-preview"')[1]?.split('</section>')[0];
+	expect(preview).toBeDefined();
 	for (const phrase of [
 		'Review example moderation decisions',
 		'Could you explain step two in another video?',
 		'Subscribe to my channel for prizes!',
 		'The music is too loud in the first minute.',
+		'Fictional comments and example moderation outcomes',
 		'Hold for review'
 	]) {
 		expect(body).toContain(phrase);
 	}
+	const previewText = visibleText(preview ?? '');
+	expect(previewText).not.toContain(
+		'The comments and decisions below are Illustrative examples, not real viewers, measured accuracy results, or a live scan. They show how creator-selected rules and review can work together.'
+	);
 	expect(body).not.toMatch(/\d+% (?:accurate|accuracy|time saved|faster)/i);
 });
 
@@ -52,6 +77,16 @@ test('MC-3 states what is and is not moderated and explains access without overp
 	]) {
 		expect(body).toContain(phrase);
 	}
+	const homepageText = visibleText(body);
+	for (const removedDisclosure of [
+		'You can restore held and rejected comments.',
+		'Deleted comments cannot be restored.',
+		'Author bans cannot be reversed inside Moderaty.',
+		'Review your rules carefully: active channels can apply irreversible moderation actions automatically.'
+	]) {
+		expect(homepageText).not.toContain(removedDisclosure);
+	}
+	expect(homepageText).not.toMatch(/every action reversible|reversible, always/i);
 	expect(body).not.toContain('href="/guides/youtube-comment-moderation/"');
 });
 
@@ -76,6 +111,21 @@ test('MC-3 primary navigation anchors resolve on the homepage', () => {
 		expect(body).toContain('href="/#' + anchor + '"');
 		expect(body).toContain('id="' + anchor + '"');
 	}
+});
+
+test('direct preview links remain available without the removed live-action dry-run disclaimer', () => {
+	const { body } = renderHomepage();
+	const preview = body.split('id="moderation-preview"')[1]?.split('</section>')[0];
+	expect(preview).toBeDefined();
+	const previewText = visibleText(preview ?? '');
+	expect(previewText).toContain('Review example moderation decisions');
+	expect(previewText).toContain('Fictional comments and example moderation outcomes');
+	expect(preview).toContain('href="/login"');
+	expect(previewText).not.toContain(
+		'Important: A dry run does not change YouTube comments or pause live moderation. On an active connected channel, live actions may continue while you preview.'
+	);
+	expect(previewText).not.toContain('A dry run does not change YouTube comments or pause live moderation.');
+	expect(previewText).not.toContain('On an active connected channel, live actions may continue while you preview.');
 });
 
 test.each(['https://moderaty.com', 'https://selfhost.example', 'http://localhost:5173'])(
@@ -119,6 +169,9 @@ test('homepage keeps the meme-culture voice alongside the factual disclosures', 
 	for (const rogue of ['The Ackchyually Guy', 'The Edge Lord', 'The Crypto Bot', 'The Brigadier']) {
 		expect(regulars).toContain(rogue);
 	}
+	expect(visibleText(body)).not.toContain(
+		'Illustrative comments and possible decisions. Your rules and AI scores determine the outcome.'
+	);
 	expect(body).toContain('Moderaty wants to');
 	expect(body).toMatch(/<h2[^>]*class="section-title[^"]*">Asked, answered\.<\/h2>/);
 	const finalCta = body.split('class="final-cta')[1]?.split('</section>')[0];
