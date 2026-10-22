@@ -79,7 +79,7 @@ describe.each(pages)('%s public structured data', (_name, renderPage, faqEntries
 		});
 		expect(website).toMatchObject({
 			'@id': 'https://moderaty.com/#website', name: 'Moderaty', url: 'https://moderaty.com/',
-			publisher: { '@id': organization!['@id'] }
+			publisher: { '@id': organization?.['@id'] }
 		});
 		expect(app).toMatchObject({
 			'@id': 'https://moderaty.com/#software', name: 'Moderaty', url: 'https://moderaty.com/',
