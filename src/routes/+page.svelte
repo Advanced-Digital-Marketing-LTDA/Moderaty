@@ -10,6 +10,7 @@
 	import Footer from '$lib/components/landing/Footer.svelte';
 	import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 	import { jsonLd } from '$lib/landing/json-ld';
+	import { publicSoftwareSchema } from '$lib/landing/public-schema';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -19,16 +20,7 @@
 	const productDescription =
 		'Moderate YouTube comments with custom rules, AI scoring, human review, and an audit log. Try Moderaty with a free moderation preview.';
 
-	const softwareApplication = {
-		'@context': 'https://schema.org',
-		'@type': 'SoftwareApplication',
-		name: 'Moderaty',
-		applicationCategory: 'SecurityApplication',
-		operatingSystem: 'Web',
-		description: productDescription,
-		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-		license: 'https://polyformproject.org/licenses/shield/1.0.0'
-	};
+	const softwareApplication = $derived(publicSoftwareSchema(canonical, productDescription));
 
 	const faqPage = {
 		'@context': 'https://schema.org',
