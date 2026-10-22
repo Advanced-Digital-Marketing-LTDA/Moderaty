@@ -90,6 +90,13 @@ test('MC-3 states what is and is not moderated and explains access without overp
 	expect(body).not.toContain('href="/guides/youtube-comment-moderation/"');
 });
 
+test('homepage retains a concise irreversible-action disclosure in the visible FAQ', () => {
+	const { body } = renderHomepage();
+	expect(visibleText(body)).toContain(
+		'Held and rejected comments can be restored. Deletions are permanent, and Moderaty cannot lift an author ban inside the app.'
+	);
+});
+
 test('MC-3 shows the approved five FAQs and matching structured data', () => {
 	const { body, head } = renderHomepage();
 	expect(HOMEPAGE_FAQ_ENTRIES).toHaveLength(5);
