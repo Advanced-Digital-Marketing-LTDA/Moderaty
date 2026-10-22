@@ -63,9 +63,12 @@ describe.each(pages)('%s public structured data', (_name, renderPage, faqEntries
 			.filter((item) => item['@type'] === 'SoftwareApplication');
 		expect(applications).toHaveLength(1);
 		const graph = documents.find((item) => item['@graph']);
-		expect(graph?.['@context']).toBe('https://schema.org');
-		expect(graph?.['@graph']).toHaveLength(3);
-		return graph!['@graph']!;
+		if (!graph) throw new Error('Public structured data graph was not rendered');
+		const graphNodes = graph['@graph'];
+		if (!graphNodes) throw new Error('Public structured data graph has no nodes');
+		expect(graph['@context']).toBe('https://schema.org');
+		expect(graphNodes).toHaveLength(3);
+		return graphNodes;
 	}
 
 	test('links the software, website and verified legal publisher using stable absolute identities', () => {
@@ -81,17 +84,20 @@ describe.each(pages)('%s public structured data', (_name, renderPage, faqEntries
 			'@id': 'https://moderaty.com/#website', name: 'Moderaty', url: 'https://moderaty.com/',
 			publisher: { '@id': organization?.['@id'] }
 		});
+		if (!website) throw new Error('WebSite schema node was not rendered');
 		expect(app).toMatchObject({
 			'@id': 'https://moderaty.com/#software', name: 'Moderaty', url: 'https://moderaty.com/',
-			publisher: { '@id': organization?.['@id'] }, isPartOf: { '@id': website!['@id'] },
+			publisher: { '@id': organization?.['@id'] }, isPartOf: { '@id': website['@id'] },
 			license: 'https://polyformproject.org/licenses/shield/1.0.0'
 		});
 	});
 
 	test('describes all three published offers with their separate cost and billing conditions', () => {
 		const app = publicGraph().find((item) => item['@type'] === 'SoftwareApplication');
-		expect(app?.offers).toHaveLength(3);
-		const offers = app!.offers!;
+		if (!app) throw new Error('SoftwareApplication schema node was not rendered');
+		if (!app.offers) throw new Error('SoftwareApplication offers were not rendered');
+		expect(app.offers).toHaveLength(3);
+		const offers = app.offers;
 		expect(offers.map((item) => [item.name, item.price, item.priceCurrency])).toEqual([
 			['Self-hosted', '0', 'USD'], ['Hosted', '5', 'USD'], ['Lifetime', '49', 'USD']
 		]);
