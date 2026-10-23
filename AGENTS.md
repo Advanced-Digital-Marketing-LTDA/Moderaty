@@ -13,12 +13,6 @@ Change only what I explicitly ask you to change. Never remove, restyle, or "clea
 
 One agent works the full stack. There are no per-layer agent boundaries.
 
-- **`dev` is the integration branch and the working branch.** Commit
-  directly to `dev` in `.worktrees/dev` — no per-feature branches or PRs.
-  A PR is still useful for large or risky work (it triggers the review
-  bots); the agent NEVER merges or closes its own PRs — they stay open
-  for the human. Work in the `.worktrees/dev`
-  worktree — never switch branches in a checkout in use elsewhere.
 - **`main` is production.** Only the human merges `dev → main`, batched —
   every merge redeploys the `moderaty-prod` Coolify app and purges the
   Bunny CDN zone. Never push to `main`

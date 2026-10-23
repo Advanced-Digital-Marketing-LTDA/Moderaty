@@ -14,7 +14,7 @@
 <BlogMeta {...MODERATION_GUIDE} origin={data.siteOrigin} article />
 
 <nav class="breadcrumbs" aria-label="Breadcrumb">
-	<ol><li><a href="/">Home</a></li><li aria-current="page">YouTube comment moderation</li></ol>
+	<ol><li><a href="/">Home</a></li><li><a href="/guides/">Guides</a></li><li aria-current="page">YouTube comment moderation</li></ol>
 </nav>
 <article class="blog-article">
 	<h1>{MODERATION_GUIDE.title}</h1>
