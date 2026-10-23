@@ -47,6 +47,7 @@ function maintenanceData() {
 		user: null,
 		summary: null,
 		credits: null,
+		paymentReturn: null,
 		mercadoPagoBundles: [],
 		metered: false,
 		lifetimeSlots: null,
@@ -121,7 +122,17 @@ async function checkoutRedirect(create: () => Promise<string>, orgId: string) {
 	}
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+/**
+ * Mercado Pago's back_urls return the buyer to /usage?payment=failed or
+ * ?payment=pending (see mercadopago/client.ts); any other value is not a
+ * return state the page explains.
+ */
+function paymentReturnState(url: URL | undefined): 'failed' | 'pending' | null {
+	const payment = url?.searchParams.get('payment');
+	return payment === 'failed' || payment === 'pending' ? payment : null;
+}
+
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.dbDown) {
 		return maintenanceData();
 	}
@@ -174,6 +185,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.from(stripeAutoTopupRecoveries).where(and(eq(stripeAutoTopupRecoveries.orgId, user.orgId), isNull(stripeAutoTopupRecoveries.resolvedAt))).get();
 		return {
 			maintenance: false,
+			paymentReturn: paymentReturnState(url),
 			user,
 			mercadoPagoBundles: configuredMercadoPagoBundles(),
 			summary,

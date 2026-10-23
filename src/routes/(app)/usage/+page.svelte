@@ -78,6 +78,16 @@
 	{/if}
 {/snippet}
 
+{#if data.paymentReturn === 'failed'}
+	<p class="error-box" role="alert">
+		Your Mercado Pago payment did not go through, so no credits were added. You can try again below.
+	</p>
+{:else if data.paymentReturn === 'pending'}
+	<p class="ok-box" role="status">
+		Your Mercado Pago payment is awaiting confirmation. Credits are added automatically once Mercado
+		Pago confirms it.
+	</p>
+{/if}
 {#if form?.error}
 	<p class="error-box" role="alert">{form.error}</p>
 {/if}

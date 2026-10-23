@@ -458,6 +458,41 @@ describe('usage load', () => {
 		expect(body).not.toContain('monthly credits left');
 	});
 
+	test('a Mercado Pago failure return tells the buyer the payment did not go through', async () => {
+		// back_urls send the buyer to /usage?payment=failed — without a notice
+		// they land on a plain usage page with no sign the payment failed.
+		await seedOrg({ creditsRemaining: 5 });
+		const data = await load({ locals: { user: OWNER }, url: new URL('http://localhost/usage?payment=failed') } as never);
+		if (!data) throw new Error('Usage load returned no page data');
+
+		expect(data.paymentReturn).toBe('failed');
+		const { body } = render(Page, { props: { data, form: null } as never });
+		expect(body).toContain('Your Mercado Pago payment did not go through');
+		expect(body).not.toContain('awaiting confirmation');
+	});
+
+	test('a Mercado Pago pending return says credits arrive once the payment is confirmed', async () => {
+		await seedOrg({ creditsRemaining: 5 });
+		const data = await load({ locals: { user: OWNER }, url: new URL('http://localhost/usage?payment=pending') } as never);
+		if (!data) throw new Error('Usage load returned no page data');
+
+		expect(data.paymentReturn).toBe('pending');
+		const { body } = render(Page, { props: { data, form: null } as never });
+		expect(body).toContain('Your Mercado Pago payment is awaiting confirmation');
+		expect(body).not.toContain('did not go through');
+	});
+
+	test('no or an unknown payment parameter shows no payment notice', async () => {
+		await seedOrg({ creditsRemaining: 5 });
+		for (const search of ['', '?payment=approved', '?payment=FAILED']) {
+			const data = await load({ locals: { user: OWNER }, url: new URL(`http://localhost/usage${search}`) } as never);
+			if (!data) throw new Error('Usage load returned no page data');
+			expect(data.paymentReturn).toBeNull();
+			const { body } = render(Page, { props: { data, form: null } as never });
+			expect(body).not.toContain('Mercado Pago payment');
+		}
+	});
+
 	test('a lifetime org never gets a period end on the plan line — a live hosted subscription shows separately', async () => {
 		// After a cancel→lifetime upgrade the subscription keeps its paid
 		// window, but "period ends" belongs to the SUBSCRIPTION — the lifetime
