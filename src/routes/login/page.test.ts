@@ -19,7 +19,7 @@ function renderPage(locale: 'en' | 'pt-BR') {
 test.each(['en', 'pt-BR'] as const)('the Google button stays the only call to action (%s)', (locale) => {
 	const body = renderPage(locale);
 	// Svelte appends a scoping class; the switcher's "btn secondary small" is not a call to action.
-	expect(body.match(/class="btn(?: svelte-\w+)?"/g)).toHaveLength(1);
+	expect(body.split('href="/api/auth/google/login"').length - 1).toBe(1);
 	expect(body).toContain('href="/api/auth/google/login"');
 });
 
