@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { TEST_OWNER, postForm, setupTestDb, testDb } from '$lib/server/testdb';
-import { mercadoPagoCheckoutAttempts, organizations, stripeCheckoutAttempts, stripeLifetimeSlots, stripeAutoTopupRecoveries } from '$lib/server/db/schema';
+import { mercadoPagoCheckoutAttempts, organizations, stripeCheckoutAttempts, stripeLifetimeSlots, stripeAutoTopupRecoveries, stripeSubscriptionPeriods } from '$lib/server/db/schema';
 import type { SessionUser } from '$lib/server/session';
 import { TEST_CHECKOUT_OPERATOR_EMAIL } from '$lib/server/billing/checkout';
 import { applyLedgerDelta, consumeCredit } from '$lib/server/billing/ledger';
@@ -46,7 +46,7 @@ import { render } from 'svelte/server';
 import Page from './+page.svelte';
 import { actions, load } from './+page.server';
 
-setupTestDb(['organizations', 'credit_transactions', 'stripe_events', 'stripe_checkout_attempts', 'mercado_pago_checkout_attempts', 'stripe_lifetime_entitlements', 'stripe_lifetime_slots', 'stripe_pending_reversals', 'stripe_dispute_reversals', 'stripe_auto_topup_recoveries']);
+setupTestDb(['organizations', 'credit_transactions', 'stripe_events', 'stripe_checkout_attempts', 'mercado_pago_checkout_attempts', 'stripe_lifetime_entitlements', 'stripe_lifetime_slots', 'stripe_pending_reversals', 'stripe_dispute_reversals', 'stripe_auto_topup_recoveries', 'stripe_subscription_periods']);
 
 const OWNER = TEST_OWNER;
 // The test checkout is gated to the operator account — TEST_OWNER's email is
@@ -398,6 +398,64 @@ describe('usage load', () => {
 		}).body;
 		expect(owned).not.toContain('action="?/buyPlan"');
 		expect(owned).toContain('lifetime plan');
+	});
+
+	test('a hosted org sees its monthly allowance apart from purchased credits, the total still gating scoring', async () => {
+		// The allowance expires at the period boundary without a ledger row —
+		// shown only inside the merged total, that drop is unexplained.
+		const now = Date.now();
+		const periodEnd = new Date(now + 86_400_000).toISOString();
+		await seedOrg({ plan: 'hosted', creditsRemaining: 30, stripeSubscriptionId: 'sub-1', stripeSubscriptionStatus: 'active', stripeSubscriptionPeriodEnd: periodEnd });
+		await testDb().db.insert(stripeSubscriptionPeriods).values({ orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', periodKey: 'period-1', periodStart: new Date(now - 60_000).toISOString(), periodEnd, includedCredits: 100, consumedCredits: 40, status: 'paid' });
+
+		const data = await load({ locals: { user: OWNER } } as never);
+		if (!data) throw new Error('Usage load returned no page data');
+
+		expect(data.summary?.remaining).toBe(90);
+		expect(data.credits).toEqual({ purchased: 30, allowance: 60 });
+		const { body } = render(Page, { props: { data, form: null } as never });
+		expect(body).toContain('60 monthly credits left · renews');
+		expect(body).toContain(new Date(periodEnd).toLocaleDateString());
+		expect(body).toContain('30 purchased credits');
+	});
+
+	test('an exhausted hosted allowance still shows 0 monthly credits and the out-of-credits banner follows the total', async () => {
+		const periodEnd = new Date(Date.now() + 86_400_000).toISOString();
+		await seedOrg({ plan: 'hosted', creditsRemaining: 0, stripeSubscriptionId: 'sub-1', stripeSubscriptionStatus: 'active', stripeSubscriptionPeriodEnd: periodEnd });
+
+		const data = await load({ locals: { user: OWNER } } as never);
+		if (!data) throw new Error('Usage load returned no page data');
+
+		expect(data.credits).toEqual({ purchased: 0, allowance: 0 });
+		const { body } = render(Page, { props: { data, form: null } as never });
+		expect(body).toContain('0 monthly credits left');
+		expect(body).toContain('You are out of credits');
+	});
+
+	test('a cancel-pending hosted allowance says when it ends, not renews', () => {
+		const periodEnd = '2026-11-19T00:00:00.000Z';
+		const data = { ...usagePageData(), metered: true, credits: { purchased: 0, allowance: 12 }, billing: { plan: 'hosted', subscriptionStatus: 'active', periodEnd, cancelAtPeriodEnd: true, subscriptionLive: true } };
+		const body = render(Page, { props: { data, form: null } as never }).body;
+		expect(body).toContain('12 monthly credits left · ends');
+		expect(body).not.toContain('renews ' + new Date(periodEnd).toLocaleDateString());
+	});
+
+	test('a pay-as-you-go org without an allowance sees no monthly line', async () => {
+		await seedOrg({ creditsRemaining: 25 });
+
+		const data = await load({ locals: { user: OWNER } } as never);
+		if (!data) throw new Error('Usage load returned no page data');
+
+		expect(data.credits).toEqual({ purchased: 25, allowance: null });
+		const { body } = render(Page, { props: { data, form: null } as never });
+		expect(body).not.toContain('monthly credits left');
+		expect(body).not.toContain('purchased credits');
+	});
+
+	test('the maintenance payload carries no credit split', async () => {
+		const data = { ...usagePageData(), maintenance: true, summary: null, credits: null };
+		const body = render(Page, { props: { data, form: null } as never }).body;
+		expect(body).not.toContain('monthly credits left');
 	});
 
 	test('a lifetime org never gets a period end on the plan line — a live hosted subscription shows separately', async () => {

@@ -12,7 +12,7 @@ import { checkoutRejectionMessage, createCreditCheckout, createPlanCheckout, cre
 import { lifetimeSlotsRemaining } from '$lib/server/billing/entitlements';
 import { createMercadoPagoCreditCheckout } from '$lib/server/mercadopago/checkout';
 import { configuredMercadoPagoBundles } from '$lib/server/mercadopago/bundles';
-import { isUnmeteredPlan, listCreditTransactions, orgIsMetered, pauseAutoTopupForRefund, usageSummary } from '$lib/server/billing/ledger';
+import { activeAllowanceSql, isUnmeteredPlan, listCreditTransactions, orgIsMetered, pauseAutoTopupForRefund, usageSummary } from '$lib/server/billing/ledger';
 import { isActiveSubscriptionStatus } from '$lib/server/billing/plans';
 import { db } from '$lib/server/db';
 import { resolveOpenAiKey } from '$lib/server/openaiKey';
@@ -46,6 +46,7 @@ function maintenanceData() {
 		maintenance: true as const,
 		user: null,
 		summary: null,
+		credits: null,
 		mercadoPagoBundles: [],
 		metered: false,
 		lifetimeSlots: null,
@@ -142,6 +143,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 				autoTopupPausedAt: organizations.autoTopupPausedAt,
 				stripeDefaultPmId: organizations.stripeDefaultPmId,
 				creditsRemaining: organizations.creditsRemaining,
+				allowanceRemaining: activeAllowanceSql(new Date().toISOString()),
 				plan: organizations.plan,
 				stripeSubscriptionId: organizations.stripeSubscriptionId,
 				stripeSubscriptionStatus: organizations.stripeSubscriptionStatus,
@@ -175,6 +177,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 			user,
 			mercadoPagoBundles: configuredMercadoPagoBundles(),
 			summary,
+			// The merged total hides the allowance: it expires at the period
+			// boundary with no ledger row, so the page shows it on its own.
+			// Null when the org has no allowance to explain (no hosted plan and
+			// no live period).
+			credits: {
+				purchased: org.creditsRemaining ?? 0,
+				allowance: org.plan === 'hosted' || org.allowanceRemaining > 0 ? org.allowanceRemaining : null
+			},
 			metered,
 			lifetimeSlots,
 			history: history.map((row) => ({

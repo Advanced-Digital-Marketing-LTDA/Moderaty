@@ -89,6 +89,12 @@
 	<div class="stat-card">
 		<span class="stat-kicker">Credits left</span>
 		<span class="stat-value">{data.summary?.remaining ?? 0}</span>
+		{#if data.metered && data.credits && data.credits.allowance !== null}
+			<span class="stat-detail">
+				{`${data.credits.allowance} monthly credits left`}{data.billing?.periodEnd ? ` · ${data.billing.cancelAtPeriodEnd ? 'ends' : 'renews'} ${new Date(data.billing.periodEnd).toLocaleDateString()}` : ''}
+			</span>
+			<span class="stat-detail">{data.credits.purchased} purchased credits</span>
+		{/if}
 	</div>
 	<div class="stat-card">
 		<span class="stat-kicker">Used this month</span>
@@ -444,6 +450,10 @@
 	.stat-value {
 		font-size: 28px;
 		font-weight: 600;
+	}
+	.stat-detail {
+		font-size: 13px;
+		color: var(--ink-2);
 	}
 	.plan-actions {
 		display: flex;
