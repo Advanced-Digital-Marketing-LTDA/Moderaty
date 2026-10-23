@@ -460,22 +460,17 @@ describe('usage load', () => {
 		expect(body).not.toContain('monthly credits left');
 	});
 
-	test('a Mercado Pago failure return tells the buyer the payment did not go through', async () => {
-		// back_urls send the buyer to /usage?payment=failed — without a notice
-		// they land on a plain usage page with no sign the payment failed.
+	// back_urls send the buyer to /usage?payment=failed|pending — without a
+	// notice they land on a plain usage page with no sign of what happened.
+	test.each([
+		{ state: 'failed', shown: 'Your Mercado Pago payment did not go through', hidden: 'awaiting confirmation' },
+		{ state: 'pending', shown: 'Your Mercado Pago payment is awaiting confirmation', hidden: 'did not go through' }
+	])('a Mercado Pago $state return explains the payment state', async ({ state, shown, hidden }) => {
 		await seedOrg({ creditsRemaining: 5 });
-		const { data, body } = await loadAndRender('?payment=failed');
-		expect(data.paymentReturn).toBe('failed');
-		expect(body).toContain('Your Mercado Pago payment did not go through');
-		expect(body).not.toContain('awaiting confirmation');
-	});
-
-	test('a Mercado Pago pending return says credits arrive once the payment is confirmed', async () => {
-		await seedOrg({ creditsRemaining: 5 });
-		const { data, body } = await loadAndRender('?payment=pending');
-		expect(data.paymentReturn).toBe('pending');
-		expect(body).toContain('Your Mercado Pago payment is awaiting confirmation');
-		expect(body).not.toContain('did not go through');
+		const { data, body } = await loadAndRender(`?payment=${state}`);
+		expect(data.paymentReturn).toBe(state);
+		expect(body).toContain(shown);
+		expect(body).not.toContain(hidden);
 	});
 
 	test('no or an unknown payment parameter shows no payment notice', async () => {
