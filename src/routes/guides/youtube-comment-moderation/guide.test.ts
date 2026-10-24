@@ -95,7 +95,10 @@ test.each([
 	const original = page()[part];
 	const commented = original.replace(pattern, (markup) => `<!--${markup}-->`);
 	expect(commented).not.toBe(original);
-	expect(() => part === 'head' ? expectGuideTitle(commented) : expectGuideInstructions(commented)).toThrow();
+	expect(() => {
+		if (part === 'head') expectGuideTitle(commented);
+		else expectGuideInstructions(commented);
+	}).toThrow();
 });
 
 test('all article fragments resolve and external citations open safely', () => {
