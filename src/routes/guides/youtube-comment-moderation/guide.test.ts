@@ -70,6 +70,14 @@ test('all article fragments resolve and external citations open safely', () => {
 	}
 });
 
+test('product coverage and preview limits remain explicit in the rendered guide', () => {
+	const text = readingText(article());
+	expect(text).toContain('Its coverage excludes reply threads, live chat and a separate sweep of comments YouTube already holds.');
+	expect(text).toContain('Moderaty doesn’t write replies under your name.');
+	expect(text).toContain('A comment may remain visible until YouTube confirms a requested hold.');
+	expect(text).toContain('A preview can re-score comments from earlier moderation runs without changing them on YouTube.');
+});
+
 test('existing B01 and D01 articles link back to ROOT, which links to their real destinations', () => {
 	for (const [Page, path] of [[HateArticle, '/blogs/how-to-deal-with-hate-comments-on-youtube/'], [SpamArticle, '/blogs/how-to-stop-spam-and-scam-comments-on-youtube/']] as const) {
 		expect(render(Page, { props: { data } }).body).toContain(`href="${MODERATION_GUIDE.path}"`);

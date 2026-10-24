@@ -114,8 +114,8 @@
 	<p>YouTube Studio may cover the work your channel needs. Before connecting another service, I check which comments it can reach and what Google permissions it requests. I also want a clear route for uncertain cases and a record of completed actions.</p>
 	<p>A tool that scans published comments may leave replies or YouTube’s Held queue for you to manage. Check its coverage against the work you want help with, along with its current price and retention terms.</p>
 	<p>Moderaty scans published top-level comments on connected, active channels. It applies custom rules before AI scoring, sends uncertain cases and scoring failures to a review queue, and records completed actions.</p>
-	<p>Its coverage excludes reply threads, live chat and a separate sweep of comments YouTube already holds. Moderaty doesn’t write replies under your name. A requested hold may take time to take effect until YouTube confirms it, and deleted comments cannot be restored. <a href="/#scope">Review Moderaty’s coverage and controls</a>.</p>
-	<p>Start with a <a href="/#moderation-preview">moderation preview</a> and compare the proposed decisions with your rules before enabling actions. Check the comments it would keep as carefully as those it would remove.</p>
+	<p>Its coverage excludes reply threads, live chat and a separate sweep of comments YouTube already holds. Moderaty doesn’t write replies under your name. A comment may remain visible until YouTube confirms a requested hold. Deleted comments cannot be restored. <a href="/#scope">Review Moderaty’s coverage and controls</a>.</p>
+	<p>Start with a <a href="/#moderation-preview">moderation preview</a> and compare the proposed decisions with your rules before enabling actions. A preview can re-score comments from earlier moderation runs without changing them on YouTube. Check the comments it would keep as carefully as those it would remove.</p>
 
 	<h2 id="frequently-asked-questions" tabindex="-1">Common YouTube comment moderation questions</h2>
 	<h3>Does None turn off all moderation?</h3>
