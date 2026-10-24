@@ -6,7 +6,7 @@ on:
 
 jobs:
   rewardguard:
-    uses: Advanced-Digital-Marketing-LTDA/workflows/.github/workflows/rewardguard.yml@66d005ae6105310cbd4ef9c9395e26f51350e94f # automatic evidence and individual content checks
+    uses: Advanced-Digital-Marketing-LTDA/workflows/.github/workflows/rewardguard.yml@2529cec883dc27ccde4bbd76aaa882234e8a38b1 # positive applicability and individual content checks
     permissions:
       contents: read
       pull-requests: write
