@@ -17,3 +17,4 @@ enabled = true
 P = ["docs/privacy/2026-10-05-umami-audience-measurement.md"]
 R = ["docs/content/youtube-hate-comments-v6-validation.json"]
 S = ["docs/content/youtube-hate-comments-source.json"]
+B = ["PRODUCT.md"]
