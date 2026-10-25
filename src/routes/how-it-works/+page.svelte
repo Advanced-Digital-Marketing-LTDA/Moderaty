@@ -90,7 +90,7 @@
 <main id="main-content" tabindex="-1">
 	<header class="hero page-width">
 		<p class="eyebrow">Comment protection for YouTube creators</p>
-		<h1>How Moderaty works</h1>
+		<h1>How Moderaty works: trolls, meet your rulebook.</h1>
 		<p class="hero-copy">
 			Moderaty checks published top-level comments on connected, active channels. Your protected handles
 			and rules come before AI scoring. Borderline results wait for a person, and the audit log records
@@ -119,7 +119,7 @@
 		<p class="eyebrow">01 / Rules first</p>
 		<div class="section-grid">
 			<div>
-				<h2 id="rules-title">Your rules decide what should happen.</h2>
+				<h2 id="rules-title">Your rules swing first.</h2>
 				<p>
 					Set keyword, regex, or user rules for the comments on a connected channel. Each matching rule can
 					hold, reject, delete, or ban. Protected handles bypass both rule matching and AI scoring.
@@ -207,7 +207,7 @@
 		<p class="eyebrow">04 / Optional audience feedback</p>
 		<div class="section-grid">
 			<div>
-				<h2 id="digest-title">Read the feedback that keeps coming up.</h2>
+				<h2 id="digest-title">Somewhere under the trolls, an actually good idea.</h2>
 				<p>
 					Turn on the optional, read-only digest to group recurring questions, corrections, substantive
 					criticism, and viewer requests from scanned top-level comments. Run it weekly, after 100 new
@@ -228,7 +228,7 @@
 
 	<section class="section page-width" id="hosting" aria-labelledby="hosting-title">
 		<p class="eyebrow">05 / Hosting and usage</p>
-		<h2 id="hosting-title">Choose who runs Moderaty and provides the AI key.</h2>
+		<h2 id="hosting-title">Choose your fighter.</h2>
 		<div class="plans">
 			<article class="plan-card">
 				<h3>Self-hosted</h3>
