@@ -42,7 +42,7 @@ function makeEvent() {
 	};
 }
 
-test.each(['/blogs', '/blogs/how-to-deal-with-hate-comments-on-youtube', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube', '/guides/youtube-comment-moderation', '/privacy', '/terms', '/dpa'])(
+test.each(['/how-it-works', '/blogs', '/blogs/how-to-deal-with-hate-comments-on-youtube', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube', '/guides/youtube-comment-moderation', '/privacy', '/terms', '/dpa'])(
 	'public page %s stays available without database migrations or a valid session',
 	async (routeId) => {
 		mocks.assertMigrationsCurrent.mockImplementation(async () => error(503, 'Migrations pending'));

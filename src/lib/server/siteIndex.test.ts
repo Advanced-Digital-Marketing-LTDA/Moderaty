@@ -50,6 +50,14 @@ test('the sitemap lists exactly the public pages as absolute APP_URL URLs', () =
 	}
 });
 
+test('the explainer keeps its requested trailing-slash URL in the sitemap and llms index', () => {
+	expect(PUBLIC_PAGES).toContain('/how-it-works/');
+	expect(canonicalUrl('/how-it-works/')).toBe('https://moderaty.example/how-it-works/');
+	expect(canonicalUrl('/how-it-works')).toBe('https://moderaty.example/how-it-works/');
+	expect(sitemapXml()).toContain('<loc>https://moderaty.example/how-it-works/</loc>');
+	expect(llmsTxt()).toContain('[How Moderaty works](https://moderaty.example/how-it-works/)');
+});
+
 test.each(PRIVATE_PATHS)('the sitemap never publishes %s', (path) => {
 	expect(sitemapXml()).not.toContain(`<loc>https://moderaty.example${path}`);
 });
