@@ -41,8 +41,8 @@
 				to 30 days, then are erased automatically — erase them on demand at any time.
 			</p>
 			<nav class="footer-links" aria-label="Footer">
-				<a href={GITHUB_URL} data-moderaty-event="source_click" data-moderaty-placement="footer" target="_blank" rel="noreferrer" class="footer-link">GitHub</a>
-				<a href={POLYFORM_URL} target="_blank" rel="noreferrer" class="footer-link">PolyForm Shield License</a>
+				<a href={GITHUB_URL} data-moderaty-event="source_click" data-moderaty-placement="footer" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub</a>
+				<a href={POLYFORM_URL} target="_blank" rel="noopener noreferrer" class="footer-link">PolyForm Shield License</a>
 				<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="footer" class="footer-link">Pricing</a>
 				<a href="/#faq" class="footer-link">FAQ</a>
 				<a href="/blogs/" class="footer-link">Blogs</a>
