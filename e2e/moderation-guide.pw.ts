@@ -24,6 +24,8 @@ for (const viewport of [
 		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
 		if (viewport.name === 'mobile') {
 			const contents = article.locator('.mobile-contents');
+			// The link closes the disclosure from a click handler, which exists only after hydration.
+			await page.waitForLoadState('networkidle');
 			await contents.locator('summary').click();
 			await contents.locator('a[href="#native-settings"]').click();
 			await expect(contents).not.toHaveAttribute('open', '');
