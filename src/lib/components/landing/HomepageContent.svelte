@@ -222,6 +222,7 @@
 			<a href="/privacy">Privacy Policy <span aria-hidden="true">→</span></a>
 			<a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">Source code <span aria-hidden="true">↗</span></a>
 			<a href="/blogs/how-to-deal-with-hate-comments-on-youtube/">How to deal with hate comments on YouTube <span aria-hidden="true">→</span></a>
+			<a href="/blogs/how-to-stop-spam-and-scam-comments-on-youtube/">How to stop spam and scam comments on YouTube <span aria-hidden="true">→</span></a>
 		</div>
 	</div>
 </section>
