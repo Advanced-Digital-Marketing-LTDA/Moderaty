@@ -173,7 +173,7 @@ test('hero shows the animated review-queue demo with its labeled illustrative co
 test('homepage keeps the meme-culture voice alongside the factual disclosures', () => {
 	const { body } = renderHomepage();
 	const hero = body.split('id="top"')[1]?.split('</section>')[0];
-	expect(hero).toMatch(/<h1[^>]*>YouTube AI Comment Moderation Tool<\/h1>/);
+	expect(hero).toMatch(/<h1[^>]*>Never read another hate comment\.<\/h1>/);
 	expect(hero).toMatch(/<p class="tagline[^"]*">Trolls get <span class="marker">the hammer<\/span><\/p>/);
 	expect(hero).not.toMatch(/<h2/);
 	expect(visibleText(hero ?? '')).toContain('connected YouTube channels. Your rules swing first');

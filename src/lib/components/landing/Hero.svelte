@@ -11,7 +11,7 @@
 				<p class="eyebrow"><span class="eyebrow-mark">{'//'}</span> AI YouTube comment moderation.</p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.08}>
-				<h1>YouTube AI Comment Moderation Tool</h1>
+				<h1>Never read another hate comment.</h1>
 				<p class="tagline">Trolls get <span class="marker">the hammer</span></p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.16}>

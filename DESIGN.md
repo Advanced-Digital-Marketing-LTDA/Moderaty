@@ -1,4 +1,11 @@
 ---
+id: moderaty-visual-design
+type: module-design
+title: Moderaty visual design system
+status: draft
+parent: moderaty-architecture
+tags:
+  - visual-design
 name: Moderaty
 description: Comment protection for YouTube creators — the night shift as a stage lighting plot.
 colors:
@@ -108,11 +115,12 @@ components:
 **Creative North Star: "The Cyclorama Cue Sheet"**
 
 > **Superseded spec.** The Cyclorama system below (cyc-black/cobalt/rose/dawn,
-> Saira family, no-green/no-amber) predates the shipped redesign — the code
-> uses the terminal-ink system in "Landing brief (shipped redesign)" further
-> down (ink canvas, banhammer pink, mint/amber verdicts, Archivo + IBM Plex
-> Mono). Where the two disagree, the shipped redesign is authoritative; this
-> section stays for its naming and story rationale (coderabbit, PR #147).
+> Saira family, no-green/no-amber) is an earlier design direction. The
+> terminal-ink brief below remains design intent for the visual system and
+> layout—not a description of current UI or tokens. Its tagline, “Never read
+> another hate comment.”, is now shipped in the homepage hero. The current
+> implementation is authoritative for shipped UI; this section remains for its
+> naming and story rationale (coderabbit, PR #147).
 
 Moderaty renders the product's promise — the night's comments cleared before
 morning — as a stage lighting plot. The landing page is one seamless cyclorama:
@@ -307,7 +315,11 @@ world shows a list of consequences — reuse it for any landing enumeration.
 - **Don't** use glyph/icon fonts or a shield motif — the world speaks in cue numbers and horizon bands.
 - **Don't** clamp or abbreviate the cue sequence; the landing's story is the ordered LX-00 → LX-05 arc.
 
-## Landing brief (shipped redesign)
+## Landing redesign brief (design intent only — not current UI)
+
+**Design intent only:** The tagline “Never read another hate comment.” is now
+shipped in the homepage hero. The rest of this brief—the visual system and
+layout—remains design intent, not a description of current UI or tokens.
 
 Moved out of `src/routes/+layout.svelte` — as an HTML comment it was
 served in every page's source.
