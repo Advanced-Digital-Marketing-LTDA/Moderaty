@@ -8,10 +8,11 @@
 	<div class="hero-grid">
 		<div class="hero-copy">
 			<Reveal amount={0.1}>
-				<p class="eyebrow"><span class="eyebrow-mark">{'//'}</span> AI YouTube comment moderation. Your rules come first.</p>
+				<p class="eyebrow"><span class="eyebrow-mark">{'//'}</span> AI YouTube comment moderation.</p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.08}>
-				<h1>Trolls get <span class="marker">the hammer.</span></h1>
+				<h1>YouTube AI Comment Moderation Tool</h1>
+				<h2>Trolls get <span class="marker">the hammer</span></h2>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.16}>
 				<p class="sub">
@@ -65,16 +66,23 @@
 	.eyebrow-mark {
 		color: var(--ban);
 	}
-	h1 {
-		margin: 20px 0 0;
+	h1,
+	h2 {
 		max-width: 20ch;
 		text-wrap: balance;
 		font-family: var(--font-display);
-		font-size: 48px;
 		font-weight: 800;
 		line-height: 1.02;
 		letter-spacing: -0.02em;
 		color: var(--paper);
+	}
+	h1 {
+		margin: 20px 0 0;
+		font-size: 48px;
+	}
+	h2 {
+		margin: 16px 0 0;
+		font-size: 36px;
 	}
 	.sub {
 		margin: 24px 0 0;
@@ -118,6 +126,9 @@
 	@media (min-width: 768px) {
 		h1 {
 			font-size: 60px;
+		}
+		h2 {
+			font-size: 44px;
 		}
 	}
 	@media (min-width: 1024px) {
