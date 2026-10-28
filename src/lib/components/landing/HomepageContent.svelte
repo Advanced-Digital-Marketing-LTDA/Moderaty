@@ -74,6 +74,7 @@
 			</p>
 		</article>
 	</div>
+	<a href="/how-it-works/" class="inline-link">See the full moderation workflow <span aria-hidden="true">→</span></a>
 	<a href={LOGIN_URL} class="inline-link">Preview moderation on your channel <span aria-hidden="true">→</span></a>
 </section>
 
@@ -220,7 +221,6 @@
 		<div class="trust-links">
 			<a href="/privacy">Privacy Policy <span aria-hidden="true">→</span></a>
 			<a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">Source code <span aria-hidden="true">↗</span></a>
-			<a href="/blogs/how-to-deal-with-hate-comments-on-youtube/">How to deal with hate comments on YouTube <span aria-hidden="true">→</span></a>
 		</div>
 	</div>
 </section>

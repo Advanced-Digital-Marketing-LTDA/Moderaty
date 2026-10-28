@@ -230,3 +230,14 @@ test('each animated Regulars card carries a descriptive label naming the fiction
 		'Fictional example: the Brigadier arrives from a drama video to pile on. Stamp: held for review.'
 	]);
 });
+
+test('homepage links to no individual blog post or guide', () => {
+	const { body } = renderHomepage();
+	expect(body).not.toMatch(/href="\/(?:blogs|guides)\/[^"]+"/);
+});
+
+test('homepage keeps its Source code link and the footer Blogs link', () => {
+	const { body } = renderHomepage();
+	expect(body).toMatch(/<a href="https:\/\/github\.com\/[^"]+"[^>]*>Source code/);
+	expect(body).toMatch(/<a href="\/blogs\/" class="footer-link[^"]*">Blogs<\/a>/);
+});

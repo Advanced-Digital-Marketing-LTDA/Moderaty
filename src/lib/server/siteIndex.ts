@@ -11,6 +11,7 @@ import { GUIDES_INDEX } from '$lib/blogs/guides-index';
 // the sitemap on purpose.
 export const PUBLIC_PAGES = [
 	'/',
+	'/how-it-works/',
 	'/pricing',
 	'/contact',
 	'/login',
@@ -30,6 +31,7 @@ const LAYOUT_CANONICAL_PAGES = PUBLIC_PAGES.filter((path) => !SELF_CANONICAL_PAG
 
 // Runtime-rendered editorial and legal pages need the configured origin, not a session or DB.
 export const PUBLIC_BLOG_ROUTE_IDS = [
+	'/how-it-works',
 	'/blogs',
 	HATE_COMMENTS.path.slice(0, -1),
 	SPAM_COMMENTS.path.slice(0, -1),
@@ -85,8 +87,12 @@ export function siteOrigin(): string {
  */
 export function canonicalUrl(pathname: string): string | null {
 	const path = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
-	if (!LAYOUT_CANONICAL_PAGES.includes(path as (typeof PUBLIC_PAGES)[number])) return null;
-	return new URL(path, siteOrigin()).toString();
+	const canonicalPath = LAYOUT_CANONICAL_PAGES.find((candidate) => {
+		const candidatePath = candidate.length > 1 ? candidate.replace(/\/$/, '') : candidate;
+		return candidatePath === path;
+	});
+	if (!canonicalPath) return null;
+	return new URL(canonicalPath, siteOrigin()).toString();
 }
 
 /** Keep internal pages crawlable for noindex headers and link the configured sitemap. */
@@ -138,6 +144,7 @@ export function llmsTxt(): string {
 		'## Product',
 		'',
 		`- [Home](${link('/')}) — feature overview, how it works, and FAQ`,
+		`- [How Moderaty works](${link('/how-it-works/')}) — rules, AI scoring, human review, history, digests, and hosting`,
 		`- [Pricing](${link('/pricing')}) — plans and usage-based billing`,
 		`- [Contact](${link('/contact')}) — support and inquiries`,
 		`- [Sign in](${link('/login')}) — Google sign-in`,

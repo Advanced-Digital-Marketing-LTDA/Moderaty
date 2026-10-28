@@ -11,3 +11,10 @@ effort = "low"
 [content]
 enabled = true
 
+
+# Existing repository contracts; evidence remains scoped to its actual target/revision.
+[content.context]
+P = ["docs/privacy/2026-10-05-umami-audience-measurement.md"]
+R = ["docs/content/youtube-hate-comments-v6-validation.json"]
+S = ["docs/content/youtube-hate-comments-source.json"]
+B = ["PRODUCT.md"]
