@@ -23,7 +23,7 @@ test('MC-3 homepage owns the commercial query, metadata, and canonical URL', () 
 test('MC-3 renders the approved rules-first hero and working conversion paths', () => {
 	const { body } = renderHomepage();
 	expect(body).toContain('AI YouTube comment moderation.');
-	expect(body).toContain('Your rules come first.');
+	expect(body).not.toContain('Your rules come first.');
 	expect(body).toContain('Connect your YouTube channel');
 	expect(body).toContain('href="/login"');
 	expect(body).toContain('href="/pricing"');
@@ -170,7 +170,8 @@ test('hero shows the animated review-queue demo with its labeled illustrative co
 test('homepage keeps the meme-culture voice alongside the factual disclosures', () => {
 	const { body } = renderHomepage();
 	const hero = body.split('id="top"')[1]?.split('</section>')[0];
-	expect(hero).toMatch(/<h1[^>]*>Trolls get <span class="marker">the hammer\.<\/span><\/h1>/);
+	expect(hero).toMatch(/<h1[^>]*>YouTube AI Comment Moderation Tool<\/h1>/);
+	expect(hero).toMatch(/<h2[^>]*>Trolls get <span class="marker">the hammer<\/span><\/h2>/);
 	const regulars = body.split('id="regulars"')[1]?.split('</section>')[0];
 	expect(regulars).toContain('Meet the regulars.');
 	for (const rogue of ['The Ackchyually Guy', 'The Edge Lord', 'The Crypto Bot', 'The Brigadier']) {
