@@ -211,3 +211,16 @@ describe('dimmed rows (review findings on PR #244)', () => {
 		}
 	);
 });
+
+describe('keyboard focus ring', () => {
+	test('focus-visible links and buttons get a 2px accent outline', () => {
+		const css = readFileSync(join(ROOT, 'src/app.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+		const rule = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].find(([, selectors]) =>
+			selectors.split(',').some((selector) => selector.trim() === 'a:focus-visible')
+		);
+		if (!rule) throw new Error('app.css must style a:focus-visible');
+		expect(rule[1].split(',').map((selector) => selector.trim())).toContain('button:focus-visible');
+		expect(rule[2]).toMatch(/(?<![-\w])outline:\s*2px solid var\(--accent\)/);
+	});
+});
+
