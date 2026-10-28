@@ -7,6 +7,7 @@
 	import { HATE_COMMENTS } from '$lib/blogs/hate-comments';
 	import { SPAM_COMMENTS } from '$lib/blogs/spam-comments';
 	import { MODERATION_GUIDE, MODERATION_GUIDE_EDITION, MODERATION_GUIDE_SECTIONS } from '$lib/blogs/moderation-guide';
+	import { COMMENT_SETTINGS_GUIDE } from '$lib/blogs/comment-settings-guide';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
 </script>
@@ -60,6 +61,7 @@
 		</table>
 	</TableScroll>
 	<p>These are <a href="https://support.google.com/youtube/answer/9483359?hl=en" target="_blank" rel="noopener">YouTube’s documented comment moderation options</a>.</p>
+	<p>Compare the settings and their review trade-offs in the <a href={COMMENT_SETTINGS_GUIDE.path}>YouTube comment settings guide</a>.</p>
 	<p>Choose a setting based on what you can review. Moving from Basic to Strict may catch more unwanted comments, so check whether it also holds contributions you want to keep. Hold all puts you on door duty: someone needs to approve the comments you want viewers to see.</p>
 
 	<h3>Update existing videos separately</h3>

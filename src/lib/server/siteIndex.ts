@@ -4,6 +4,7 @@ import { HATE_COMMENTS } from '$lib/blogs/hate-comments';
 import { SPAM_COMMENTS } from '$lib/blogs/spam-comments';
 import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 import { GUIDES_INDEX } from '$lib/blogs/guides-index';
+import { COMMENT_SETTINGS_GUIDE } from '$lib/blogs/comment-settings-guide';
 
 // The crawlable surface: marketing, legal, public utility and editorial
 // pages. Everything else — the (app) console, OAuth/consent/invite/verify
@@ -22,11 +23,12 @@ export const PUBLIC_PAGES = [
 	HATE_COMMENTS.path,
 	SPAM_COMMENTS.path,
 	GUIDES_INDEX.path,
-	MODERATION_GUIDE.path
+	MODERATION_GUIDE.path,
+	COMMENT_SETTINGS_GUIDE.path
 ] as const;
 
 // Pages whose own route renders <link rel="canonical">; the root layout covers the rest.
-const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path, GUIDES_INDEX.path, MODERATION_GUIDE.path];
+const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path, GUIDES_INDEX.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path];
 const LAYOUT_CANONICAL_PAGES = PUBLIC_PAGES.filter((path) => !SELF_CANONICAL_PAGES.includes(path));
 
 // Runtime-rendered editorial and legal pages need the configured origin, not a session or DB.
@@ -37,6 +39,7 @@ export const PUBLIC_BLOG_ROUTE_IDS = [
 	SPAM_COMMENTS.path.slice(0, -1),
 	GUIDES_INDEX.path.slice(0, -1),
 	MODERATION_GUIDE.path.slice(0, -1),
+	COMMENT_SETTINGS_GUIDE.path.slice(0, -1),
 	'/privacy',
 	'/terms',
 	'/dpa'
@@ -153,6 +156,7 @@ export function llmsTxt(): string {
 		`- [${SPAM_COMMENTS.title}](${link(SPAM_COMMENTS.path)}) — native controls and review for recurring spam patterns`,
 		`- [Guides](${link(GUIDES_INDEX.path)}) — long-form YouTube comment moderation guides`,
 		`- [${MODERATION_GUIDE.title}](${link(MODERATION_GUIDE.path)}) — choosing actions, settings and a review workflow`,
+		`- [${COMMENT_SETTINGS_GUIDE.title}](${link(COMMENT_SETTINGS_GUIDE.path)}) — video comment settings and Community viewer-post controls`,
 		'',
 		'## Legal',
 		'',
