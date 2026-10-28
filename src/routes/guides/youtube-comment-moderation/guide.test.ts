@@ -50,7 +50,8 @@ test('ROOT has its own configured canonical and public discovery without publish
 	expect(head).toContain(`name="description" content="${MODERATION_GUIDE.description}"`);
 	expect(sitemapXml()).toContain('<loc>https://preview.example/guides/youtube-comment-moderation/</loc>');
 	expect(PUBLIC_BLOG_ROUTE_IDS).toContain('/guides/youtube-comment-moderation');
-	for (const provisional of ['/guides/youtube-comment-overload/', '/guides/youtube-comment-moderation-settings/', '/youtube-comment-moderation-tools/', '/guides/ai-comment-moderation/', '/guides/youtube-comment-feedback/']) {
+	expect(body).toContain('href="/guides/youtube-comment-moderation-settings/"');
+	for (const provisional of ['/guides/youtube-comment-overload/', '/youtube-comment-moderation-tools/', '/guides/ai-comment-moderation/', '/guides/youtube-comment-feedback/']) {
 		expect(body).not.toContain(`href="${provisional}"`);
 	}
 });
