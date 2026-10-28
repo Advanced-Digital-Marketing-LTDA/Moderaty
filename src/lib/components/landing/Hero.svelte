@@ -12,12 +12,12 @@
 			</Reveal>
 			<Reveal amount={0.1} delay={0.08}>
 				<h1>YouTube AI Comment Moderation Tool</h1>
-				<h2>Trolls get <span class="marker">the hammer</span></h2>
+				<p class="tagline">Trolls get <span class="marker">the hammer</span></p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.16}>
 				<p class="sub">
 					Reading the comments is the job nobody hired you for. Moderaty checks published
-					top-level comments on your connected YouTube channels: your
+					top-level comments on your connected YouTube channels. Your
 					rules swing first, AI scoring handles the rest, and the borderline ones wait in
 					your review queue. No auto-replies. No posting as you. Just bonks.
 				</p>
@@ -67,7 +67,7 @@
 		color: var(--ban);
 	}
 	h1,
-	h2 {
+	.tagline {
 		max-width: 20ch;
 		text-wrap: balance;
 		font-family: var(--font-display);
@@ -80,7 +80,7 @@
 		margin: 20px 0 0;
 		font-size: 48px;
 	}
-	h2 {
+	.tagline {
 		margin: 16px 0 0;
 		font-size: 36px;
 	}
@@ -99,7 +99,7 @@
 		gap: 16px;
 	}
 	.cta-primary {
-		border-radius: 999px;
+		border-radius: 0;
 		background: var(--ban);
 		color: var(--ink);
 		font-size: 16px;
@@ -108,7 +108,7 @@
 		text-decoration: none;
 	}
 	.cta-ghost {
-		border-radius: 999px;
+		border-radius: 0;
 		border: 1px solid var(--line);
 		color: var(--paper);
 		font-size: 16px;
@@ -127,7 +127,7 @@
 		h1 {
 			font-size: 60px;
 		}
-		h2 {
+		.tagline {
 			font-size: 44px;
 		}
 	}

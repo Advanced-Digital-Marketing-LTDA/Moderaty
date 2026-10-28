@@ -109,7 +109,7 @@
 	.cta {
 		white-space: nowrap;
 		display: none;
-		border-radius: 999px;
+		border-radius: 0;
 		background: var(--ban);
 		color: var(--ink);
 		font-size: 14px;

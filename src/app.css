@@ -372,7 +372,7 @@ h1 {
 }
 
 .btn:focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
-	outline: 1px solid var(--accent);
+	outline: 2px solid var(--accent);
 	outline-offset: 2px;
 }
 
