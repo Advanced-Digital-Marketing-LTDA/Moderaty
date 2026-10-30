@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Coolify deployment image (docs/COOLIFY_BUNNY.md). Coolify's Dockerfile
+# Coolify deployment image (docs/COOLIFY.md). Coolify's Dockerfile
 # build pack passes environment variables flagged as build variables to the
 # build; with "Use Docker Build Secrets" enabled they arrive as BuildKit
 # secrets (`--secret id=KEY,env=KEY`), which the migrate gate below mounts
@@ -28,7 +28,7 @@ COPY . .
 # single RUN (docker:S6472 — never ARG/ENV, so they never appear in build
 # args, image history, or baked layers). Coolify passes them as
 # `--secret id=KEY,env=KEY` when "Use Docker Build Secrets" is enabled in the
-# app's Environment Variables settings (see docs/COOLIFY_BUNNY.md §3.4);
+# app's Environment Variables settings (see docs/COOLIFY.md §3.4);
 # without it the mounts are empty and the gate's preflight aborts with an
 # actionable `TURSO_DATABASE_URL is not set` error — a build without the
 # secrets always fails loudly here.
@@ -38,15 +38,15 @@ RUN --mount=type=secret,id=TURSO_DATABASE_URL,env=TURSO_DATABASE_URL \
 # Coolify target builds the standalone node server (adapter-node); Netlify
 # builds leave MODERATY_ADAPTER unset and keep adapter-netlify.
 ENV MODERATY_ADAPTER=node
-# Bake the deployed commit into a static marker BEFORE the build so the
-# bunny-purge workflow can wait for this deploy to serve the pushed commit.
+# Bake the deployed commit into a static marker BEFORE the build so release
+# checks can confirm this deploy serves the pushed commit.
 # SOURCE_COMMIT is Coolify's predefined build-time variable (git is NOT
 # installed in the alpine builder). With "Use Docker Build Secrets" on,
 # Coolify delivers it as `--secret id=SOURCE_COMMIT,env=SOURCE_COMMIT`, so it
 # is mounted here like the TURSO_* credentials; otherwise it arrives as
 # `--build-arg SOURCE_COMMIT` (the ARG below). The script falls back to
 # 'unknown' when absent. Requires Coolify's "Include Source Commit in Build"
-# app setting (docs/COOLIFY_BUNNY.md §3.4).
+# app setting (docs/COOLIFY.md §3.4).
 ARG SOURCE_COMMIT
 RUN --mount=type=secret,id=SOURCE_COMMIT,env=SOURCE_COMMIT \
 	node scripts/write-commit-marker.mjs
@@ -59,9 +59,7 @@ ENV NODE_ENV=production \
 	PORT=3000
 COPY --from=builder /app/build build/
 # scripts/ ships so the in-container commands work: the Coolify Scheduled
-# Task cron ticker runs `node scripts/...` inside this image. (The Bunny CDN
-# purge is NOT in-container — it runs from .github/workflows/bunny-purge.yml
-# with a zone-scoped key, so no purge credential ever ships in the image.)
+# Task cron ticker runs `node scripts/...` inside this image.
 COPY --from=builder /app/scripts scripts/
 COPY --from=builder /app/package.json package.json
 COPY --from=builder /app/node_modules node_modules/

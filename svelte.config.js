@@ -1,7 +1,7 @@
 import adapterNetlify from '@sveltejs/adapter-netlify';
 import adapterNode from '@sveltejs/adapter-node';
 
-// Two supported deployment targets (docs/COOLIFY_BUNNY.md):
+// Two supported deployment targets (docs/COOLIFY.md):
 // - Netlify (default): MODERATY_ADAPTER unset — every existing Netlify build
 //   is unchanged.
 // - Coolify (self-hosted): the Dockerfile builds with MODERATY_ADAPTER=node.
