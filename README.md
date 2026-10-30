@@ -54,8 +54,8 @@ later run.
 
 Moderaty is a SvelteKit 2 application using Svelte 5, TypeScript, and a
 **dual deploy adapter** (the choice is the build-time `MODERATY_ADAPTER` env):
-the default Netlify adapter, or adapter-node for the self-hosted Coolify +
-Bunny CDN target (see `DEPLOY.md` and `docs/COOLIFY_BUNNY.md`). Server code
+the default Netlify adapter, or adapter-node for the self-hosted Coolify
+target (see `DEPLOY.md` and `docs/COOLIFY.md`). Server code
 calls the Google and OpenAI HTTP APIs directly — no auth or Google SDKs. The
 only third-party runtime SDKs are `stripe` (billing), `@openai/guardrails`
 (prompt-injection screening), and `nodemailer` (Proton Mail SMTP), all
@@ -68,13 +68,12 @@ server-only.
 | `src/lib/server/` | Sessions, OAuth, encryption, rules, moderation, pipeline, and database access |
 | `drizzle/` | Database migrations for libSQL/SQLite and Turso |
 | `netlify/functions/cron.mjs` | Scheduled Netlify function that invokes the cron endpoint |
-| `Dockerfile` | Coolify image: migrate+verify gate, node build, non-root runtime (see `docs/COOLIFY_BUNNY.md`) |
-| `scripts/bunny-purge.mjs` | Bunny CDN cache purge, run from `.github/workflows/bunny-purge.yml` after production deploys |
+| `Dockerfile` | Coolify image: migrate+verify gate, node build, non-root runtime (see `docs/COOLIFY.md`) |
 | `scripts/dev-cron.mjs` | Cron ticker: local dev loop, or Coolify's in-container scheduled task (`--once`) |
 | `scripts/` | Local demo-data seeding, live tone calibration, and deploy helpers |
-| `docs/` | Manual end-to-end verification notes and the Coolify runbook (`docs/COOLIFY_BUNNY.md`) |
+| `docs/` | Manual end-to-end verification notes and the Coolify runbook (`docs/COOLIFY.md`) |
 | `DEPLOY.md` | Netlify, Turso, Google OAuth, and cron deployment instructions |
-| `docs/COOLIFY_BUNNY.md` | Coolify + Bunny CDN target: implementation plan and operator runbook |
+| `docs/COOLIFY.md` | Coolify target: implementation plan and operator runbook |
 | `EXECUTION_PLAN_YouTube_Comment_Moderator.md` | Implementation plan and system invariants |
 
 The app uses local SQLite through `file:local.db` during development and Turso
@@ -191,8 +190,8 @@ separate `youtube.force-ssl` consent to connect a channel. Self-hosted
 instances use the same code path and bring their own Google, OpenAI, and Turso
 credentials. Moderaty supports two deploy targets: the managed **Netlify**
 target (Scheduled Function, see [DEPLOY.md](DEPLOY.md)) and the self-hosted
-**Coolify + Bunny CDN** target (Dockerfile + in-container scheduled task, see
-[docs/COOLIFY_BUNNY.md](docs/COOLIFY_BUNNY.md)); both use Turso as the
+**Coolify** target (Dockerfile + in-container scheduled task, see
+[docs/COOLIFY.md](docs/COOLIFY.md)); both use Turso as the
 production database and share the same `DRY_RUN`-first verification flow.
 Transactional e-mail (contact-form verification and zero-credit warnings)
 goes out through Proton Mail SMTP submission.

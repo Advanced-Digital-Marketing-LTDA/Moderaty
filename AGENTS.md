@@ -15,8 +15,7 @@ One agent works the full stack. There are no per-layer agent boundaries.
 
 - **`main` is production.** Use `dev → main` as the normal batched release
   path. A direct update to `main` is allowed only when the user explicitly
-  requests it; it deploys the `moderaty-prod` Coolify app and purges the Bunny
-  CDN zone.
+  requests it; it deploys the `moderaty-prod` Coolify app.
 - Keep `dev` releasable: `npm run check`, `npm run build`, and
   `npm run test` green at all times so the human can batch-merge at any
   point. 
@@ -79,7 +78,7 @@ Executor rules:
   human's call. Resume with `git checkout dev && git pull`.
 - Push only when explicitly requested, and only to the requested branch.
   Never force-push. A user-authorized direct push to `main` is a production
-  update: it deploys `moderaty-prod` and purges the Bunny CDN; otherwise,
+  update: it deploys `moderaty-prod`; otherwise,
   `dev → main` remains the human's batched release path.
 - **Every review finding (human or bot) gets a failing test BEFORE its fix.**
   Add the reproducing test, watch it fail, then fix, watch it pass, commit
@@ -221,14 +220,13 @@ Netlify target); any other value fails the build loudly. Keep
 generated `.svelte-kit/` files or commit build output.
 
 **The operator hosts on Coolify** (two apps built by the Dockerfile:
-`moderaty-prod` on branch `main` behind a Bunny CDN pull zone, `moderaty-dev`
-on branch `dev` — [docs/COOLIFY_BUNNY.md](docs/COOLIFY_BUNNY.md)). Each app's
+`moderaty-prod` on branch `main`, `moderaty-dev`
+on branch `dev` — [docs/COOLIFY.md](docs/COOLIFY.md)). Each app's
 cron is a Coolify **Scheduled Task** that runs
 `APP_URL=http://127.0.0.1:3000 node scripts/dev-cron.mjs --once` every minute
 during early operation — raise to `*/15 * * * *` when user volume grows; it
 calls `GET /api/cron` on localhost with `CRON_SECRET` in an
-`Authorization: Bearer` header, and a GitHub Actions workflow purges the
-Bunny zone on every push to `main`. The endpoint also keeps the
+`Authorization: Bearer` header. The endpoint also keeps the
 plan-documented `?secret=` query form for manual triggers.
 **Netlify stays in the repo as a supported alternative deploy target**
 (`netlify.toml`, `netlify/functions/cron.mjs` — a Scheduled Function ticking
@@ -276,7 +274,7 @@ client and its own Turso database, deployed as separate Coolify apps:
 | | Google OAuth client | Turso database | Coolify app |
 |---|---|---|---|
 | **Dev** | `880114106606-kmn2b9p…` | `dev-2-bonobo791` | `moderaty-dev` (branch `dev`) |
-| **Production** | `880114106606-1t4edg0…` | `moderaty-bonobo791` | `moderaty-prod` (branch `main`, behind Bunny CDN) |
+| **Production** | `880114106606-1t4edg0…` | `moderaty-bonobo791` | `moderaty-prod` (branch `main`) |
 
 - **All agent work uses the dev credentials**, which live in the dev
   worktree's `.env` (`.worktrees/dev/.env`). Migration verification, seed
@@ -291,7 +289,7 @@ client and its own Turso database, deployed as separate Coolify apps:
 - **Coolify carries both environments**: env vars are set per app — the dev
   app gets the dev client/database and Stripe test keys, the prod app the
   production values (see the full env matrix in
-  [docs/COOLIFY_BUNNY.md](docs/COOLIFY_BUNNY.md) §3). Runtime secrets are
+  [docs/COOLIFY.md](docs/COOLIFY.md) §3). Runtime secrets are
   Runtime Variables only; only `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` also
   get Build Variable ON, reaching the Dockerfile's migrate gate as BuildKit
   secret mounts.
