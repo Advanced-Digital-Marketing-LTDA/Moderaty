@@ -1,6 +1,11 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
+vi.mock('$env/dynamic/private', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$env/dynamic/private')>();
+	return { env: { ...actual.env, UNLIMITED_ACCESS_EMAILS: '' } };
+});
+
 import { setupTestDb, testDb } from '$lib/server/testdb';
 import { organizations, stripeLifetimeEntitlements, stripeLifetimeSlots, stripeSubscriptionPeriods, stripePendingReversals, stripeDisputeReversals } from '$lib/server/db/schema';
 import { claimLifetimeSlot, grantSubscriptionPeriod, lifetimeSlotsRemaining, releaseLifetimeForPayment, applySubscriptionSnapshot, disputeSubscriptionPeriod, restoreDisputedSubscriptionPeriod, revokeLifetimeForDispute, restoreLifetimeForDispute, refundSubscriptionPeriod } from './entitlements';

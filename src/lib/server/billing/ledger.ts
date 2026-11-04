@@ -8,6 +8,7 @@
 import { and, asc, eq, gt, gte, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { topupAttemptCorrelation, type TopupPayment } from './topupCorrelation';
+import { orgHasUnlimitedAccess } from './unlimitedAccess';
 import { creditTransactions, organizations, stripePendingReversals, stripeSubscriptionPeriods, stripeDisputeReversals, stripeAutoTopupRecoveries, stripeRefundObservations } from '$lib/server/db/schema';
 
 export type CreditReason = 'consume' | 'purchase' | 'auto_topup' | 'refund' | 'dispute' | 'adjust';
@@ -161,7 +162,8 @@ export async function orgIsMetered(orgId: string): Promise<boolean> {
 		.where(eq(organizations.id, orgId))
 		.get();
 	if (!row) throw new Error(`org not found: ${orgId}`);
-	return orgRowIsMetered(row);
+	if (!orgRowIsMetered(row)) return false;
+	return !(await orgHasUnlimitedAccess(db, orgId));
 }
 
 export const UNMETERED_CREDIT_PURCHASE_ERROR = 'the lifetime plan includes unlimited moderated comments — credit purchases are not available';
@@ -546,6 +548,9 @@ export async function consumeCreditsBulk(
 		// treats that as fatal for METERED orgs. The predicate is the shared
 		// orgRowIsMetered so this classification matches orgIsMetered exactly.
 		if (!orgRowIsMetered(org)) return { charged: [], covered: [], uncharged: uniqueRefIds, metered: false };
+			// A complimentary owner is never metered, whatever the balance (the same
+			// classification orgIsMetered reports).
+			if (await orgHasUnlimitedAccess(tx, orgId)) return { charged: [], covered: [], uncharged: uniqueRefIds, metered: false };
 
 		const anchoredRefIds = await listAnchoredRefIds(tx, orgId, refType, uniqueRefIds);
 		const covered = uniqueRefIds.filter((refId) => anchoredRefIds.has(refId));

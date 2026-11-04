@@ -467,6 +467,7 @@ vi.mock('recheck', () => ({ checkSync: mocks.checkSync }));
 vi.mock('$lib/server/crypto', () => ({ decrypt: mocks.decrypt }));
 vi.mock('$lib/server/db', () => ({ db: mocks.db, withBusyRetry: (run: () => Promise<unknown>) => run() }));
 vi.mock('$env/dynamic/private', () => ({ env: mocks.state.env }));
+vi.mock('$lib/server/billing/unlimitedAccess', () => ({ orgHasUnlimitedAccess: vi.fn(async () => false), unlimitedAccessEmails: vi.fn(() => new Set<string>()) }));
 vi.mock('$lib/server/http', async (original) => ({
 	...await original<typeof import('$lib/server/http')>(),
 	assertBeforeDeadline: mocks.assertBeforeDeadline,

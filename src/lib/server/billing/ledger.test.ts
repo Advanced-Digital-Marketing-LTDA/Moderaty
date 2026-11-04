@@ -1,9 +1,15 @@
 import { asc, eq } from 'drizzle-orm';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+	env: { UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>
+}));
+
+vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
 
 import { countDbStatements, setupTestDb, testDb } from '$lib/server/testdb';
 import { db } from '$lib/server/db';
-import { creditTransactions, organizations, stripePendingReversals, stripeSubscriptionPeriods, stripeAutoTopupRecoveries, stripeRefundObservations } from '$lib/server/db/schema';
+import { creditTransactions, memberships, organizations, stripePendingReversals, stripeSubscriptionPeriods, stripeAutoTopupRecoveries, stripeRefundObservations, users } from '$lib/server/db/schema';
 import {
 	applyLedgerDelta,
 	assertCreditsPurchasable,
@@ -20,7 +26,7 @@ import {
 	usageSummary
 } from './ledger';
 
-setupTestDb(['organizations', 'credit_transactions', 'stripe_events', 'stripe_pending_reversals', 'stripe_subscription_periods', 'stripe_auto_topup_recoveries', 'stripe_refund_observations']);
+setupTestDb(['organizations', 'credit_transactions', 'stripe_events', 'stripe_pending_reversals', 'stripe_subscription_periods', 'stripe_auto_topup_recoveries', 'stripe_refund_observations', 'memberships', 'users']);
 
 async function seedOrg(orgId = 'org-1', credits: number | null = null, stripeCustomerId: string | null = null): Promise<void> {
 	await testDb().db
@@ -60,6 +66,40 @@ async function seedHostedPeriod(includedCredits: number, consumedCredits = 0, or
 }
 
 const seedExpiredPeriod = (includedCredits: number, consumedCredits: number) => seedHostedPeriod(includedCredits, consumedCredits, 'org-1', true);
+
+describe('complimentary owners are never metered or charged', () => {
+	beforeEach(() => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
+	});
+
+	async function seedOwner(orgId: string, email: string): Promise<void> {
+		const userId = `user-${orgId}`;
+		await db.insert(users).values({ id: userId, googleSub: `sub-${userId}`, email, displayName: userId });
+		await db.insert(memberships).values({ userId, orgId, role: 'owner' });
+	}
+	const refIds = (count: number) => Array.from({ length: count }, (_, index) => `comment-${index}`);
+
+	test('an exempt org with a balance stages comments uncharged and reports unmetered', async () => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'owner@example.test';
+		await seedOrg('org-1', 5);
+		await seedOwner('org-1', 'owner@example.test');
+		const result = await consumeCreditsBulk(db, 'org-1', 'comment', refIds(10));
+		expect(result).toMatchObject({ charged: [], metered: false });
+		expect(await getCredits('org-1')).toBe(5);
+		expect(await orgIsMetered('org-1')).toBe(false);
+	});
+
+	test('the same org, unlisted, is metered and charged as usual', async () => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'someone-else@example.test';
+		await seedOrg('org-1', 5);
+		await seedOwner('org-1', 'owner@example.test');
+		const result = await consumeCreditsBulk(db, 'org-1', 'comment', refIds(10));
+		expect(result).toMatchObject({ metered: true });
+		expect(result.charged).toHaveLength(5);
+		expect(await getCredits('org-1')).toBe(0);
+		expect(await orgIsMetered('org-1')).toBe(true);
+	});
+});
 
 describe('rollover contract', () => {
 	test('an expired paid period contributes nothing to the balance', async () => {
@@ -420,7 +460,8 @@ describe('consumeCreditsBulk', () => {
 
 		expect(small.value.charged).toEqual(smallRefs);
 		expect(large.value.charged).toEqual(largeRefs);
-		expect(small.count).toBe(6);
+		// Six as before, plus one complimentary-owner membership query for a metered org.
+		expect(small.count).toBe(7);
 		expect(large.count).toBe(small.count);
 	});
 });
