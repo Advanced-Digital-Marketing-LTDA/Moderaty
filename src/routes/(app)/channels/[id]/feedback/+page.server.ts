@@ -7,7 +7,7 @@ import { db } from '$lib/server/db';
 import { channels, comments, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence } from '$lib/server/db/schema';
 import { enabledCategories, generateFeedbackDigest, runFeedbackPreview, startFeedbackPreview, TRANSIENT_DIGEST_STATUSES, type DigestResult } from '$lib/server/feedbackDigest';
 import { runFailureAction } from '$lib/runHealth';
-import { claimDryRunForOrg, type DryRunClaimResult } from '$lib/server/billing/ingestion';
+import { claimDryRunForOrg, ingestionBlock, type DryRunClaimResult } from '$lib/server/billing/ingestion';
 import { historyAccessError } from '$lib/server/historyAccess';
 import { historyWindowBoundary, parseHistoryWindow } from '$lib/historyWindow';
 import { ownedChannel, requireOrgRole } from '$lib/server/ownership';
@@ -86,11 +86,22 @@ async function digestHistoryPage(channelId: string, latestCompleteId: number, be
 	return { digests, next: rows.length > HISTORY_PAGE_SIZE ? (digests.at(-1)?.id ?? null) : null };
 }
 
+/** The org's billing gate for the banner. A failed read is loud, never a silent "not paused". */
+async function ingestionPausedFor(orgId: string): Promise<boolean> {
+	try {
+		return (await ingestionBlock(orgId)) === 'unpaid';
+	} catch (cause) {
+		console.error('feedback page: billing state read failed for org', orgId, cause);
+		throw error(500, 'Could not check the organization billing state. Try again.');
+	}
+}
+
 export async function load({ params, locals, url }) {
 	// Database outage: the layout renders the overlay; this load must not 401
 	// on the null-user outage shape.
 	if (locals.dbDown) return { ch: { id: params.id, title: '' }, maintenance: true };
 	const ch = await ownedChannel(params.id, locals);
+	const ingestionPaused = await ingestionPausedFor(requireUser(locals).orgId);
 	// The newest COMPLETE digest is its own query: a streak of failed rows
 	// must not bury it and make the page claim none exists (codex).
 	const latest =
@@ -234,6 +245,7 @@ export async function load({ params, locals, url }) {
 		ch: { id: ch.id, title: ch.title, active: ch.active === 1 },
 		history: { active: Boolean(ch.feedbackHistoryBoundary), boundary: ch.feedbackHistoryBoundary },
 		dryRunUsed: Boolean(ch.feedbackDryRunUsedAt),
+			ingestionPaused,
 		dryRunDeployment: env.DRY_RUN === 'true',
 		digests,
 		currentAttempt,

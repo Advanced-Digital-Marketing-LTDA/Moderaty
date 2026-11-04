@@ -211,6 +211,40 @@ test('load rejects a channel owned by another org with 404 — digest contents n
 	await expect(callLoad('UC1')).rejects.toMatchObject({ status: 404 });
 });
 
+describe('feedback load: unpaid organization state', () => {
+	beforeEach(() => {
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
+	});
+
+	afterEach(() => {
+		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
+	});
+
+	test('an unpaid organization is flagged so the page can show the paused banner', async () => {
+		await updateOrg('org-1', { creditsRemaining: null });
+		await seedChannel('UC1', 'org-1', { feedbackEnabled: 1 });
+		expect(await callLoad('UC1')).toMatchObject({ ingestionPaused: true });
+	});
+
+	test('a funded organization is not flagged', async () => {
+		await updateOrg('org-1', { creditsRemaining: 5 });
+		await seedChannel('UC1', 'org-1', { feedbackEnabled: 1 });
+		expect(await callLoad('UC1')).toMatchObject({ ingestionPaused: false });
+	});
+
+	test('a failed billing read is a loud load error, never a silent false', async () => {
+		await testDb().db.delete(organizations).where(eq(organizations.id, 'org-1'));
+		await seedChannel('UC1', 'org-1', { feedbackEnabled: 1 });
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			await expect(callLoad('UC1')).rejects.toMatchObject({ status: 500 });
+			expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('billing state'), 'org-1', expect.any(Error));
+		} finally {
+			errorSpy.mockRestore();
+		}
+	});
+});
+
 test('load rejects a signed-out request with 401', async () => {
 	await seedChannel('UC1');
 	await expect(callLoad('UC1', null)).rejects.toMatchObject({ status: 401 });

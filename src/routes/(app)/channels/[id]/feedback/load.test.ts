@@ -8,6 +8,12 @@ import { channels, feedbackDigests, feedbackFindings, findingEvidence } from '$l
 
 import { load } from './+page.server';
 
+// Pagination is not a billing test: self-hosted keeps the banner check off without seeding an org.
+vi.mock('$env/dynamic/private', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$env/dynamic/private')>();
+	return { env: { ...actual.env, MODERATY_DEPLOYMENT: 'self-hosted' } };
+});
+
 setupTestDb(['feedback_digests', 'feedback_findings', 'finding_evidence', 'channels']);
 
 const PAGE_URL = new URL('http://localhost/channels/UC1/feedback');
