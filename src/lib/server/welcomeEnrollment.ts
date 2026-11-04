@@ -1,6 +1,6 @@
 // Shared enrollment/eligibility for transactional signup and automatic discovery.
 import { randomBytes } from 'node:crypto';
-import { domainToASCII } from 'node:url';
+import { domainToASCII, domainToUnicode } from 'node:url';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from './db';
@@ -26,6 +26,12 @@ export function sendingEnabled(): boolean {
 	return isOfficialHosted() && env.WELCOME_EMAIL_ENABLED !== 'false' && env.DRY_RUN === 'false';
 }
 
+/** Node returns an undecodable xn-- label unchanged, so require a real decode. */
+function decodesAsIdn(label: string): boolean {
+	const decoded = domainToUnicode(label);
+	return decoded !== '' && decoded !== label;
+}
+
 function validWelcomeAddress(email: string): boolean {
 	if (!isBareAddress(email)) return false;
 	const domain = email.split('@')[1]?.toLowerCase();
@@ -33,6 +39,7 @@ function validWelcomeAddress(email: string): boolean {
 	const labels = domain.split('.');
 	if (labels.length < 2) return false;
 	if (!labels.every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) return false;
+	if (!labels.every(label => !label.startsWith('xn--') || decodesAsIdn(label))) return false;
 	return /^(?:[a-z]{2,63}|xn--[a-z0-9-]+)$/.test(labels[labels.length - 1]);
 }
 
