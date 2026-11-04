@@ -331,8 +331,12 @@ boolean.
 available purchased credits or paid subscription allowance, or the lifetime
 plan with a usable stored organization OpenAI key. Unpaid requests show a
 purchase message; lifetime accounts missing their key are directed to Team.
-**Dry run remains available without a purchase** — do not apply the history
-purchase gate to previews.
+**Dry runs need no purchase, with one limit:** on the hosted deployment an
+unpaid org gets one free dry run for life, shared by moderation and feedback
+previews (`claimDryRunForOrg`). Funded, complimentary and self-hosted orgs keep
+one per channel per feature. Complimentary means an owner's email is in
+UNLIMITED_ACCESS_EMAILS, a runtime-only env var. Never commit the addresses. Do
+not apply the history purchase gate to previews.
 `users.plan` is the hook for the future Stripe integration (hosted plans;
 free tier = self-hosted only). Card and hosted-subscription management runs
 through the Stripe customer portal (usage page → **Manage cards**,

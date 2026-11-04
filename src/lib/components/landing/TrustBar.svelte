@@ -10,7 +10,7 @@
 			{/each}
 		</ul>
 		<p class="microcopy">
-			Google asks for standard YouTube access. Moderaty uses it for channel setup, comment moderation, and video titles and descriptions for context. Source-available under PolyForm Shield, self-hosting costs $0 from Moderaty. Infrastructure and OpenAI charges are separate. 1 free dry run per feature per channel, no credits. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.
+			Google asks for standard YouTube access. Moderaty uses it for channel setup, comment moderation, and video titles and descriptions for context. Source-available under PolyForm Shield, self-hosting costs $0 from Moderaty. Infrastructure and OpenAI charges are separate. Dry runs spend no credits and never change comments on YouTube: 1 per feature per channel, or 1 in total on a hosted account without credits, a subscription, or the lifetime plan. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.
 			We keep no data on you beyond what your account needs to run, and nothing after you leave that
 			the LGPD does not require.
 		</p>
