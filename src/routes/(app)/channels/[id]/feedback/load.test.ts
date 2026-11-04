@@ -4,17 +4,17 @@
 
 import { expect, test, vi } from 'vitest';
 import { TEST_OWNER, setupTestDb, testDb } from '$lib/server/testdb';
-import { channels, feedbackDigests, feedbackFindings, findingEvidence } from '$lib/server/db/schema';
+import { channels, feedbackDigests, feedbackFindings, findingEvidence, organizations } from '$lib/server/db/schema';
 
 import { load } from './+page.server';
 
-// Pagination is not a billing test: self-hosted keeps the banner check off without seeding an org.
+// Pagination is not a billing test: the org is funded, so the paused banner stays off.
 vi.mock('$env/dynamic/private', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$env/dynamic/private')>();
-	return { env: { ...actual.env, MODERATY_DEPLOYMENT: 'self-hosted' } };
+	return { env: { ...actual.env, MODERATY_DEPLOYMENT: 'official-hosted' } };
 });
 
-setupTestDb(['feedback_digests', 'feedback_findings', 'finding_evidence', 'channels']);
+setupTestDb(['feedback_digests', 'feedback_findings', 'finding_evidence', 'channels', 'organizations']);
 
 const PAGE_URL = new URL('http://localhost/channels/UC1/feedback');
 const ctx = (url: URL) => ({ params: { id: 'UC1' }, locals: { user: TEST_OWNER }, url }) as never;
@@ -32,6 +32,7 @@ type HistoryResult = {
 const callLoad = async (url: URL) => (await load(ctx(url))) as HistoryResult;
 
 async function seedChannel() {
+	await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', creditsRemaining: 100 });
 	await testDb()
 		.db.insert(channels)
 		.values({ id: 'UC1', userId: TEST_OWNER.id, orgId: 'org-1', title: 'Ch', refreshTokenEnc: 'enc', feedbackEnabled: 1 });

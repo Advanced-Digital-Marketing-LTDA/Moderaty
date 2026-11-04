@@ -2,7 +2,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { eq, isNull } from 'drizzle-orm';
 
 const mocks = vi.hoisted(() => ({
-	env: { OPENAI_API_KEY: 'test-openai-key', DRY_RUN: 'false', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>,
+	env: { OPENAI_API_KEY: 'test-openai-key', DRY_RUN: 'false', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } as Record<string, string | undefined>,
 	decrypt: vi.fn((enc: string) => `decrypted:${enc}`),
 	fetchNewComments: vi.fn()
 }));
@@ -134,9 +134,9 @@ beforeEach(async () => {
 	vi.clearAllMocks();
 	mocks.fetchNewComments.mockReset();
 	installFetch();
-	// Every seeded channel attaches to org-1 — a bare 'free' org with a NULL
-	// balance is unmetered (no purchases), so plain tests run charge-free.
-	await seedOrg('org-1');
+	// Every seeded channel attaches to org-1, funded with a purchased balance so
+	// plain tests pass the hosted gate. A test that needs another balance sets it.
+	await seedOrg('org-1', { creditsRemaining: 1000 });
 });
 
 test('disabled channel skips without writing anything', async () => {
@@ -559,7 +559,8 @@ test('a 100-comment digest uses the same SQL statement count as a one-comment ba
 	const large = await countDbStatements(testDb().db, () => generateFeedbackDigest('UC-large', { force: true }));
 	expect(small.value).toMatchObject({ status: 'complete', commentsClassified: 1, creditsUsed: 1 });
 	expect(large.value).toMatchObject({ status: 'complete', commentsClassified: 100, creditsUsed: 100 });
-	expect(small.count).toBe(19);
+	// 19 digest statements plus the hosted gate's single organizations read.
+	expect(small.count).toBe(20);
 	expect(large.count).toBe(small.count);
 });
 
@@ -1250,7 +1251,8 @@ test('an org turning unmetered mid-run reports uncharged refs without a credit s
 	// the charge transaction — a concurrent lifetime-plan change produces
 	// uncharged refs with no shortfall owed. Treating every uncharged batch
 	// as InsufficientCreditsError would defer the run needlessly.
-	await testDb().db.update(organizations).set({ creditsRemaining: 0, plan: 'metered' }).where(eq(organizations.id, 'org-1'));
+	// Funded at the hosted gate (credits > 0); the flip below is what makes the charge uncharged.
+	await testDb().db.update(organizations).set({ creditsRemaining: 1, plan: 'metered' }).where(eq(organizations.id, 'org-1'));
 	await seedChannel('UC1', { feedbackEnabled: 1 });
 	await seedComment('c1', 'UC1', 'when is the next video', '2026-01-05T00:00:00.000Z');
 	// The concurrent plan change: orgIsMetered reads 'metered', then the

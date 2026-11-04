@@ -3,7 +3,7 @@ import { expect, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
 	const state = {
-		env: { DRY_RUN: 'false', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>,
+		env: { DRY_RUN: 'false', MODERATY_DEPLOYMENT: 'official-hosted' } as Record<string, string | undefined>,
 		tables: {
 			channels: undefined as unknown,
 			comments: undefined as unknown,
@@ -730,6 +730,7 @@ export function resetPipelineMocks() {
 	mocks.state.channel = {
 		id: 'channel',
 		userId: 'user',
+		orgId: 'org',
 		title: 'Channel',
 		refreshTokenEnc: 'encrypted-refresh-token',
 		cursor: null,

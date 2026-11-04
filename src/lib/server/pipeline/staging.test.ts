@@ -315,9 +315,10 @@ test('staging inserts no empty action batch for an approved comment', async () =
 
 	await runChannel('channel');
 
-	// Two transaction inserts: the comments row and its approve audit. No empty
-	// moderationActions batch is attempted.
-	expect(mocks.db.transactionValue.insert).toHaveBeenCalledTimes(2);
+	// Three transaction inserts: the comments row, its approve audit, and the metered org's credit debit.
+	// No empty moderationActions batch is attempted.
+	expect(mocks.db.transactionValue.insert).toHaveBeenCalledTimes(3);
+	expect(mocks.db.transactionValue.insert).toHaveBeenCalledWith(creditTransactions);
 	expect(mocks.db.transactionValue.insert).toHaveBeenCalledWith(comments);
 	expect(mocks.db.transactionValue.insert).toHaveBeenCalledWith(auditLog);
 	expect(mocks.db.transactionValue.insert).not.toHaveBeenCalledWith(moderationActions);

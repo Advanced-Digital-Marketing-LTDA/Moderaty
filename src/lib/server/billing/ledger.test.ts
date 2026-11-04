@@ -2,7 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-	env: { UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>
+	env: { UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } as Record<string, string | undefined>
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));

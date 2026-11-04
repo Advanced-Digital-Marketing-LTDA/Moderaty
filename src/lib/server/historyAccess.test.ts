@@ -1,7 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-	env: { UNLIMITED_ACCESS_EMAILS: '' as string | undefined, MODERATY_DEPLOYMENT: 'self-hosted' as string | undefined } as Record<string, string | undefined>
+	env: { UNLIMITED_ACCESS_EMAILS: '' as string | undefined, MODERATY_DEPLOYMENT: 'official-hosted' as string | undefined } as Record<string, string | undefined>
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
@@ -13,7 +13,7 @@ import { historyAccessError } from './historyAccess';
 setupTestDb(['memberships', 'organizations', 'stripe_subscription_periods', 'users']);
 
 beforeEach(() => {
-	mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
+	mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
 	mocks.env.UNLIMITED_ACCESS_EMAILS = '';
 });
 

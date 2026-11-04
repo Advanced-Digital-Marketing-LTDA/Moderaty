@@ -6,7 +6,7 @@ import { encrypt } from '$lib/server/crypto';
 import { channels, comments, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence, memberships, organizations, stripeSubscriptionPeriods, users } from '$lib/server/db/schema';
 
 const mocks = vi.hoisted(() => ({
-	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'feedback-actions-test-key', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>,
+	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'feedback-actions-test-key', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } as Record<string, string | undefined>,
 	generateFeedbackDigest: vi.fn(),
 	startFeedbackPreview: vi.fn(),
 	runFeedbackPreview: vi.fn(),
@@ -217,7 +217,7 @@ describe('feedback load: unpaid organization state', () => {
 	});
 
 	afterEach(() => {
-		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
 	});
 
 	test('an unpaid organization is flagged so the page can show the paused banner', async () => {
@@ -777,7 +777,7 @@ describe('feedback dry run for an unpaid org on the hosted deployment', () => {
 	});
 
 	afterEach(() => {
-		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
 		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
 		warnSpy.mockRestore();
 	});

@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 	// a history drain that can never advance on an env-dry deployment.
 	// ENCRYPTION_KEY is a synthetic credential fixture — same maintainer-approved
 	// exception as netlify/cron.test.mjs (2026-07-30, PR #13 review, per AGENTS.md).
-	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'actions-test-key', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>
+	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'actions-test-key', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } as Record<string, string | undefined>
 }));
 vi.mock('$lib/server/pipeline', () => ({ runChannel: mocks.runChannel }));
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
@@ -840,7 +840,8 @@ test('dry run remains available without purchased credits and persists its conti
 	expect((await testDb().db.select({ creditsRemaining: organizations.creditsRemaining }).from(organizations).where(eq(organizations.id, 'org-1')).get())?.creditsRemaining).toBeNull();
 
 	const retry = await dryRun('UC1', OWNER, '6');
-	expect(retry).toMatchObject({ status: 409, data: { error: 'Limited to 1 free moderation dry run per channel. This channel has already used it.' } });
+	// The first claim spent the org's one free run, so the org-level refusal answers before the per-channel check.
+	expect(retry).toMatchObject({ status: 402, data: { error: 'This organization has used its one free dry run. Buy credits or subscribe on the Usage page to run more.' } });
 	expect(mocks.runChannel).toHaveBeenCalledTimes(1);
 	expect(await drainStateOf('UC1')).toEqual({ boundary: ch?.dryRunBoundary, pageToken: 'preview-next' });
 });
@@ -861,7 +862,7 @@ describe('dry run for an unpaid org on the hosted deployment', () => {
 	});
 
 	afterEach(() => {
-		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
 		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
 		warnSpy.mockRestore();
 	});

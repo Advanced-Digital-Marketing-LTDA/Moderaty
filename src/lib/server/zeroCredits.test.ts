@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 const mocks = vi.hoisted(() => ({
-	env: { APP_URL: 'https://moderaty.app', ENCRYPTION_KEY: 'zc-test-key', STRIPE_PRICE_CREDITS_500: 'price_test_500', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>,
+	env: { APP_URL: 'https://moderaty.app', ENCRYPTION_KEY: 'zc-test-key', STRIPE_PRICE_CREDITS_500: 'price_test_500', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } as Record<string, string | undefined>,
 	sendProtonMailEmail: vi.fn(),
 	revokeGoogleToken: vi.fn(),
 	sessionsRetrieve: vi.fn(),
