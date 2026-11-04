@@ -37,7 +37,8 @@ export const FREE_DRY_RUN_USED = 'This organization has used its one free dry ru
 export const FREE_RUN_NOT_RETURNED = 'Your free dry run could not be given back. Contact us from the Contact page.';
 
 type ClaimRefusal = { status: number; error: string; freeRunLost?: true };
-export type DryRunClaimResult = { lease: string; identity: DryRunClaim } | ClaimRefusal;
+/** `orgFreeRun` marks a claim that spent the org's one free run, so the caller caps that preview to one page. */
+export type DryRunClaimResult = { lease: string; identity: DryRunClaim; orgFreeRun?: true } | ClaimRefusal;
 
 /** The refusal text, with the lost-run note when the reserved free run could not be given back. */
 export function refusalMessage(refusal: ClaimRefusal): string {
@@ -72,7 +73,7 @@ export async function claimDryRunForOrg(channelId: string, orgId: string, featur
 		console.error('dry-run claim failed after the free run was reserved; the run is lost', { orgId, channelId, cause });
 		return { status: 500, error: 'The dry run could not be started. Check the server log and try again.', freeRunLost: true };
 	}
-	if (!('status' in claim)) return claim;
+	if (!('status' in claim)) return { ...claim, orgFreeRun: true };
 	return (await giveBack(orgId, stamp)) ? claim : { ...claim, freeRunLost: true };
 }
 

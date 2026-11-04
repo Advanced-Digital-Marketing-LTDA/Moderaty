@@ -58,7 +58,7 @@
 					Borderline comments wait in your review queue: one click to approve, reject, delete, or
 					ban. Moderation intent is saved before changes reach YouTube, and completed actions
 					appear in your audit log. Queued comments may remain public until their hold is confirmed
-					on YouTube. Interrupted actions are retried safely. With credits, a subscription, or the lifetime plan, each channel gets 1 free moderation dry run and 1 free feedback dry run. A hosted account without any of those gets 1 free dry run in total. Dry runs spend no credits and never change comments on YouTube. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.
+					on YouTube. Interrupted actions are retried safely. With credits, a subscription, or the lifetime plan, each channel gets 1 free moderation dry run and 1 free feedback dry run. A hosted account without any of those gets 1 free dry run in total, which scores the newest 100 comments. Dry runs spend no credits and never change comments on YouTube. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.
 				</p>
 			</div>
 			{@render terminal('audit.log', audit)}

@@ -47,7 +47,7 @@ const FAQ_COPY: [question: string, answer: string][] = [
 	],
 	[
 		'Can I test Moderaty without changing anything on my channel?',
-		'With credits, a subscription, or the lifetime plan, each channel gets 1 free moderation dry run and 1 free feedback dry run. A hosted account without any of those gets 1 free dry run in total. Dry runs spend no credits and never change comments on YouTube. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.'
+		'With credits, a subscription, or the lifetime plan, each channel gets 1 free moderation dry run and 1 free feedback dry run. A hosted account without any of those gets 1 free dry run in total, which scores the newest 100 comments. Dry runs spend no credits and never change comments on YouTube. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.'
 	],
 	[
 		'Is Moderaty LGPD compliant?',

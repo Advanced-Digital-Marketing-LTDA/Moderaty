@@ -1,4 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest';
+import { eq } from 'drizzle-orm';
 
 const mocks = vi.hoisted(() => ({
 	fetchNewComments: vi.fn(),
@@ -72,4 +73,23 @@ test('a funded hosted org runs the same channel and fetches from YouTube', async
 
 	expect(result.unpaid).toBeUndefined();
 	expect(mocks.fetchNewComments).toHaveBeenCalledTimes(1);
+});
+
+// Backstop: a dry-run window page token for an unpaid org (a cron drain) is refused before any fetch, and its drain state is cleared so cron never retries it.
+test('a planted page token for an unpaid org is refused with no fetch and its drain state is cleared', async () => {
+	const boundary = '2026-05-01T00:00:00.000Z';
+	await seedChannelWithOrg(null);
+	await testDb().db.update(channels).set({ dryRunBoundary: boundary, dryRunPageToken: 'page-2' }).where(eq(channels.id, 'UC1'));
+	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+	try {
+		const result = await runChannel('UC1', { forceDryRun: true, window: { boundary, pageToken: 'page-2' } });
+
+		expect(result).toMatchObject({ unpaid: true, fetched: 0 });
+		expect(mocks.fetchNewComments).not.toHaveBeenCalled();
+		expect(await testDb().db.select({ boundary: channels.dryRunBoundary, token: channels.dryRunPageToken }).from(channels).where(eq(channels.id, 'UC1')).get()).toEqual({ boundary: null, token: null });
+		expect(warn).toHaveBeenCalledWith(expect.stringContaining('UC1'));
+	} finally {
+		warn.mockRestore();
+	}
 });

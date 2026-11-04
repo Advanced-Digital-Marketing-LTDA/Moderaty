@@ -813,36 +813,29 @@ test('deployment DRY_RUN still permits the one-time dashboard preview', async ()
 	expect((await channelById('UC1'))?.moderationDryRunUsedAt).toBeTruthy();
 });
 
-test('dry run remains available without purchased credits and persists its continuation', async () => {
+test('an unpaid org free preview scores one page, plants no drain state, and a same-channel retry is refused', async () => {
 	await updateOrg('org-1', { creditsRemaining: null });
 	await seedChannel('UC1');
-	mocks.runChannel.mockResolvedValue(dryRunResult({ windowComplete: false, windowNextPageToken: 'preview-next' }));
-	const before = Date.now();
+	mocks.runChannel.mockResolvedValue(dryRunResult({ fetched: 100, windowComplete: false, windowNextPageToken: 'preview-next' }));
 
 	const res = await dryRun('UC1', OWNER, '3');
 
-	const after = Date.now();
-	expect(res).toMatchObject({ ok: true, scope: 'dryRun', channelId: 'UC1', months: 3, background: true });
+	expect(res).toMatchObject({ ok: true, scope: 'dryRun', channelId: 'UC1', months: 3, background: false, capped: true });
 	expect(mocks.runChannel).toHaveBeenCalledWith('UC1', {
 		deadline: expect.any(Number),
 		forceDryRun: true,
+		maxPages: 1,
 		window: { boundary: expect.any(String), pageToken: null },
 		claim: { orgId: 'org-1', refreshTokenEnc: 'enc', leaseExpiresAt: expect.any(String) }
 	});
-	const window = mocks.runChannel.mock.calls[0][1].window;
-	const expected = 3 * 30 * 24 * 60 * 60 * 1000;
-	expect(Date.parse(window.boundary)).toBeGreaterThanOrEqual(before - expected - 1000);
-	expect(Date.parse(window.boundary)).toBeLessThanOrEqual(after - expected + 1000);
 	const ch = await channelById('UC1');
-	expect(ch?.dryRunBoundary).toBe(window.boundary);
-	expect(ch?.dryRunPageToken).toBe('preview-next');
 	expect(ch?.moderationDryRunUsedAt).toBeTruthy();
-	expect((await testDb().db.select({ creditsRemaining: organizations.creditsRemaining }).from(organizations).where(eq(organizations.id, 'org-1')).get())?.creditsRemaining).toBeNull();
+	expect(await drainStateOf('UC1')).toEqual({ boundary: null, pageToken: null });
 
 	const retry = await dryRun('UC1', OWNER, '6');
 	expect(retry).toMatchObject({ status: 409, data: { error: 'Limited to 1 free moderation dry run per channel. This channel has already used it.' } });
 	expect(mocks.runChannel).toHaveBeenCalledTimes(1);
-	expect(await drainStateOf('UC1')).toEqual({ boundary: ch?.dryRunBoundary, pageToken: 'preview-next' });
+	expect(await drainStateOf('UC1')).toEqual({ boundary: null, pageToken: null });
 });
 
 // Unpaid hosted orgs get one free dry run for life, shared with feedback previews.

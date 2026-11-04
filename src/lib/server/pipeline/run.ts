@@ -135,6 +135,15 @@ async function loadChannelForRun(
 		console.warn(`run ${channelId}: skipped — org ${channel.orgId} is unpaid; no fetch or AI`);
 		return { kind: 'skip', result: { ...emptyResult(), unpaid: true } };
 	}
+	// A dry-run window page token (a cron drain) never runs for an unpaid org: refuse it and clear its drain so cron never retries it.
+	if (forceDryRun === true && window?.pageToken != null && channel.orgId !== null && (await ingestionBlock(channel.orgId)) === 'unpaid') {
+		console.warn(`run ${channelId}: drain refused — org ${channel.orgId} is unpaid; clearing its dry-run window`);
+		await db
+			.update(channels)
+			.set({ dryRunBoundary: null, dryRunPageToken: null })
+			.where(and(eq(channels.id, channelId), eq(channels.dryRunBoundary, window.boundary)));
+		return { kind: 'skip', result: { ...emptyResult(), unpaid: true } };
+	}
 	return { kind: 'run', channel, dryRun };
 }
 

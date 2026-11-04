@@ -205,7 +205,7 @@
 		Only an owner can start feedback history scans or previews.
 	</p>
 	<p>
-		With credits, a subscription, or the lifetime plan, each channel gets 1 free moderation dry run and 1 free feedback dry run. A hosted account without any of those gets 1 free dry run in total. Dry runs spend no credits
+		With credits, a subscription, or the lifetime plan, each channel gets 1 free moderation dry run and 1 free feedback dry run. A hosted account without any of those gets 1 free dry run in total, which scores the newest 100 comments. Dry runs spend no credits
 		and never change comments on YouTube. The allowance is used when a preview starts, even if it later fails.
 		Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.
 		The moderation preview also offers <strong>all time</strong>. Check its simulated actions in

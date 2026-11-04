@@ -227,9 +227,12 @@ export const actions = {
 		// more pages drains one page per cron invocation afterwards. The run
 		// writes nothing durable except dry-run audit rows (I8).
 		try {
+			const capped = claim.orgFreeRun === true;
+			// An unpaid org's free run is one page and plants no drain (the cap); other previews keep their first-page-then-drain behavior.
 			const result = await runChannel(channelId, {
 				deadline: Date.now() + 20_000,
 				forceDryRun: true,
+				...(capped ? { maxPages: 1 } : {}),
 				window: { boundary, pageToken: null },
 				// Bind execution to the row that claimed the allowance — a
 				// delete/reconnect under the same channel id must abort the
@@ -247,19 +250,19 @@ export const actions = {
 			// claimed the channel mid-run, the drain state belongs to cron now
 			// and a 0-row update leaves it untouched.
 			const stillOurs = and(eq(channels.id, channelId), eq(channels.leaseExpiresAt, claim.lease));
-			const background = !result.skipped && result.windowComplete !== true;
-			if (result.windowComplete === true) {
+			const background = !capped && !result.skipped && result.windowComplete !== true;
+			if (!capped && result.windowComplete === true) {
 				await db
 					.update(channels)
 					.set({ dryRunBoundary: null, dryRunPageToken: null })
 					.where(stillOurs);
-			} else if (!result.skipped) {
+			} else if (!capped && !result.skipped) {
 				await db
 					.update(channels)
 					.set({ dryRunBoundary: boundary, dryRunPageToken: result.windowNextPageToken ?? null })
 					.where(stillOurs);
 			}
-			return { ok: true as const, scope: 'dryRun', channelId, months, dryRunUsed: true, ...result, background };
+			return { ok: true as const, scope: 'dryRun', channelId, months, dryRunUsed: true, ...result, background, capped };
 		} catch (e) {
 			// Loud server-side, generic client-side — never return raw
 			// YouTube/OpenAI error detail to the browser. attempted:true tells
