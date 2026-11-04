@@ -73,7 +73,6 @@ test('MC-3 states what is and is not moderated and explains access without overp
 	const { body } = renderHomepage();
 	for (const phrase of [
 		'published top-level YouTube comments',
-		'reply threads',
 		'live chat',
 		'youtube.force-ssl',
 		'href="/privacy"'

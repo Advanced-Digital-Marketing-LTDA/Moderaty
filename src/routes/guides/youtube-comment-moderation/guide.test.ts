@@ -124,7 +124,7 @@ test('homepage fragment targets referenced by the guide exist on the rendered ho
 
 test('product coverage and preview limits remain explicit in the rendered guide', () => {
 	const text = readingText(article());
-	expect(text).toContain('Its coverage excludes reply threads, live chat and a separate sweep of comments YouTube already holds.');
+	expect(text).toContain('Its coverage excludes live chat and a separate sweep of comments YouTube already holds.');
 	expect(text).toContain('Moderaty doesn’t write replies under your name.');
 	expect(text).toContain('A comment may remain visible until YouTube confirms a requested hold.');
 	expect(text).toContain('A preview can re-score comments from earlier moderation runs without changing them on YouTube.');

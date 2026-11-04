@@ -24,7 +24,7 @@
 		{
 			question: 'Which comments does Moderaty scan?',
 			answer:
-				'Moderaty scans published top-level comments on connected, active YouTube channels. It does not scan reply threads or live chat, and it does not run a separate sweep of comments YouTube has already held or marked as spam.',
+				'Moderaty scans published top-level comments on connected, active YouTube channels. It does not scan live chat, and it does not run a separate sweep of comments YouTube has already held or marked as spam.',
 			link: '/#scope',
 			linkText: 'See the published coverage details.'
 		},
