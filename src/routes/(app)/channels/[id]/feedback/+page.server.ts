@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { db } from '$lib/server/db';
 import { channels, comments, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence } from '$lib/server/db/schema';
 import { enabledCategories, generateFeedbackDigest, runFeedbackPreview, startFeedbackPreview, TRANSIENT_DIGEST_STATUSES, type DigestResult } from '$lib/server/feedbackDigest';
+import { runFailureAction } from '$lib/runHealth';
 import { claimDryRun } from '$lib/server/dryRun';
 import { historyAccessError } from '$lib/server/historyAccess';
 import { historyWindowBoundary, parseHistoryWindow } from '$lib/historyWindow';
@@ -448,6 +449,7 @@ export const actions = {
 				case 'dry-run':
 					return fail(409, { scope: 'digest', error: 'This deployment runs in dry-run mode — digests cannot be generated.' });
 				case 'deferred':
+						if (result.reason === 'unpaid') return fail(402, { scope: 'digest', error: runFailureAction('unpaid') });
 					return fail(409, {
 						scope: 'digest',
 						error: `Generation deferred (${result.reason ?? 'busy'}) — ${retryHint}`
