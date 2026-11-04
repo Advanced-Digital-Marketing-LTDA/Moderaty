@@ -139,6 +139,17 @@ beforeEach(async () => {
 	await seedOrg('org-1', { creditsRemaining: 1000 });
 });
 
+test('an unpaid hosted org defers the digest before any fetch and writes no row', async () => {
+	await testDb().db.update(organizations).set({ creditsRemaining: null }).where(eq(organizations.id, 'org-1'));
+	await seedChannel('UC1', { feedbackEnabled: 1 });
+
+	const result = await generateFeedbackDigest('UC1');
+
+	expect(result).toEqual({ status: 'deferred', reason: 'unpaid' });
+	expect(mocks.fetchNewComments).not.toHaveBeenCalled();
+	expect(await testDb().db.select().from(feedbackDigests).all()).toEqual([]);
+});
+
 test('disabled channel skips without writing anything', async () => {
 	await seedChannel('UC1', { feedbackEnabled: 0, feedbackHistoryBoundary: '2025-01-01T00:00:00.000Z', feedbackHistoryPageToken: 'page-2' });
 	await seedComment('c1', 'UC1', 'when is the next video', '2026-01-05T00:00:00.000Z');
