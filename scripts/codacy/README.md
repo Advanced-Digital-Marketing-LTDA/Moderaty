@@ -4,10 +4,13 @@ The repo is wired with a **Codacy pre-push gate**: before a `git push` completes
 the official [Codacy MCP server](https://www.npmjs.com/package/@codacy/codacy-mcp)
 runs a local analysis (in-process `@codacy/analysis-runner`, no Docker needed)
 on the repository, and the push is **blocked** when any changed file carries an
-error-level (critical/major) finding.
+error-level (critical/major) finding. `scripts/hooks/pre-commit` runs the same
+gate on *staged* files, after an `eslint-plugin-sonarjs` pass (SonarQube rules,
+`scripts/eslint.sonarjs.config.mjs`).
 
 ## How it works
 
+- `scripts/hooks/pre-commit` — sonarjs (staged files) then the Codacy gate.
 - `scripts/hooks/pre-push` — the git hook (wired via `git config core.hooksPath
   scripts/hooks`). Collects the files being pushed, filters to code files, and
   invokes the gate.
@@ -25,10 +28,16 @@ npm install -g @codacy/codacy-mcp          # the MCP server the gate spawns
 git config core.hooksPath scripts/hooks    # activate the hooks in this clone
 ```
 
+The gate locates the global `codacy-mcp-server` binary via the npm prefix
+(env, `~/.npmrc` under `$HOME` *and* the passwd-entry home — they diverge in
+distrobox — then the Node install layout), a controlled PATH scan, or the
+`CODACY_MCP_SERVER` env pin for exotic installs.
+
 ## Escape hatches
 
-- `git push --no-verify` — standard git override.
-- `CODACY_GATE_OFF=1 git push` — environment override.
+- `git push --no-verify` / `git commit --no-verify` — standard git override.
+- `CODACY_GATE_OFF=1` — skip the Codacy gate (both hooks).
+- `SONARJS_GATE_OFF=1 git commit` — skip the sonarjs gate (pre-commit only).
 
 ## First run
 

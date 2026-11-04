@@ -54,6 +54,41 @@ export function npmPrefix(env = process.env, home = os.homedir(), execPath = pro
 	return platform === 'win32' ? path.dirname(execPath) : path.dirname(path.dirname(execPath));
 }
 
+/** Passwd-entry home; null where the user has no passwd record (some containers). */
+function passwdHome() {
+	try { return os.userInfo().homedir; } catch { return null; }
+}
+
+/**
+ * Home directories a global npm install may live under: $HOME (os.homedir)
+ * and the passwd-entry home. They diverge inside distrobox/container homes —
+ * npm resolves ~/.npmrc and `npm prefix -g` against the passwd home while
+ * os.homedir() follows $HOME — so both must be checked to find a
+ * codacy-mcp-server installed by the host's npm.
+ */
+export function candidateHomes(homedir = os.homedir(), userInfoHome = passwdHome()) {
+	return [...new Set([homedir, userInfoHome].filter((h) => typeof h === 'string' && h.length > 0))];
+}
+
+/**
+ * Resolves the codacy-mcp-server binary. Order:
+ *   1. CODACY_MCP_SERVER env pin (any install layout)
+ *   2. npm-prefix candidates derived from each candidate home's .npmrc
+ *   3. a read-only PATH scan for the binary itself — distrobox shells commonly
+ *      export the host's npm bin dir even when the host .npmrc is invisible to
+ *      os.homedir()/os.userInfo(). The hit is executed by absolute path only.
+ * Returns undefined when the server is not installed anywhere reachable.
+ */
+export function resolveServerBin(homes = candidateHomes(), env = process.env) {
+	const pinned = env.CODACY_MCP_SERVER;
+	if (pinned && existsSync(pinned)) return pinned;
+	const candidates = homes.map((home) => path.join(npmPrefix(env, home), 'bin', 'codacy-mcp-server'));
+	for (const dir of (env.PATH || '').split(path.delimiter)) {
+		if (dir) candidates.push(path.join(dir, 'codacy-mcp-server'));
+	}
+	return candidates.find((candidate) => existsSync(candidate));
+}
+
 /**
  * Gate entrypoint.
  *
@@ -205,8 +240,8 @@ export async function main(argv = process.argv.slice(2)) {
 	// S4036: never resolve executables through PATH — no `npm` subprocess.
 	// npmPrefix() derives the prefix from env/.npmrc/Node layout, and the
 	// server binary is then an absolute path under <prefix>/bin.
-	const serverBin = path.join(npmPrefix(), 'bin', 'codacy-mcp-server');
-	if (!existsSync(serverBin)) {
+	const serverBin = resolveServerBin();
+	if (!serverBin) {
 		log('@codacy/codacy-mcp is not installed globally; skipping Codacy gate');
 		log('  install with: npm install -g @codacy/codacy-mcp');
 		return 0;
