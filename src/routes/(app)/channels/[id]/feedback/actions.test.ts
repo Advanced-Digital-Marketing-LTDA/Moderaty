@@ -6,7 +6,7 @@ import { encrypt } from '$lib/server/crypto';
 import { channels, comments, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence, organizations, stripeSubscriptionPeriods } from '$lib/server/db/schema';
 
 const mocks = vi.hoisted(() => ({
-	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'feedback-actions-test-key' } as Record<string, string | undefined>,
+	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'feedback-actions-test-key', UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>,
 	generateFeedbackDigest: vi.fn(),
 	startFeedbackPreview: vi.fn(),
 	runFeedbackPreview: vi.fn(),
