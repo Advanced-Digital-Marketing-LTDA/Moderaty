@@ -5,7 +5,7 @@
 // deployments are never blocked.
 
 import { and, eq, gt, isNull, lte } from 'drizzle-orm';
-import { claimDryRun, type PreviewFeature } from '$lib/server/dryRun';
+import { claimDryRun, type DryRunClaim, type PreviewFeature } from '$lib/server/dryRun';
 import { db } from '$lib/server/db';
 import { organizations, stripeSubscriptionPeriods } from '$lib/server/db/schema';
 import { requireDeploymentMode } from '$lib/server/deploymentMode';
@@ -33,7 +33,16 @@ export async function ingestionBlock(orgId: string): Promise<IngestionBlock> {
 
 export const FREE_DRY_RUN_USED = 'This organization has used its one free dry run. Buy credits or subscribe on the Usage page to run more.';
 
-export type DryRunClaimResult = Awaited<ReturnType<typeof claimDryRun>> | { status: 402; error: string };
+/** Shown after a refusal when its reserved free run could not be given back. */
+export const FREE_RUN_NOT_RETURNED = 'Your free dry run could not be given back. Contact us from the Contact page.';
+
+type ClaimRefusal = { status: number; error: string; freeRunLost?: true };
+export type DryRunClaimResult = { lease: string; identity: DryRunClaim } | ClaimRefusal;
+
+/** The refusal text, with the lost-run note when the reserved free run could not be given back. */
+export function refusalMessage(refusal: ClaimRefusal): string {
+	return refusal.freeRunLost ? `${refusal.error} ${FREE_RUN_NOT_RETURNED}` : refusal.error;
+}
 
 /**
  * claimDryRun under the org's one free dry run. Only an unpaid hosted org
@@ -56,20 +65,34 @@ export async function claimDryRunForOrg(channelId: string, orgId: string, featur
 	let claim: Awaited<ReturnType<typeof claimDryRun>>;
 	try {
 		claim = await claimDryRun(channelId, orgId, feature);
-	} catch (error) {
-		await releaseFreeDryRun(orgId, stamp);
-		throw error;
+	} catch (cause) {
+		if (await giveBack(orgId, stamp)) throw cause;
+		console.error('dry-run claim failed after the free run was reserved; the run is lost', { orgId, channelId, cause });
+		return { status: 500, error: 'The dry run could not be started. Check the server log and try again.', freeRunLost: true };
 	}
-	if ('status' in claim) await releaseFreeDryRun(orgId, stamp);
-	return claim;
+	if (!('status' in claim)) return claim;
+	return (await giveBack(orgId, stamp)) ? claim : { ...claim, freeRunLost: true };
 }
 
 /** Gives back a free dry run this claim reserved; a newer claim's stamp is never cleared. */
-export async function releaseFreeDryRun(orgId: string, stamp: string): Promise<void> {
-	await db
+export async function releaseFreeDryRun(orgId: string, stamp: string): Promise<boolean> {
+	const released = await db
 		.update(organizations)
 		.set({ freeDryRunUsedAt: null })
-		.where(and(eq(organizations.id, orgId), eq(organizations.freeDryRunUsedAt, stamp)));
+		.where(and(eq(organizations.id, orgId), eq(organizations.freeDryRunUsedAt, stamp)))
+		.returning({ id: organizations.id });
+	if (released.length === 0) console.error('free dry run release matched no row', { orgId });
+	return released.length === 1;
+}
+
+/** True when the reserved free run went back. Never throws: a failed release is logged and reported as lost. */
+async function giveBack(orgId: string, stamp: string): Promise<boolean> {
+	try {
+		return await releaseFreeDryRun(orgId, stamp);
+	} catch (cause) {
+		console.error('free dry run release failed', { orgId, cause });
+		return false;
+	}
 }
 
 async function isFunded(orgId: string, plan: string, creditsRemaining: number | null): Promise<boolean> {

@@ -848,6 +848,7 @@ test('dry run remains available without purchased credits and persists its conti
 // Unpaid hosted orgs get one free dry run for life, shared with feedback previews.
 describe('dry run for an unpaid org on the hosted deployment', () => {
 	const UNPAID_COPY = 'This organization has used its one free dry run. Buy credits or subscribe on the Usage page to run more.';
+	const NOT_RETURNED = 'Your free dry run could not be given back. Contact us from the Contact page.';
 	let warnSpy: { mockRestore(): void };
 
 	beforeEach(async () => {
@@ -904,6 +905,54 @@ describe('dry run for an unpaid org on the hosted deployment', () => {
 		expect(await dryRun('UC1')).toMatchObject({ ok: true });
 		expect(await dryRun('UC2')).toMatchObject({ ok: true });
 		expect(await freeDryRunStampOf('org-1')).toBeNull();
+	});
+
+	test('a refused preview whose free run cannot be given back keeps its reason and says so', async () => {
+		await testDb().db.update(channels).set({ leaseExpiresAt: '2099-01-01T00:00:00.000Z' }).where(eq(channels.id, 'UC1'));
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const realUpdate = testDb().db.update.bind(testDb().db);
+		const updateSpy = vi.spyOn(testDb().db, 'update').mockImplementation(((table: unknown) => {
+			const builder = realUpdate(table as never);
+			return {
+				set: (values: Record<string, unknown>) => {
+					if (values.freeDryRunUsedAt === null) throw new Error('release write failed');
+					return builder.set(values as never);
+				}
+			};
+		}) as never);
+		try {
+			expect(await dryRun('UC1')).toMatchObject({
+				status: 409,
+				data: { scope: 'dryRun', channelId: 'UC1', error: `This channel is busy. Retry in a minute. ${NOT_RETURNED}` }
+			});
+			expect(errorSpy).toHaveBeenCalledWith('free dry run release failed', expect.objectContaining({ orgId: 'org-1' }));
+		} finally {
+			updateSpy.mockRestore();
+			errorSpy.mockRestore();
+		}
+	});
+
+	test('a preview whose release matches no row is reported the same way, and logged', async () => {
+		await testDb().db.update(channels).set({ leaseExpiresAt: '2099-01-01T00:00:00.000Z' }).where(eq(channels.id, 'UC1'));
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const realUpdate = testDb().db.update.bind(testDb().db);
+		const updateSpy = vi.spyOn(testDb().db, 'update').mockImplementation(((table: unknown) => {
+			const builder = realUpdate(table as never);
+			return {
+				set: (values: Record<string, unknown>) =>
+					values.freeDryRunUsedAt === null ? { where: () => ({ returning: async () => [] }) } : builder.set(values as never)
+			};
+		}) as never);
+		try {
+			expect(await dryRun('UC1')).toMatchObject({
+				status: 409,
+				data: { error: `This channel is busy. Retry in a minute. ${NOT_RETURNED}` }
+			});
+			expect(errorSpy).toHaveBeenCalledWith('free dry run release matched no row', { orgId: 'org-1' });
+		} finally {
+			updateSpy.mockRestore();
+			errorSpy.mockRestore();
+		}
 	});
 
 	test('a funded org previews every channel without spending the free dry run', async () => {

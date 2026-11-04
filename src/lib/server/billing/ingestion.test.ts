@@ -225,6 +225,48 @@ describe('releaseFreeDryRun', () => {
 	});
 });
 
+describe('a free run that cannot be given back is loud', () => {
+	test('a release that matches no row is logged and reported as not given back', async () => {
+		await seedOrg('org-1');
+		await testDb().db.update(organizations).set({ freeDryRunUsedAt: 'stamp-a' }).where(eq(organizations.id, 'org-1'));
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			expect(await releaseFreeDryRun('org-1', 'stamp-other')).toBe(false);
+			expect(errorSpy).toHaveBeenCalledWith('free dry run release matched no row', { orgId: 'org-1' });
+			expect(await freeDryRunStampOf('org-1')).toBe('stamp-a');
+		} finally {
+			errorSpy.mockRestore();
+		}
+	});
+
+	test('a refused claim whose release write throws keeps the refusal and reports the run as lost', async () => {
+		await seedOrg('org-1');
+		await seedChannel('UC-busy', { leaseExpiresAt: '2099-01-01T00:00:00.000Z' });
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const realUpdate = testDb().db.update.bind(testDb().db);
+		const updateSpy = vi.spyOn(testDb().db, 'update').mockImplementation(((table: unknown) => {
+			const builder = realUpdate(table as never);
+			return {
+				set: (values: Record<string, unknown>) => {
+					if (values.freeDryRunUsedAt === null) throw new Error('release write failed');
+					return builder.set(values as never);
+				}
+			};
+		}) as never);
+		try {
+			expect(await claimDryRunForOrg('UC-busy', 'org-1', 'moderation')).toEqual({
+				status: 409,
+				error: 'This channel is busy. Retry in a minute.',
+				freeRunLost: true
+			});
+			expect(errorSpy).toHaveBeenCalledWith('free dry run release failed', expect.objectContaining({ orgId: 'org-1' }));
+		} finally {
+			updateSpy.mockRestore();
+			errorSpy.mockRestore();
+		}
+	});
+});
+
 describe('ingestionBlock when MODERATY_DEPLOYMENT is unset', () => {
 	test('throws instead of treating the deployment as self-hosted', async () => {
 		mocks.env.MODERATY_DEPLOYMENT = undefined;

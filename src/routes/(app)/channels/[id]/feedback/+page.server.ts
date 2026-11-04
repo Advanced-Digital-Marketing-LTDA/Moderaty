@@ -7,7 +7,7 @@ import { db } from '$lib/server/db';
 import { channels, comments, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence } from '$lib/server/db/schema';
 import { enabledCategories, generateFeedbackDigest, runFeedbackPreview, startFeedbackPreview, TRANSIENT_DIGEST_STATUSES, type DigestResult } from '$lib/server/feedbackDigest';
 import { runFailureAction } from '$lib/runHealth';
-import { claimDryRunForOrg, ingestionBlock, type DryRunClaimResult } from '$lib/server/billing/ingestion';
+import { claimDryRunForOrg, ingestionBlock, refusalMessage, type DryRunClaimResult } from '$lib/server/billing/ingestion';
 import { historyAccessError } from '$lib/server/historyAccess';
 import { historyWindowBoundary, parseHistoryWindow } from '$lib/historyWindow';
 import { ownedChannel, requireOrgRole } from '$lib/server/ownership';
@@ -360,7 +360,7 @@ export const actions = {
 			console.error('feedback dry-run claim failed for channel:', params.id, cause);
 			return fail(500, { scope: 'feedbackDryRun', error: 'The feedback dry run could not be started. Check the server log and try again.' });
 		}
-		if ('status' in claim) return fail(claim.status, { scope: 'feedbackDryRun', error: claim.error });
+		if ('status' in claim) return fail(claim.status, { scope: 'feedbackDryRun', error: refusalMessage(claim) });
 		const boundary = historyWindowBoundary(window);
 		let digestId: number;
 		try {

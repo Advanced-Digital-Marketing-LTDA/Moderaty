@@ -765,6 +765,7 @@ test('feedback dry run validates access and inputs before claiming its allowance
 // Unpaid hosted orgs get one free dry run for life, shared with moderation previews.
 describe('feedback dry run for an unpaid org on the hosted deployment', () => {
 	const UNPAID_COPY = 'This organization has used its one free dry run. Buy credits or subscribe on the Usage page to run more.';
+	const NOT_RETURNED = 'Your free dry run could not be given back. Contact us from the Contact page.';
 	let warnSpy: { mockRestore(): void };
 
 	beforeEach(async () => {
@@ -819,6 +820,31 @@ describe('feedback dry run for an unpaid org on the hosted deployment', () => {
 		expect(await postFeedbackAction('dryRun', 'UC1', { months: '3' })).toMatchObject({ ok: true });
 		expect(await postFeedbackAction('dryRun', 'UC2', { months: '3' })).toMatchObject({ ok: true });
 		expect(await freeDryRunStampOf('org-1')).toBeNull();
+	});
+
+	test('a refused feedback preview whose free run cannot be given back keeps its reason and says so', async () => {
+		await seedChannel('UC-busy', 'org-1', { leaseExpiresAt: '2099-01-01T00:00:00.000Z' });
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const realUpdate = testDb().db.update.bind(testDb().db);
+		const updateSpy = vi.spyOn(testDb().db, 'update').mockImplementation(((table: unknown) => {
+			const builder = realUpdate(table as never);
+			return {
+				set: (values: Record<string, unknown>) => {
+					if (values.freeDryRunUsedAt === null) throw new Error('release write failed');
+					return builder.set(values as never);
+				}
+			};
+		}) as never);
+		try {
+			expect(await postFeedbackAction('dryRun', 'UC-busy', { months: '3' })).toMatchObject({
+				status: 409,
+				data: { scope: 'feedbackDryRun', error: `This channel is busy. Retry in a minute. ${NOT_RETURNED}` }
+			});
+			expect(errorSpy).toHaveBeenCalledWith('free dry run release failed', expect.objectContaining({ orgId: 'org-1' }));
+		} finally {
+			updateSpy.mockRestore();
+			errorSpy.mockRestore();
+		}
 	});
 
 	test('a funded org previews every channel without spending the free dry run', async () => {

@@ -3,7 +3,7 @@ import { channels } from '$lib/server/db/schema';
 import { decrypt } from '$lib/server/crypto';
 import { deleteChannelRecords } from '$lib/server/deletion';
 import { revokeGoogleToken } from '$lib/server/google';
-import { claimDryRunForOrg, type DryRunClaimResult } from '$lib/server/billing/ingestion';
+import { claimDryRunForOrg, refusalMessage, type DryRunClaimResult } from '$lib/server/billing/ingestion';
 import { historyAccessError } from '$lib/server/historyAccess';
 import { historyWindowBoundary, parseHistoryWindow } from '$lib/historyWindow';
 import { requireOrgRole } from '$lib/server/ownership';
@@ -222,7 +222,7 @@ export const actions = {
 			console.error('dry-run claim failed for channel:', channelId, cause);
 			return fail(500, { scope: 'dryRun', channelId, error: 'The dry run could not be started. Check the server log and try again.' });
 		}
-		if ('status' in claim) return fail(claim.status, { scope: 'dryRun', channelId, error: claim.error });
+		if ('status' in claim) return fail(claim.status, { scope: 'dryRun', channelId, error: refusalMessage(claim) });
 		// First page synchronously (one page, hard 20 s ceiling); a window with
 		// more pages drains one page per cron invocation afterwards. The run
 		// writes nothing durable except dry-run audit rows (I8).
