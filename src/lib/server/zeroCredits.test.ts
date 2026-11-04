@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 const mocks = vi.hoisted(() => ({
-	env: { APP_URL: 'https://moderaty.app', ENCRYPTION_KEY: 'zc-test-key', STRIPE_PRICE_CREDITS_500: 'price_test_500' } as Record<string, string | undefined>,
+	env: { APP_URL: 'https://moderaty.app', ENCRYPTION_KEY: 'zc-test-key', STRIPE_PRICE_CREDITS_500: 'price_test_500', UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>,
 	sendProtonMailEmail: vi.fn(),
 	revokeGoogleToken: vi.fn(),
 	sessionsRetrieve: vi.fn(),
@@ -277,6 +277,27 @@ describe('eligibility', () => {
 		expect(result).toMatchObject({ evaluated: 1, errors: 0, deleted: 0 });
 		expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('no memberships'));
 		errorSpy.mockRestore();
+	});
+});
+
+describe('complimentary owners never enter the countdown', () => {
+	beforeEach(() => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
+	});
+
+	test('a complimentary owner on a metered, zero-balance org is never stamped', async () => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'u1@example.com';
+		await seedAccount('u1', { plan: 'free', creditsRemaining: 0 });
+		const result = await sweepZeroCreditAccounts();
+		expect(result.errors).toBe(0);
+		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
+	});
+
+	test('the same account, unlisted, enters the countdown as usual', async () => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'someone-else@example.com';
+		await seedAccount('u1', { plan: 'free', creditsRemaining: 0 });
+		await sweepZeroCreditAccounts();
+		expect((await userRow('u1'))!.zeroCreditsSince).not.toBeNull();
 	});
 });
 
