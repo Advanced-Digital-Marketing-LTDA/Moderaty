@@ -85,11 +85,22 @@ async function seedChannelWithOrg(creditsRemaining: number | null) {
 }
 
 test('a one-page preview for an unpaid org fetches once and audits exactly its 100 comments', async () => {
-	await seedChannelWithOrg(null);
+	// A manual preview always carries its claim, and the claim must match the channel row.
+	const LEASE = '2099-01-01T00:00:00.000Z';
+	const ENC = encrypt('refresh-token');
+	await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', creditsRemaining: null });
+	await testDb()
+		.db.insert(channels)
+		.values({ id: 'UC1', userId: 'owner-1', orgId: 'org-1', title: 'Channel', refreshTokenEnc: ENC, leaseExpiresAt: LEASE });
 	const page = Array.from({ length: 100 }, (_, i) => comment(i));
 	mocks.fetchNewComments.mockResolvedValue({ comments: page, nextPageToken: 'page-2', reachedCursor: false });
 
-	await runChannel('UC1', { forceDryRun: true, maxPages: 1, window: { boundary: EPOCH, pageToken: null } });
+	await runChannel('UC1', {
+		forceDryRun: true,
+		maxPages: 1,
+		window: { boundary: EPOCH, pageToken: null },
+		claim: { orgId: 'org-1', refreshTokenEnc: ENC, leaseExpiresAt: LEASE }
+	});
 
 	expect(mocks.fetchNewComments).toHaveBeenCalledTimes(1);
 	const audited = await testDb().db.select().from(auditLog).where(eq(auditLog.action, 'dry-run')).all();

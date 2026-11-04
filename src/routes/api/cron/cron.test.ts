@@ -753,6 +753,29 @@ test('an unpaid run records failed/unpaid health, keeps the last success, and st
 	expect(row?.lastRunAt).toEqual(expect.any(String));
 });
 
+test('an unpaid org never takes a cron tick, even when its channel is the least recently run', async () => {
+	// The unpaid check reads the billing gate, which requires both of these to be set.
+	mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
+	mocks.env.UNLIMITED_ACCESS_EMAILS = '';
+	onTestFinished(() => {
+		delete mocks.env.MODERATY_DEPLOYMENT;
+		delete mocks.env.UNLIMITED_ACCESS_EMAILS;
+	});
+	await testDb().db.insert(organizations).values([
+		{ id: 'org-unpaid', name: 'Unpaid', creditsRemaining: null },
+		{ id: 'org-paid', name: 'Paid', creditsRemaining: 100 }
+	]);
+	await seedChannel('UC-unpaid', { orgId: 'org-unpaid', lastRunAt: null });
+	await seedChannel('UC-paid', { orgId: 'org-paid', lastRunAt: '2026-01-01T00:00:00.000Z' });
+	mocks.runChannel.mockResolvedValue(runResult());
+
+	const res = await call({ bearer: 'test-secret' });
+
+	expect(res.status).toBe(200);
+	expect(mocks.runChannel).toHaveBeenCalledTimes(1);
+	expect(mocks.runChannel).toHaveBeenCalledWith('UC-paid', expect.anything());
+});
+
 test.each([
 	{ label: 'deactivated mid-run', result: { partial: true, stoppedReason: 'deactivated' } },
 	{ label: 'skipped as inactive', result: { skipped: true } }

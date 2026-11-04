@@ -135,8 +135,8 @@ async function loadChannelForRun(
 		console.warn(`run ${channelId}: skipped — org ${channel.orgId} is unpaid; no fetch or AI`);
 		return { kind: 'skip', result: { ...emptyResult(), unpaid: true } };
 	}
-	// A dry-run window page token (a cron drain) never runs for an unpaid org: refuse it and clear its drain so cron never retries it.
-	if (forceDryRun === true && window?.pageToken != null && channel.orgId !== null && (await ingestionBlock(channel.orgId)) === 'unpaid') {
+	// A dry-run window without a claim is a cron drain: an unpaid org's drain, on any page, is refused and cleared so cron never retries it. Manual previews always pass a claim.
+	if (forceDryRun === true && window !== undefined && claim === undefined && channel.orgId !== null && (await ingestionBlock(channel.orgId)) === 'unpaid') {
 		console.warn(`run ${channelId}: drain refused — org ${channel.orgId} is unpaid; clearing its dry-run window`);
 		await db
 			.update(channels)
