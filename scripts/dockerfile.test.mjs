@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const dockerfile = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
-const runbook = readFileSync(new URL('../docs/COOLIFY_BUNNY.md', import.meta.url), 'utf8');
+const runbook = readFileSync(new URL('../docs/COOLIFY.md', import.meta.url), 'utf8');
 
 describe('Dockerfile (docker:S6505 — no third-party install scripts)', () => {
 	it('copies and executes the dependency helper before copying application code', () => {

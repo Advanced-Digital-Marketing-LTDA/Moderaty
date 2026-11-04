@@ -19,7 +19,7 @@ test.each([
 	const data = await load({ url: new URL('https://preview.example/blogs/') } as never);
 	expect(data).toEqual({ siteOrigin: origin });
 	const Index = (await import('./+page.svelte')).default;
-	const { head } = render(Index, { props: { data: { locale: 'en', siteOrigin: origin } } });
+	const { head } = render(Index, { props: { data: { locale: 'en', canonical: null, siteOrigin: origin } } });
 	expect(head).toContain(`rel="canonical" href="${origin}/blogs/"`);
 	expect(sitemapXml()).toContain(`<loc>${origin}/blogs/</loc>`);
 	expect(head).not.toContain('https://preview.example');

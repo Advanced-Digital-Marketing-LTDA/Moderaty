@@ -4,6 +4,7 @@
 	// its content component — nothing here is document-specific.
 	import type { Component } from 'svelte';
 	import Nav from '$lib/components/landing/Nav.svelte';
+	import SkipLink from '$lib/components/landing/SkipLink.svelte';
 	import Footer from '$lib/components/landing/Footer.svelte';
 	import LegalDoc from '$lib/components/landing/legal/LegalDoc.svelte';
 	import type { LegalDoc as LegalDocMeta } from '$lib/landing/legal';
@@ -19,8 +20,9 @@
 	<meta property="og:description" content={doc.description} />
 </svelte:head>
 
+<SkipLink />
 <Nav />
-<main>
+<main id="main-content" tabindex="-1">
 	<LegalDoc
 		kicker={doc.kicker}
 		title={doc.title}

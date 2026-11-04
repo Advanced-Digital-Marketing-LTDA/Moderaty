@@ -4,7 +4,7 @@ import { SPAM_COMMENTS, SPAM_COMMENT_SECTIONS, SPAM_RULE_EXAMPLES } from '$lib/b
 import Article from './how-to-stop-spam-and-scam-comments-on-youtube/+page.svelte';
 
 test('spam guide renders its answer, safe examples, qualified preview route, and complete contents', () => {
-	const { body, head } = render(Article, { props: { data: { locale: 'en', siteOrigin: 'https://selfhost.example' } } });
+	const { body, head } = render(Article, { props: { data: { locale: 'en', canonical: null, siteOrigin: 'https://selfhost.example' } } });
 	for (const { id } of SPAM_COMMENT_SECTIONS) {
 		expect(body).toContain(`id="${id}"`);
 		expect(body).toContain(`href="#${id}"`);
@@ -14,7 +14,8 @@ test('spam guide renders its answer, safe examples, qualified preview route, and
 	expect(body).toMatch(/By <a[^>]*href="#author"[^>]*>Andrew Philip Weilbacher<\/a>/);
 	expect(body).toContain('Andrew Philip Weilbacher is the founder of Moderaty and a YouTube Creator.');
 	expect(body).toContain('href="/login"');
-	expect(body).not.toMatch(/href="https?:\/\/example\.invalid|MC-21|Editorial review notes|\/guides\//);
+	expect(body).not.toMatch(/href="https?:\/\/example\.invalid|MC-21|Editorial review notes/);
+	expect([...body.matchAll(/href="(\/guides\/[^\"]+)"/g)].map(([, path]) => path)).toEqual(['/guides/youtube-comment-moderation/']);
 	expect(body.match(/scope="row"/g)).toHaveLength(4);
 	expect(body.match(/scope="col"/g)).toHaveLength(3);
 	for (const [, attrs] of body.matchAll(/<a\s+([^>]*href="https?:\/\/[^>]+)>/g)) {

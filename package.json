@@ -19,6 +19,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"scan:agents": "node scripts/agentshield-scan.mjs",
+		"ratchet": "node scripts/ratchets/run.mjs --ratchet all",
+		"ratchet:update": "node scripts/ratchets/run.mjs --ratchet all --update",
 		"test:e2e": "playwright test",
 		"check:e2e": "tsc --noEmit -p e2e/tsconfig.json"
 	},
@@ -40,14 +42,14 @@
 		"svelte": "5.56.8",
 		"svelte-check": "4.7.4",
 		"typescript": "6.0.3",
-		"vite": "8.2.0",
-		"vitest": "5.0.1"
+		"vite": "8.3.5",
+		"vitest": "5.0.5"
 	},
 	"dependencies": {
 		"@libsql/client": "0.17.4",
 		"@openai/guardrails": "0.2.1",
 		"drizzle-orm": "0.45.2",
-		"nodemailer": "10.0.10",
+		"nodemailer": "10.1.4",
 		"recheck": "4.5.0",
 		"stripe": "22.5.0"
 	},

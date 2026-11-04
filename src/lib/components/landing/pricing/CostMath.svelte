@@ -3,6 +3,7 @@
 -->
 
 <script lang="ts">
+	import { TOP_UP_BUNDLES_COPY } from '$lib/landing/plans';
 	import { page } from '$app/state';
 	import Reveal from '../Reveal.svelte';
 	import { estimateHostedMonth, forecastMonths, MAX_CALCULATOR_COMMENTS, MONTHLY_PLAN_USD, validCountInput } from '$lib/landing/cost';
@@ -52,7 +53,7 @@
 				<div class="terminal-body">
 					<div><span class="t-dim">monthly subscription</span> <span class="t-lit">$5, including zero usage</span></div>
 					<div><span class="t-dim">shared allowance</span> <span class="t-lit">100 AI classifications</span></div>
-					<div><span class="t-dim">top-up bundles</span> <span class="t-lit">500 / 2,000 credits: $20.40 / $64.65</span></div>
+					<div><span class="t-dim">top-up bundles</span> <span class="t-lit">{TOP_UP_BUNDLES_COPY}</span></div>
 					<div class="t-note">$5/mo renews. automatic top-up is opt-in.</div>
 				</div>
 			</div>
@@ -105,7 +106,7 @@
 			<p class="calculator-assumptions">
 				This calculator covers the recurring hosted plan. The lifetime plan is $49 once with
 				BYOK; self-hosting has no Moderaty subscription. Your OpenAI charges are separate and
-				outside this estimate, as are self-hosting infrastructure costs.
+				outside this estimate, as are self-hosting infrastructure costs. Read the <a href="/terms#s6">plan and billing terms</a> or check <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noopener noreferrer">OpenAI API pricing</a> for provider rates.
 			</p>
 		</div>
 	</Reveal>
@@ -150,7 +151,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.18em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.terminal-body {
 		padding: 16px;
@@ -159,7 +160,7 @@
 		line-height: 2;
 		overflow-x: auto;
 	}
-	.t-dim { color: rgb(244 244 248 / 0.45); }
+	.t-dim { color: var(--text-muted); }
 	.t-lit { color: rgb(244 244 248 / 0.85); }
 	.calculator-grid {
 		display: grid;
@@ -180,7 +181,7 @@
 	.calculator > label:not(:first-of-type) { margin-top: 12px; }
 	.calculator input { width: 100%; box-sizing: border-box; }
 	.calculator > strong { display: block; margin-top: 16px; color: var(--mint); font-family: var(--font-mono); font-size: 20px; }
-	.calculator > strong span, .forecast span { color: rgb(244 244 248 / 0.5); font-size: 11px; font-weight: 400; }
+	.calculator > strong span, .forecast span { color: var(--text-muted); font-size: 11px; font-weight: 400; }
 	.month-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 	.forecast { margin: 16px 0 0; color: var(--mint); font-family: var(--font-mono); font-size: 18px; }
 	.input-error { margin: 12px 0 0; color: var(--brand); font-size: 12px; }
@@ -193,7 +194,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
-		color: rgb(244 244 248 / 0.35);
+		color: var(--text-muted);
 	}
 	@media (min-width: 768px) {
 		.section-title {

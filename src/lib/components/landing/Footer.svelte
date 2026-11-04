@@ -41,11 +41,12 @@
 				to 30 days, then are erased automatically — erase them on demand at any time.
 			</p>
 			<nav class="footer-links" aria-label="Footer">
-				<a href={GITHUB_URL} data-moderaty-event="source_click" data-moderaty-placement="footer" target="_blank" rel="noreferrer" class="footer-link">GitHub</a>
-				<a href={POLYFORM_URL} target="_blank" rel="noreferrer" class="footer-link">PolyForm Shield License</a>
+				<a href={GITHUB_URL} data-moderaty-event="source_click" data-moderaty-placement="footer" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub</a>
+				<a href={POLYFORM_URL} target="_blank" rel="noopener noreferrer" class="footer-link">PolyForm Shield License</a>
 				<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="footer" class="footer-link">Pricing</a>
 				<a href="/#faq" class="footer-link">FAQ</a>
 				<a href="/blogs/" class="footer-link">Blogs</a>
+				<a href="/guides/" class="footer-link">Guides</a>
 				{#each LEGAL_DOCS as doc (doc.slug)}
 					<a href="/{doc.slug}" class="footer-link">{doc.label}</a>
 				{/each}
@@ -111,7 +112,7 @@
 		font-size: 10px;
 		text-transform: uppercase;
 		letter-spacing: 0.16em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.lgpd-note {
 		margin: 20px 0 0;
@@ -121,7 +122,7 @@
 		line-height: 1.7;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.capy {
 		display: block;
@@ -139,7 +140,7 @@
 		font-size: 11px;
 		text-transform: uppercase;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.55);
+		color: var(--text-muted);
 		text-decoration: none;
 		transition: color 200ms ease;
 	}
@@ -161,7 +162,7 @@
 		text-transform: uppercase;
 		line-height: 1.6;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.4);
+		color: var(--text-muted);
 	}
 	@media (min-width: 1024px) {
 		.footer-grid {

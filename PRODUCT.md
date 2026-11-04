@@ -1,3 +1,10 @@
+---
+id: moderaty-goal
+type: goal-and-requirements
+title: Moderaty product goal
+status: draft
+---
+
 # Product
 
 <!-- impeccable:product-schema 1 -->
@@ -12,6 +19,10 @@ Solo creators and small YouTube channel owners whose comment sections have becom
 a source of dread. They moderate their own channel's comments and want the hate
 absorbed by the tool, not by themselves.
 
+> **Unconfirmed:** The audience above and product purpose below are carried
+> forward from the existing product charter and have not been independently
+> confirmed.
+
 ## Product Purpose
 
 Moderaty is comment protection for YouTube creators. It reads every new
@@ -24,13 +35,14 @@ automatically — and every action is auditable.
 ## Positioning
 
 Unlike engagement tools and agency suites that manage comments for growth,
-Moderaty exists to protect the creator: it enforces the community's own norms
-(plain keyword/regex/blocked-user rules) with AI scoring as a second opinion,
-asks before acting when unsure, and guarantees enforcement durability —
-DB-before-remote action recording, bounded checkpointed cron runs, and crash
-reconciliation mean no enforcement action is ever lost or doubled. It is
-open-source (PolyForm Shield / commercial dual license) and self-hostable, with a dry-run
-mode and full audit log instead of a black box.
+Moderaty exists to protect the creator: it is designed to enforce the
+community's own norms (plain keyword/regex/blocked-user rules) with AI scoring
+as a second opinion and route uncertain decisions to review. DB-before-remote
+action recording, bounded checkpointed cron runs, and crash reconciliation are
+durability safeguards, not a verified guarantee that no enforcement action can
+ever be lost or doubled. Moderaty is source-available under the PolyForm Shield
+License 1.0.0, with commercial licensing available (see `COMMERCIAL.md`), and
+can be self-hosted with dry-run mode and a full audit log instead of a black box.
 
 Category line: "Comment protection for YouTube creators."
 
@@ -49,44 +61,56 @@ Category line: "Comment protection for YouTube creators."
 
 ## Capabilities and Constraints
 
-- Rule types: keyword, regex (RE2 syntax only — never `new RegExp` on user
-  patterns), blocked-user; actions: hold, reject, delete, ban.
+- Rule types: keyword, regex (native `RegExp`; a 256-character limit plus
+  syntax guards and `recheck` reject unsafe or unproven patterns before
+  matching), blocked-user; actions: hold, reject, delete, ban.
 - AI scoring: OpenAI Moderation `omni-moderation-latest`; score = max of the
-  thirteen toxicity categories; fixed thresholds ≥0.95 auto-ban, 0.76–0.94
-  auto-reject, 0.51–0.75 human queue, ≤0.50 approved. AI failure always routes
-  to the human queue — never auto-approve, never auto-reject.
-- Tone pass (per-channel sensitivity level 2, "Edge lord + Ackchyually…"):
-  a prompted `gpt-6-luna` classifier scores demeaning/condescending/sarcastic
-  tone with the video's title and description as context, on the same bands
-  (tone ≥0.95 bans — reserved for genuine harm without verbal abuse). Level 1
-  ("Edge Lord") runs the omni pass only. The stronger signal decides; the tone
-  call is skipped when omni already rejects. The dashboard shows each channel's
-  level slider and completed-ban count ("X told to touch grass").
-- Enforcement durability: every action is recorded locally (`action_pending`)
-  BEFORE any YouTube write and confirmed after; `DRY_RUN=true` previews change
-  nothing durable (audit rows only).
+  thirteen toxicity categories. **Desired behavior (not fully shipped):**
+  ≥0.95 auto-ban, 0.76–0.94 auto-reject, 0.51–0.75 human queue, ≤0.50
+  approved; scoring failures go to the human queue, never auto-approve or
+  auto-reject. **Current behavior:** ≥0.95 bans, 0.76–0.94 deletes,
+  0.51–0.75 queues, and ≤0.50 approves. Non-deadline AI-scoring failures
+  queue; deadline expiry during scoring aborts the run instead.
+- Tone pass — **desired behavior (not fully shipped):** level 1 ("Edge Lord")
+  runs the omni pass only; level 2 ("Edge lord + Ackchyually…") also runs the
+  tone pass. The configured OpenAI tone model (default `gpt-6-luna`) scores
+  demeaning/condescending/sarcastic tone with the video's title and description
+  as context. When tone is the stronger signal, scores below 0.51 approve;
+  0.51–0.75 queue for human review; ≥0.76 hold for human review.
+  **Current behavior:** tone is enabled at level ≥2 or when either
+  `protectLgbtqia` or `protectWomen` is enabled, so an enabled protection flag
+  can trigger tone below level 2. Tone outcomes are approval, queue, or hold;
+  tone never deletes or bans, even at ≥0.95. The stronger signal decides; the
+  tone call is skipped when omni already rejects. The dashboard shows each
+  channel's level slider and completed-ban count ("X told to touch grass").
+- Enforcement durability: every moderation intent is recorded locally before
+  any YouTube write and confirmed after; `DRY_RUN=true` records preview audit
+  rows without staging comments or sending YouTube writes.
 - Comment text is never stored longer than 500 characters. Top-level comments
   only; reply moderation is an explicit non-goal.
-- Stack: SvelteKit 2 + Svelte 5 + TypeScript, adapter-netlify, Drizzle ORM over
+- Stack: SvelteKit 2 + Svelte 5 + TypeScript; adapter-netlify is the default,
+  and adapter-node is selected at build time for Coolify. Drizzle ORM over
   libSQL (`file:local.db` dev, Turso prod). Approved dependencies only; no auth
   libraries, no googleapis/OpenAI SDKs, no CSS frameworks, no zod.
 - Non-goals: multi-platform moderation, live chat, real-time
   scanning, LLM-as-judge for borderline comments.
-- Open decision: none outstanding from init.
 
 ## Brand Commitments
 
 - Name: **Moderaty** (the string `yt-mod` must not appear in `src/`).
 - Tagline (unchanged, binding): "Never read another hate comment."
-- Hero pair: "Never read another hate comment." / "Comment protection for
-  YouTube creators — your community's norms, enforced while you sleep."
-- Contrast line (bottom of funnel): "Every other comment tool wants to grow
-  your channel. Moderaty wants to protect you."
+- Hero-copy direction: "Never read another hate comment." / "Comment
+  protection for YouTube creators — your community's norms, enforced while you
+  sleep." The first line is shipped as the homepage H1; the second is product
+  positioning, not the current H2 or subcopy.
+- Contrast line (bottom of funnel; proposed and not cleared as public copy):
+  "Every other comment tool wants to grow your channel. Moderaty wants to
+  protect you."
 - Disengagement-fighter line (top of funnel): "'Just don't read the comments'
   is not a strategy. It's a surrender."
 - Voice: protective, plain-English, on the creator's side.
-- License: PolyForm Shield 1.0.0 with commercial licensing option
-  (contact@AdvancedDigitalMarketingLTDA.com — see COMMERCIAL.md); copyright
+- License: PolyForm Shield License 1.0.0 with commercial licensing option
+  (see `COMMERCIAL.md`); copyright
   Andrew Philip Weilbacher; license header required on new source/doc files.
 
 ## Evidence on Hand

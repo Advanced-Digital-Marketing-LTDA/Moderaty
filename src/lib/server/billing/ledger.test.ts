@@ -41,20 +41,47 @@ async function seedChargeGrant(chargeId: string, orgId = 'org-1', credits = 100)
 	});
 }
 
-async function seedHostedPeriod(includedCredits: number, consumedCredits = 0, orgId = 'org-1'): Promise<void> {
+/** Seeds a paid period: live by default, or with its whole window in the past. */
+async function seedHostedPeriod(includedCredits: number, consumedCredits = 0, orgId = 'org-1', expired = false): Promise<void> {
 	const now = Date.now();
+	const [start, end] = expired ? [now - 2 * 86_400_000, now - 86_400_000] : [now - 60_000, now + 60_000];
+	const key = expired ? `expired-${orgId}` : orgId;
 	await testDb().db.insert(stripeSubscriptionPeriods).values({
 		orgId,
 		subscriptionId: `sub-${orgId}`,
-		invoiceId: `in-${orgId}`,
-		periodKey: `period-${orgId}`,
-		periodStart: new Date(now - 60_000).toISOString(),
-		periodEnd: new Date(now + 60_000).toISOString(),
+		invoiceId: `in-${key}`,
+		periodKey: `period-${key}`,
+		periodStart: new Date(start).toISOString(),
+		periodEnd: new Date(end).toISOString(),
 		includedCredits,
 		consumedCredits,
 		status: 'paid'
 	});
 }
+
+const seedExpiredPeriod = (includedCredits: number, consumedCredits: number) => seedHostedPeriod(includedCredits, consumedCredits, 'org-1', true);
+
+describe('rollover contract', () => {
+	test('an expired paid period contributes nothing to the balance', async () => {
+		await seedOrg('org-1', 7);
+		await seedExpiredPeriod(100, 40);
+		expect(await getCredits('org-1')).toBe(7);
+	});
+
+	test('renewal never carries the previous period remainder forward', async () => {
+		await seedOrg('org-1', 5);
+		await seedExpiredPeriod(100, 40);
+		await seedHostedPeriod(100, 30);
+		expect(await getCredits('org-1')).toBe(5 + 70);
+	});
+
+	test('expiry leaves the purchased balance untouched', async () => {
+		await seedOrg('org-1', 250);
+		await seedExpiredPeriod(100, 0);
+		expect(await getCredits('org-1')).toBe(250);
+		expect((await testDb().db.select().from(organizations).where(eq(organizations.id, 'org-1')).get())?.creditsRemaining).toBe(250);
+	});
+});
 
 describe('drainPendingReversals crash-consistency', () => {
 	test('a delayed grant drains an earlier refund without overriding newer consent', async () => {

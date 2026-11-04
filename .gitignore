@@ -26,7 +26,11 @@ vite.config.ts.timestamp-*
 .idea/
 .cursor
 .codex
-.claude
+.claude/*
+# Shared agent config is committed; per-user state (settings.local.json etc.) is not.
+!.claude/settings.json
+!.claude/hooks/
+!.claude/skills/
 .devin/
 .kimi
 .vscode

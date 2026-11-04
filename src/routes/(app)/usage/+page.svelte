@@ -78,6 +78,16 @@
 	{/if}
 {/snippet}
 
+{#if data.paymentReturn === 'failed'}
+	<p class="error-box" role="alert">
+		Your Mercado Pago payment did not go through, so no credits were added. You can try again below.
+	</p>
+{:else if data.paymentReturn === 'pending'}
+	<p class="ok-box" role="status">
+		Your Mercado Pago payment is awaiting confirmation. Credits are added automatically once Mercado
+		Pago confirms it.
+	</p>
+{/if}
 {#if form?.error}
 	<p class="error-box" role="alert">{form.error}</p>
 {/if}
@@ -89,6 +99,12 @@
 	<div class="stat-card">
 		<span class="stat-kicker">Credits left</span>
 		<span class="stat-value">{data.summary?.remaining ?? 0}</span>
+		{#if data.metered && data.credits && data.credits.allowance !== null}
+			<span class="stat-detail">
+				{`${data.credits.allowance} monthly credits left`}{data.billing?.periodEnd ? ` · ${data.billing.cancelAtPeriodEnd ? 'ends' : 'renews'} ${new Date(data.billing.periodEnd).toLocaleDateString()}` : ''}
+			</span>
+			<span class="stat-detail">{data.credits.purchased} purchased credits</span>
+		{/if}
 	</div>
 	<div class="stat-card">
 		<span class="stat-kicker">Used this month</span>
@@ -444,6 +460,10 @@
 	.stat-value {
 		font-size: 28px;
 		font-weight: 600;
+	}
+	.stat-detail {
+		font-size: 13px;
+		color: var(--ink-2);
 	}
 	.plan-actions {
 		display: flex;

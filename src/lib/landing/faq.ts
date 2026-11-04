@@ -7,7 +7,7 @@ export type FaqEntry = { q: string; a: string };
 const FAQ_COPY: [question: string, answer: string][] = [
 	[
 		'What is Moderaty?',
-		"Moderaty checks published top-level comments on connected, active YouTube channels in background batches. Protected handles skip rules and AI. Your rules run before AI screening and scoring; uncertain results and scoring failures go to your review queue. If a check runs out of time, unfinished comments retry on a later check instead. Replies and a separate sweep of YouTube's held-for-review or spam queues are outside the current scanning scope. Live chat is also outside this scope. It's source-available and free to self-host under PolyForm Shield License 1.0.0, subject to its commercial restrictions."
+		"Moderaty checks published top-level comments on connected, active YouTube channels in background batches. Protected handles skip rules and AI. Your rules run before AI screening and scoring; uncertain results and scoring failures go to your review queue. If a check runs out of time, unfinished comments retry on a later check instead. Replies and a separate sweep of YouTube's held-for-review or spam queues are outside the current scanning scope. Live chat is also outside this scope. It's source-available and costs $0 from Moderaty to self-host under PolyForm Shield License 1.0.0, subject to its commercial restrictions."
 	],
 	[
 		'Will Moderaty ban my real fans?',
@@ -39,7 +39,7 @@ const FAQ_COPY: [question: string, answer: string][] = [
 	],
 	[
 		'Is Moderaty really free?',
-		'Self-hosted, yes: source-available and free to self-host under the PolyForm Shield license, forever. If we host it for you, that is $5 a month with 100 comments included, or $49 once for lifetime if you are among the first 1,000 users.'
+		'Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted is $5 a month with 100 AI classifications shared by moderation scoring and enabled feedback digests, or $49 once for one of 1,000 lifetime places, using your own OpenAI key.'
 	],
 	[
 		'How is Moderaty different from CommentShark or YouTube Studio?',
@@ -56,3 +56,30 @@ const FAQ_COPY: [question: string, answer: string][] = [
 ];
 
 export const FAQ_ENTRIES: FaqEntry[] = FAQ_COPY.map(([q, a]) => ({ q, a }));
+
+
+// The concise MC-3 commercial homepage questions. Legacy FAQ_ENTRIES is retained
+// for the existing legal/product guardrails, and the visible page + JSON-LD
+// deliberately share this approved subset.
+export const HOMEPAGE_FAQ_ENTRIES: FaqEntry[] = [
+	{
+		q: 'Does Moderaty replace YouTube Studio?',
+		a: 'No. YouTube Studio already offers AI-based Basic and Strict filters, blocked words, and Hold all. Moderaty adds configurable rules, automated decisions for eligible published top-level comments, its own review queue, and an audit trail.'
+	},
+	{
+		q: 'Can Moderaty remove old comments?',
+		a: "Yes, for published top-level comments in supported history windows. A live history moderation scan can take actions on YouTube and requires purchased credits, an available paid subscription allowance, or, for lifetime teams, a usable OpenAI key. It does not include YouTube's separate Held queue."
+	},
+	{
+		q: "What if AI can't decide?",
+		a: 'Uncertain comments and scoring failures go to your review queue. A comment can remain publicly visible until YouTube confirms a requested hold.'
+	},
+	{
+		q: 'Does Moderaty reply to comments for me?',
+		a: 'No. Moderaty does not generate replies, post comments, or automate engagement.'
+	},
+	{
+		q: 'Can I undo a moderation action?',
+		a: 'Held and rejected comments can be restored. Deletions are permanent, and Moderaty cannot lift an author ban inside the app.'
+	}
+];

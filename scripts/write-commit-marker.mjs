@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 // Writes the deployed commit SHA to static/__moderaty_commit.txt at BUILD
-// time, so the bunny-purge workflow can wait for the deployment to actually
-// serve the pushed commit BEFORE purging the CDN (codex review: a purge that
-// races the deploy purges the OLD origin, and the new deploy never purges —
-// production stays stale until the TTL).
+// time, so release checks (scripts/public-launch-preflight.mjs) can confirm
+// the deployment actually serves the pushed commit.
 //
 // The marker is a static asset: both the Netlify and adapter-node builds copy
 // static/ into the deployable output, and the file is served at
@@ -12,8 +10,8 @@
 //     Dockerfile exposes it to this script either as a BuildKit secret mount
 //     — "Use Docker Build Secrets" on — or via ARG/--build-arg otherwise).
 //   - Netlify: COMMIT_REF (build environment)
-//   - local/other: git rev-parse HEAD, falling back to 'unknown' (the purge
-//     wait simply times out and purges anyway — best effort, never silent).
+//   - local/other: git rev-parse HEAD, falling back to 'unknown' (the
+//     release check then reports a commit mismatch).
 // SOURCE_COMMIT_SHA is kept only as a legacy/custom fallback — Coolify has
 // never defined that name.
 
@@ -119,8 +117,8 @@ export function writeCommitMarker(staticDir, commit) {
 	writeFileSync(join(staticDir, MARKER_FILE), commit);
 }
 
-// Only run when executed directly (not when imported by tests) — same
-// normalized-path guard as scripts/bunny-purge.mjs.
+// Only run when executed directly (not when imported by tests) — a
+// normalized-path guard, so any cwd works.
 const invokedPath = process.argv[1];
 if (invokedPath && resolve(invokedPath) === fileURLToPath(import.meta.url)) {
 	writeCommitMarker(join(dirname(fileURLToPath(import.meta.url)), '..', 'static'), resolveCommit());

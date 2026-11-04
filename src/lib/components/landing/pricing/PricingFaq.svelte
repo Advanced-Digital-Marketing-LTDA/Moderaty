@@ -70,7 +70,7 @@
 	.faq-plus {
 		flex-shrink: 0;
 		display: inline-flex;
-		color: rgb(244 244 248 / 0.5);
+		color: var(--text-muted);
 	}
 	.faq-a {
 		margin: 12px 0 0;

@@ -39,8 +39,34 @@ const COMPONENT_SURFACES = [
 	'../components/landing/pricing/PricingHero.svelte',
 	'../components/landing/pricing/CostMath.svelte',
 	'../../routes/pricing/+page.svelte',
-	'../../routes/+page.svelte'
+	'../../routes/+page.svelte',
+	'../components/landing/HomepageContent.svelte'
 ];
+
+// Guard the actual pricing component rendered by src/routes/+page.svelte.
+it('includes homepage pricing and disclosure copy in the claim-surface guardrail', () => {
+	expect(COMPONENT_SURFACES).toContain('../components/landing/HomepageContent.svelte');
+});
+
+it('does not add a universal reversibility claim to homepage copy', () => {
+	const content = readFileSync(
+		new URL('../components/landing/HomepageContent.svelte', import.meta.url),
+		'utf8'
+	).replace(/\s+/g, ' ');
+	expect(content).not.toMatch(/every action reversible|reversible, always/i);
+});
+
+it('keeps the Terms page specific about which moderation actions can be reversed', () => {
+	const terms = readFileSync(
+		new URL('../components/landing/legal/Terms.svelte', import.meta.url),
+		'utf8'
+	).replace(/\s+/g, ' ');
+	expect(terms).toMatch(/Hold and reject actions can be reversed from the audit log, restoring the comment on YouTube\./i);
+	expect(terms).toMatch(/Deleted comments cannot be restored or reversed/i);
+	expect(terms).toMatch(/author bans cannot be lifted or reversed/i);
+	expect(terms).toMatch(/both are permanent once executed/i);
+	expect(terms).not.toMatch(/every action reversible|reversible, always/i);
+});
 
 const COMPONENT_CLAIM_LINES = COMPONENT_SURFACES.flatMap((path) =>
 	readFileSync(new URL(path, import.meta.url), 'utf8').split('\n')
@@ -123,10 +149,28 @@ describe('pricing copy guardrails', () => {
 		const subscription = PRICING_FAQ_ENTRIES.find(({ q }) => q === 'Is there a subscription?')?.a;
 		expect(subscription).toMatch(/even (?:with|when).*no (?:comments|AI classifications)/i);
 		expect(subscription).toContain('100 AI classifications');
+		expect(subscription).toMatch(/active paid subscription.*even when purchased credits are zero/i);
 		const usage = PRICING_FAQ_ENTRIES.find(({ q }) => /run out/.test(q))?.a;
 		expect(usage).toMatch(/one credit.*moderation.*one.*digest/i);
 		expect(usage).toMatch(/400.*(?:left|remain)/i);
 		expect(usage).toMatch(/requested history.*again/i);
+	});
+
+	it('explains the Moderaty charge separately from self-hosting and OpenAI costs', () => {
+		const selfHost = PRICING_FAQ_ENTRIES.find(({ q }) => q === 'Why is self-hosting free?')?.a;
+		const lifetime = PRICING_FAQ_ENTRIES.find(({ q }) => q === 'What is the $49 lifetime deal?')?.a;
+		expect(selfHost).toMatch(/\$0 from Moderaty/i);
+		expect(selfHost).toMatch(/infrastructure.*OpenAI.*vary/i);
+		expect(selfHost).toMatch(/license excludes.*competing product/i);
+		expect(selfHost).not.toMatch(/near zero/i);
+		expect(lifetime).toMatch(/OpenAI.*separately/i);
+	});
+
+	it('links billing detail to the existing Terms page and OpenAI API prices', () => {
+		const calculator = readFileSync(new URL('../components/landing/pricing/CostMath.svelte', import.meta.url), 'utf8');
+		expect(calculator).toContain('href="/terms#s6"');
+		expect(calculator).toContain('href="https://developers.openai.com/api/docs/pricing"');
+		expect(calculator).toContain('rel="noopener noreferrer"');
 	});
 
 	it('limits the calculator to hosted monthly purchases and excludes BYOK provider costs', () => {
@@ -193,9 +237,9 @@ it('preserves the approved hosted and lifetime offers with BYOK disclosure', () 
 	expect(subscription).toContain('$5 a month');
 	expect(subscription).toContain('100 AI classifications');
 	const lifetime = PRICING_FAQ_ENTRIES.find(({ q }) => q === 'What is the $49 lifetime deal?')?.a;
-	expect(lifetime).toContain('First 1,000 users');
+	expect(lifetime).toContain('1,000 lifetime places');
 	expect(lifetime).toContain('one $49 payment');
-	expect(lifetime).toContain('hosted forever');
+	expect(lifetime).toContain('hosted Moderaty forever');
 	expect(lifetime).toContain('your own OpenAI API key');
 });
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Nav from '$lib/components/landing/Nav.svelte';
+	import SkipLink from '$lib/components/landing/SkipLink.svelte';
 	import Footer from '$lib/components/landing/Footer.svelte';
 
 	let { data, form } = $props();
@@ -12,9 +13,10 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
+<SkipLink />
 <Nav />
 
-<main class="verify-main">
+<main id="main-content" tabindex="-1" class="verify-main">
 	<div class="verify-inner">
 		{#if form?.error}
 			<p class="error-box" role="alert">{form.error}</p>

@@ -12,7 +12,7 @@ import { checkoutRejectionMessage, createCreditCheckout, createPlanCheckout, cre
 import { lifetimeSlotsRemaining } from '$lib/server/billing/entitlements';
 import { createMercadoPagoCreditCheckout } from '$lib/server/mercadopago/checkout';
 import { configuredMercadoPagoBundles } from '$lib/server/mercadopago/bundles';
-import { isUnmeteredPlan, listCreditTransactions, orgIsMetered, pauseAutoTopupForRefund, usageSummary } from '$lib/server/billing/ledger';
+import { activeAllowanceSql, isUnmeteredPlan, listCreditTransactions, orgIsMetered, pauseAutoTopupForRefund, usageSummary } from '$lib/server/billing/ledger';
 import { isActiveSubscriptionStatus } from '$lib/server/billing/plans';
 import { db } from '$lib/server/db';
 import { resolveOpenAiKey } from '$lib/server/openaiKey';
@@ -46,6 +46,8 @@ function maintenanceData() {
 		maintenance: true as const,
 		user: null,
 		summary: null,
+		credits: null,
+		paymentReturn: null,
 		mercadoPagoBundles: [],
 		metered: false,
 		lifetimeSlots: null,
@@ -120,7 +122,17 @@ async function checkoutRedirect(create: () => Promise<string>, orgId: string) {
 	}
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+/**
+ * Mercado Pago's back_urls return the buyer to /usage?payment=failed or
+ * ?payment=pending (see mercadopago/client.ts); any other value is not a
+ * return state the page explains.
+ */
+function paymentReturnState(url: URL | undefined): 'failed' | 'pending' | null {
+	const payment = url?.searchParams.get('payment');
+	return payment === 'failed' || payment === 'pending' ? payment : null;
+}
+
+export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.dbDown) {
 		return maintenanceData();
 	}
@@ -142,6 +154,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 				autoTopupPausedAt: organizations.autoTopupPausedAt,
 				stripeDefaultPmId: organizations.stripeDefaultPmId,
 				creditsRemaining: organizations.creditsRemaining,
+				allowanceRemaining: activeAllowanceSql(new Date().toISOString()),
 				plan: organizations.plan,
 				stripeSubscriptionId: organizations.stripeSubscriptionId,
 				stripeSubscriptionStatus: organizations.stripeSubscriptionStatus,
@@ -172,9 +185,18 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.from(stripeAutoTopupRecoveries).where(and(eq(stripeAutoTopupRecoveries.orgId, user.orgId), isNull(stripeAutoTopupRecoveries.resolvedAt))).get();
 		return {
 			maintenance: false,
+			paymentReturn: paymentReturnState(url),
 			user,
 			mercadoPagoBundles: configuredMercadoPagoBundles(),
 			summary,
+			// The merged total hides the allowance: it expires at the period
+			// boundary with no ledger row, so the page shows it on its own.
+			// Null when the org has no allowance to explain (no hosted plan and
+			// no live period).
+			credits: {
+				purchased: org.creditsRemaining ?? 0,
+				allowance: org.plan === 'hosted' || org.allowanceRemaining > 0 ? org.allowanceRemaining : null
+			},
 			metered,
 			lifetimeSlots,
 			history: history.map((row) => ({

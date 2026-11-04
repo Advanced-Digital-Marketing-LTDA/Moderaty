@@ -78,7 +78,7 @@
 		font-size: 11px;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.toc {
 		margin-bottom: 48px;
@@ -94,7 +94,7 @@
 		font-weight: 600;
 		letter-spacing: 0.2em;
 		text-transform: uppercase;
-		color: rgb(244 244 248 / 0.45);
+		color: var(--text-muted);
 	}
 	.toc ol {
 		margin: 0;
@@ -183,7 +183,7 @@
 		font-weight: 600;
 		letter-spacing: 0.16em;
 		text-transform: uppercase;
-		color: rgb(244 244 248 / 0.5);
+		color: var(--text-muted);
 		background: var(--surface);
 	}
 	.legal-body :global(td:first-child) {

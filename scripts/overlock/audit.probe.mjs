@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { auditDiff, inspectStryker, auditRepository } from './audit.mjs';
+import { auditDiff, inspectStryker, auditRepository, applyApprovedExceptions } from './audit.mjs';
 
 for (const file of ['index.js', 'evaluation.js']) {
 	test(("rejects a tampered engine before import: " + (file) + ""), () => {
@@ -131,6 +131,128 @@ test('accepts test relocation while reporting it for review', () => {
 	const report = auditDiff(diff);
 	assert.equal(report.ok, true);
 	assert.ok(report.findings.some((finding) => finding.rule === 'TEST_REMOVED' && finding.severity === 'medium'));
+});
+
+const approvedCopyFinding = {
+	id: 'ASSERTION_NARROWED:src/routes/blogs/blogs.test.ts:42', rule: 'ASSERTION_NARROWED',
+	severity: 'high', file: 'src/routes/blogs/blogs.test.ts', line: 42,
+	message: 'Synthetic structural assertion narrowing fixture.'
+};
+const approvedCopyHash = 'a'.repeat(64);
+const approvedCopyException = {
+	pull_request: 235, patch_sha256: approvedCopyHash, finding_id: approvedCopyFinding.id,
+	rule: 'ASSERTION_NARROWED', file: 'src/routes/blogs/blogs.test.ts',
+	review_basis: 'Maintainer-approved structural test adjustment.'
+};
+
+test('accepts an exact base-approved structural assertion finding and keeps it visible', () => {
+	const report = applyApprovedExceptions({ findings: [approvedCopyFinding], base: 'fixture' },
+		JSON.stringify({ schema: 1, exceptions: [approvedCopyException] }),
+		{ pullRequestNumber: 235, patchSha256: approvedCopyHash });
+	assert.equal(report.ok, true);
+	assert.deepEqual(report.findings, [approvedCopyFinding]);
+	assert.deepEqual(report.allowed, [{ finding_id: approvedCopyFinding.id, pull_request: 235,
+		review_basis: 'Maintainer-approved structural test adjustment.' }]);
+	assert.equal(report.counts.high, 1);
+});
+
+for (const [pullRequestNumber, patchSha256] of [
+	[235, 'dcdd4152af3d163b9ec826387ce05c06f1ea2cd849074d592df68cbededb5e10'],
+	[236, 'cd106c22ab75f10661b643a0e7f7e10d31084172f1841e1a746d9885de75342d']
+]) {
+	test(`records only the reviewed structural finding for PR #${pullRequestNumber}'s exact patch`, () => {
+		const registry = readFileSync(new URL('../../.github/overlock/approved-exceptions.json', import.meta.url), 'utf8');
+		const finding = { ...approvedCopyFinding, id: 'ASSERTION_NARROWED:src/routes/blogs/blogs.test.ts:100', line: 100 };
+		const report = applyApprovedExceptions({ findings: [finding], base: 'fixture' }, registry,
+			{ pullRequestNumber, patchSha256 });
+		assert.equal(report.ok, true);
+		assert.deepEqual(report.allowed.map((item) => item.finding_id), [finding.id]);
+	});
+}
+
+for (const [name, request, exception = approvedCopyException] of [
+	['different pull request', { pullRequestNumber: 236, patchSha256: approvedCopyHash }],
+	['different exact patch', { pullRequestNumber: 235, patchSha256: 'b'.repeat(64) }],
+	['different finding identity', { pullRequestNumber: 235, patchSha256: approvedCopyHash },
+		{ ...approvedCopyException, finding_id: 'ASSERTION_NARROWED:src/routes/blogs/blogs.test.ts:43' }]
+]) {
+	test(`does not apply a reviewed exception to a ${name}`, () => {
+		const report = applyApprovedExceptions({ findings: [approvedCopyFinding], base: 'fixture' },
+			JSON.stringify({ schema: 1, exceptions: [exception] }), request);
+		assert.equal(report.ok, false);
+		assert.deepEqual(report.allowed, []);
+	});
+}
+
+test('rejects exception rules outside the reviewed assertion-narrowing scope', () => {
+	assert.throws(() => applyApprovedExceptions({ findings: [approvedCopyFinding], base: 'fixture' },
+		JSON.stringify({ schema: 1, exceptions: [{ ...approvedCopyException, rule: 'TEST_SKIPPED_ADDED' }] }),
+		{ pullRequestNumber: 235, patchSha256: approvedCopyHash }), /outside the copy-test review scope/);
+});
+
+test('candidate-supplied exception files cannot change the base policy decision', () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'moderaty-overlock-candidate-policy-'));
+	try {
+		git(cwd, 'init', '-q');
+		git(cwd, 'config', 'user.name', 'Fixture');
+		git(cwd, 'config', 'user.email', 'fixture@example.invalid');
+		mkdirSync(join(cwd, 'src'));
+		writeFileSync(join(cwd, 'src/auth.test.ts'), exact);
+		git(cwd, 'add', '.');
+		git(cwd, 'commit', '-qm', 'baseline');
+		const base = git(cwd, 'rev-parse', 'HEAD');
+		writeFileSync(join(cwd, 'src/auth.test.ts'), exact.replace('it(', 'it.skip('));
+		mkdirSync(join(cwd, '.github/overlock'), { recursive: true });
+		writeFileSync(join(cwd, '.github/overlock/approved-exceptions.json'), '{ candidate policy must be ignored');
+		git(cwd, 'add', '.');
+		git(cwd, 'commit', '-qm', 'attempt candidate policy change');
+		const report = auditRepository({ cwd, base, pullRequestNumber: 235 });
+		assert.equal(report.ok, false);
+		assert.ok(report.findings.some((finding) => finding.rule === 'TEST_SKIPPED_ADDED'));
+		assert.deepEqual(report.allowed, []);
+	} finally { rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test('applies an exact exception only after its registry entry is committed to the base', () => {
+	const cwd = mkdtempSync(join(tmpdir(), 'moderaty-overlock-base-policy-'));
+	const before = "it('checks the record', () => { expect(result).toEqual({ id: 3, owner: 'Andrew' }); });";
+	const after = "it('checks the record', () => { expect(result.id).toBe(3); });";
+	try {
+		git(cwd, 'init', '-q');
+		git(cwd, 'config', 'user.name', 'Fixture');
+		git(cwd, 'config', 'user.email', 'fixture@example.invalid');
+		mkdirSync(join(cwd, 'src/routes/blogs'), { recursive: true });
+		mkdirSync(join(cwd, '.github/overlock'), { recursive: true });
+		writeFileSync(join(cwd, 'src/routes/blogs/blogs.test.ts'), before);
+		writeFileSync(join(cwd, '.github/overlock/approved-exceptions.json'), JSON.stringify({ schema: 1, exceptions: [] }));
+		git(cwd, 'add', '.');
+		git(cwd, 'commit', '-qm', 'baseline');
+		const initialBase = git(cwd, 'rev-parse', 'HEAD');
+		writeFileSync(join(cwd, 'src/routes/blogs/blogs.test.ts'), after);
+		git(cwd, 'add', '.');
+		git(cwd, 'commit', '-qm', 'narrow structural fixture');
+		const withoutBaseApproval = auditRepository({ cwd, base: initialBase, pullRequestNumber: 77 });
+		const finding = withoutBaseApproval.findings.find((item) => item.rule === 'ASSERTION_NARROWED');
+		assert.ok(finding);
+		assert.equal(withoutBaseApproval.ok, false);
+
+		git(cwd, 'checkout', '--quiet', initialBase);
+		writeFileSync(join(cwd, '.github/overlock/approved-exceptions.json'), JSON.stringify({ schema: 1, exceptions: [{
+			pull_request: 77, patch_sha256: withoutBaseApproval.patch_sha256, finding_id: finding.id,
+			rule: finding.rule, file: finding.file, review_basis: 'Independently reviewed structural assertion change.'
+		}] }));
+		git(cwd, 'add', '.');
+		git(cwd, 'commit', '-qm', 'record base-reviewed exception');
+		const approvedBase = git(cwd, 'rev-parse', 'HEAD');
+		writeFileSync(join(cwd, 'src/routes/blogs/blogs.test.ts'), after);
+		git(cwd, 'add', '.');
+		git(cwd, 'commit', '-qm', 'same structural patch');
+		const withBaseApproval = auditRepository({ cwd, base: approvedBase, pullRequestNumber: 77 });
+		assert.equal(withBaseApproval.patch_sha256, withoutBaseApproval.patch_sha256);
+		assert.equal(withBaseApproval.ok, true);
+		assert.deepEqual(withBaseApproval.allowed.map((item) => item.finding_id), [finding.id]);
+		assert.ok(withBaseApproval.findings.some((item) => item.id === finding.id));
+	} finally { rmSync(cwd, { recursive: true, force: true }); }
 });
 
 for (const [name, before, after, rule] of [

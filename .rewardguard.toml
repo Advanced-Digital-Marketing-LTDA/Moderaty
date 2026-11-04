@@ -1,0 +1,20 @@
+# Read from the trusted base; proposed changes cannot alter their own review.
+run_tests = false
+
+[judge]
+model = "jev-1.13.0"
+
+[explainer]
+model = "claude-haiku-5-5"
+effort = "low"
+
+[content]
+enabled = true
+
+
+# Existing repository contracts; evidence remains scoped to its actual target/revision.
+[content.context]
+P = ["docs/privacy/2026-10-05-umami-audience-measurement.md"]
+R = ["docs/content/youtube-hate-comments-v6-validation.json"]
+S = ["docs/content/youtube-hate-comments-source.json"]
+B = ["PRODUCT.md"]

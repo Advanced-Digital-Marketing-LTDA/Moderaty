@@ -5,20 +5,17 @@
 Act as a pragmatic repository contributor: make the smallest safe change,
 validate it, and leave unrelated work untouched.
 
+## Scope discipline
+
+Change only what I explicitly ask you to change. Never remove, restyle, or "clean up" anything else (design, images, animations, layout, code, settings). If I ask for a text rewrite, touch text only. Standard development steps the repo requires (tests, evidence, checks) are expected; this rule means never changing or removing existing work based on assumptions about what I meant.
+
 ## Branching Model (sole full-stack dev + `dev` branch)
 
 One agent works the full stack. There are no per-layer agent boundaries.
 
-- **`dev` is the integration branch and the working branch.** Commit
-  directly to `dev` in `.worktrees/dev` — no per-feature branches or PRs.
-  A PR is still useful for large or risky work (it triggers the review
-  bots); the agent NEVER merges or closes its own PRs — they stay open
-  for the human. Work in the `.worktrees/dev`
-  worktree — never switch branches in a checkout in use elsewhere.
-- **`main` is production.** Only the human merges `dev → main`, batched —
-  every merge redeploys the `moderaty-prod` Coolify app and purges the
-  Bunny CDN zone. Never push to `main`
-  directly; the human's review gate is the `dev → main` merge.
+- **`main` is production.** Use `dev → main` as the normal batched release
+  path. A direct update to `main` is allowed only when the user explicitly
+  requests it; it deploys the `moderaty-prod` Coolify app.
 - Keep `dev` releasable: `npm run check`, `npm run build`, and
   `npm run test` green at all times so the human can batch-merge at any
   point. 
@@ -31,7 +28,9 @@ One agent works the full stack. There are no per-layer agent boundaries.
 - Every test must fail if the real logic is wrong. If a test still passes when the function returns garbage, rewrite the test.
 - DO NOT copy and paste code. DO create reusable code.
 - When I say "triage", review every PR comment for validity for the open PR on the branch you're working on - NO OTHER. Fix each valid issue. Post a triage comment. Reply to every bot comment, whether or not you make a code change.
-- NEVER develop on the default branch. Always use the branch the human tell you to work on.
+- Work only in the branch/worktree the user specifies. Default-branch work is
+  allowed only when explicitly requested; never switch branches in a checkout
+  in use elsewhere.
 - NEVER make changes to production databases. That is for humans only.
 - When I say "clean up", that means to clean your worktrees and branches.
 - Stryker runs must ALWAYS use the --ignoreStatic flag.
@@ -63,8 +62,9 @@ sees them. Edit the source in the repo, then re-copy to install updates.
 
 ## Git & Review Workflow (execution plan v3, section 0)
 
-Day-to-day work commits directly to `dev`; pull requests are optional
-(large/risky work, or to trigger the review bots). Executor rules:
+Day-to-day work uses `dev`; use the branch/worktree the user specifies.
+Pull requests are optional (large/risky work, or to trigger the review bots).
+Executor rules:
 
 - **Commit after every step** with message `step <N>: <step name>`.
 - **No attribution trailers in commits.** Never append "Generated with
@@ -76,14 +76,42 @@ Day-to-day work commits directly to `dev`; pull requests are optional
   it — not even when checks are green and review findings are resolved.
   Open the PR, triage bot findings, then stop and report; merging is the
   human's call. Resume with `git checkout dev && git pull`.
-- **Never `git push` — commits only.** The agent's job ends at a green
-  local commit; pushing (even `dev`) is the human's/sync step's call.
-  Never push to `main` directly, never `--force`.
-  `dev → main` is the human's batched release, not an executor step.
+- Push only when explicitly requested, and only to the requested branch.
+  Never force-push. A user-authorized direct push to `main` is a production
+  update: it deploys `moderaty-prod`; otherwise,
+  `dev → main` remains the human's batched release path.
 - **Every review finding (human or bot) gets a failing test BEFORE its fix.**
   Add the reproducing test, watch it fail, then fix, watch it pass, commit
   both together (`fix: review — <what>`). A fix without its reproducing
   test is not done.
+
+## Review Tooling (before push and in CI)
+
+Before pushing, inside Claude Code:
+
+- Run the `pr-review-toolkit` agents `pr-test-analyzer` and
+  `silent-failure-hunter` on every change. The plugin is enabled in
+  `.claude/settings.json`.
+- Run the `adversarial-review` project skill
+  (`.claude/skills/adversarial-review/SKILL.md`) before every push.
+- For changes to auth, owner-scoping (`channels.userId` scoping, `requireUser`)
+  or tests, also run gstack `/cso` and `/test-audit`. gstack is installed on the
+  human's machine, not by this repo.
+- Warp validate-changes-match-specs is not wired up yet; add it once tasks
+  carry a written spec.
+
+In CI on every PR, independent of the author:
+
+- `ratchets.yml` — test, suppress and type ratchets
+  (`scripts/ratchets/`, baselines in `.github/ratchets/baselines.json`).
+  Counts must not move the wrong way; the base branch's scripts and baselines
+  judge the PR. Locking in an improvement is `npm run ratchet:update`; raising
+  a baseline to hide a regression is never acceptable.
+- `adversarial-review.yml` — `adversarial-review --passes 2 --verify`.
+- `claude-code-review.yml` — claude-code-action running the PR Review Toolkit
+  agents.
+- Both Claude workflows authenticate with the `CLAUDE_CODE_OAUTH_TOKEN` repo
+  secret.
 
 ## Invariants (execution plan v3, section 4.1 — re-read before every step)
 
@@ -192,14 +220,13 @@ Netlify target); any other value fails the build loudly. Keep
 generated `.svelte-kit/` files or commit build output.
 
 **The operator hosts on Coolify** (two apps built by the Dockerfile:
-`moderaty-prod` on branch `main` behind a Bunny CDN pull zone, `moderaty-dev`
-on branch `dev` — [docs/COOLIFY_BUNNY.md](docs/COOLIFY_BUNNY.md)). Each app's
+`moderaty-prod` on branch `main`, `moderaty-dev`
+on branch `dev` — [docs/COOLIFY.md](docs/COOLIFY.md)). Each app's
 cron is a Coolify **Scheduled Task** that runs
 `APP_URL=http://127.0.0.1:3000 node scripts/dev-cron.mjs --once` every minute
 during early operation — raise to `*/15 * * * *` when user volume grows; it
 calls `GET /api/cron` on localhost with `CRON_SECRET` in an
-`Authorization: Bearer` header, and a GitHub Actions workflow purges the
-Bunny zone on every push to `main`. The endpoint also keeps the
+`Authorization: Bearer` header. The endpoint also keeps the
 plan-documented `?secret=` query form for manual triggers.
 **Netlify stays in the repo as a supported alternative deploy target**
 (`netlify.toml`, `netlify/functions/cron.mjs` — a Scheduled Function ticking
@@ -247,7 +274,7 @@ client and its own Turso database, deployed as separate Coolify apps:
 | | Google OAuth client | Turso database | Coolify app |
 |---|---|---|---|
 | **Dev** | `880114106606-kmn2b9p…` | `dev-2-bonobo791` | `moderaty-dev` (branch `dev`) |
-| **Production** | `880114106606-1t4edg0…` | `moderaty-bonobo791` | `moderaty-prod` (branch `main`, behind Bunny CDN) |
+| **Production** | `880114106606-1t4edg0…` | `moderaty-bonobo791` | `moderaty-prod` (branch `main`) |
 
 - **All agent work uses the dev credentials**, which live in the dev
   worktree's `.env` (`.worktrees/dev/.env`). Migration verification, seed
@@ -262,7 +289,7 @@ client and its own Turso database, deployed as separate Coolify apps:
 - **Coolify carries both environments**: env vars are set per app — the dev
   app gets the dev client/database and Stripe test keys, the prod app the
   production values (see the full env matrix in
-  [docs/COOLIFY_BUNNY.md](docs/COOLIFY_BUNNY.md) §3). Runtime secrets are
+  [docs/COOLIFY.md](docs/COOLIFY.md) §3). Runtime secrets are
   Runtime Variables only; only `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` also
   get Build Variable ON, reaching the Dockerfile's migrate gate as BuildKit
   secret mounts.
@@ -405,6 +432,39 @@ Use TypeScript and Svelte 5 runes (`$state`, `$derived`, `$props`, and
 only for a documented, maintainer-approved compatibility exception. Use tabs
 and SvelteKit `+page`, `+layout`, and `+server` conventions. Prefer `$lib`
 imports, platform APIs, and installed dependencies.
+
+## Editorial Voice (public copy)
+
+Moderaty's public copy (landing page, blog, marketing, social) has a **funny,
+meme-culture voice**. It is a maintainer decision; do not flatten it into
+neutral corporate copy during SEO, claims, or legal passes.
+
+- **Jokes live in headlines, leads, eyebrows, and fictional examples.** The
+  house cast: trolls get the hammer, comments get bonked, the Ackchyually
+  Guy, the Edge Lord, the Crypto Bot, the Brigadier, "go touch grass",
+  "choose your fighter". Reuse and extend it.
+- **Facts stay literal.** Coverage limits (published top-level comments
+  only; no replies, live chat, or YouTube's Held queue), irreversible
+  actions (deletes, bans), dry-run caveats, pricing, OAuth scope, and
+  privacy/retention statements are written plainly, never as a punchline,
+  and the copy guard tests must keep passing.
+- **A joke never overclaims.** The exact phrase "Never read another hate
+  comment." is allowed only as the homepage hero tagline approved by the user.
+  Elsewhere, do not promise that comments or hate will never be seen, do not
+  claim Moderaty catches everything, and do not invent stats or accuracy
+  numbers.
+- **No jokes about** threats, doxxing, self-harm, creator mental health,
+  emergency or law-enforcement guidance, legal pages, consent, account
+  deletion, or billing failures. Those passages stay sincere.
+- **Punch at archetypes, not people.** Mock trolls, spam bots, and scammers;
+  never real people, protected groups, or viewers giving genuine criticism.
+  No slurs, censored or not. Example comments are fictional and labeled so.
+- **Blog posts are first person**, written as the founder and YouTube
+  creator (`BLOG_AUTHOR`): "I hold links", "my rule is". Share opinions and
+  advice in that voice, but never invent personal anecdotes, quotes, or
+  numbers the author has not supplied.
+- SEO `<title>`, meta descriptions, and keyword lines may stay plain; put
+  the joke in the visible headline instead.
 
 ## Commits, Security, and Licensing
 

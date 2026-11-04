@@ -197,9 +197,10 @@ async function runClaimedFeedbackPreview(
 	deadline: number,
 	staleFailed: number,
 	diagnostics: CronDiagnostics
-): Promise<unknown> {
+): Promise<Record<string, unknown>> {
 	const stalePayload = staleFailed ? { staleFailed } : {};
 	const lease = pending.leaseExpiresAt;
+	let outcome: Record<string, unknown>;
 	try {
 		const preview = await runFeedbackPreview(pending.channel.id, pending.digest.id, {
 			boundary: pending.digest.windowStart,
@@ -215,7 +216,7 @@ async function runClaimedFeedbackPreview(
 			}
 		});
 		console.info('cron: feedback preview %s for %s finished — classified=%d', pending.digest.id, pending.channel.id, preview.commentsClassified);
-		return {
+		outcome = {
 			// Operational counts only — `findings` carry near-verbatim
 			// commenter excerpts persisted for the feed; the scheduler
 			// drivers log this response, so evidence never crosses the
@@ -233,18 +234,19 @@ async function runClaimedFeedbackPreview(
 		// failures already wrote 'dry-run-failed' inside the runner. Only the
 		// sanitized category reaches the payload (codeant).
 		diagnostics.report('feedback preview', cause);
-		return { error: cause instanceof DeadlineExceededError ? 'timeout' : 'error', ...stalePayload };
-	} finally {
-		// Release only OUR lease — an expired lease reclaimed by the rotation
-		// or another tick is untouched. A release failure must not override
-		// the result: the lease self-expires, and this invocation still ran
-		// its one workload even if bookkeeping fails.
-		try {
-			await releaseCronWorkload(pending);
-		} catch (releaseCause) {
-			diagnostics.report('lease release', releaseCause);
-		}
+		outcome = { error: cause instanceof DeadlineExceededError ? 'timeout' : 'error', ...stalePayload };
 	}
+	// Release only OUR lease — an expired lease reclaimed by the rotation or
+	// another tick is untouched. A failure leaves the lease to self-expire,
+	// but must also mark the tick unhealthy so schedulers surface the failure.
+	let bookkeepingError = false;
+	try {
+		await releaseCronWorkload(pending);
+	} catch (releaseCause) {
+		diagnostics.report('lease release', releaseCause);
+		bookkeepingError = true;
+	}
+	return { ...outcome, ...(bookkeepingError ? { bookkeepingError: true } : {}) };
 }
 
 /**
@@ -558,8 +560,8 @@ export const GET: RequestHandler = async ({ url, request }) => {
 	// Exactly one selected workload shares the original deadline. A retry or
 	// failure still spends this class's turn; the next tick serves its peer.
 	if (workload.kind === 'preview') {
-		const feedbackPreview = await runClaimedFeedbackPreview(workload, deadline, staleFailed, diagnostics);
-		return respond({ ...afterCleanup, feedbackPreview, results: {} });
+		const { bookkeepingError, ...feedbackPreview } = await runClaimedFeedbackPreview(workload, deadline, staleFailed, diagnostics);
+		return respond({ ...afterCleanup, feedbackPreview, ...(bookkeepingError ? { bookkeepingError: true } : {}), results: {} });
 	}
 	const { channel } = workload;
 	console.info(

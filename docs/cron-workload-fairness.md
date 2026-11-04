@@ -1,3 +1,13 @@
+---
+id: cron-workload-fairness
+type: module-design
+title: Cron workload fairness
+status: draft
+parent: moderaty-architecture
+tags: [scheduler, fairness]
+depends-on: [moderation-pipeline, persistence-boundary]
+---
+
 # Cron workload fairness
 
 Feedback previews and live moderation share the existing bounded cron runner.

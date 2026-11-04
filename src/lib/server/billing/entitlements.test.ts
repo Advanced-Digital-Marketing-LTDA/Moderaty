@@ -5,7 +5,7 @@ import { setupTestDb, testDb } from '$lib/server/testdb';
 import { organizations, stripeLifetimeEntitlements, stripeLifetimeSlots, stripeSubscriptionPeriods, stripePendingReversals, stripeDisputeReversals } from '$lib/server/db/schema';
 import { claimLifetimeSlot, grantSubscriptionPeriod, lifetimeSlotsRemaining, releaseLifetimeForPayment, applySubscriptionSnapshot, disputeSubscriptionPeriod, restoreDisputedSubscriptionPeriod, revokeLifetimeForDispute, restoreLifetimeForDispute, refundSubscriptionPeriod } from './entitlements';
 import { consumeCredit, getCredits } from './ledger';
-import { LIFETIME_SLOT_LIMIT } from './plans';
+import { HOSTED_INCLUDED_CREDITS, LIFETIME_SLOT_LIMIT } from './plans';
 
 setupTestDb(['organizations', 'stripe_subscription_periods', 'stripe_lifetime_entitlements', 'stripe_lifetime_slots', 'stripe_pending_reversals', 'stripe_dispute_reversals', 'credit_transactions', 'stripe_auto_topup_recoveries']);
 
@@ -30,6 +30,20 @@ describe('subscription period entitlements', () => {
 		expect(await testDb().db.select().from(stripeSubscriptionPeriods)).toHaveLength(1);
 	});
 
+	test('a renewal invoice inserts a fresh period row and leaves the previous one unchanged', async () => {
+		const now = Date.now();
+		const boundary = new Date(now - 1000).toISOString();
+		const base = { orgId: 'org-1', subscriptionId: 'sub-1' };
+		expect(await grantSubscriptionPeriod({ ...base, invoiceId: 'in-1', chargeId: 'ch-1', periodKey: 'p1', periodStart: new Date(now - 86_400_000).toISOString(), periodEnd: boundary, eventCreated: 100, eventId: 'evt-1' })).toBe(true);
+		await testDb().db.update(stripeSubscriptionPeriods).set({ consumedCredits: 40 }).where(eq(stripeSubscriptionPeriods.invoiceId, 'in-1'));
+		expect(await grantSubscriptionPeriod({ ...base, invoiceId: 'in-2', chargeId: 'ch-2', periodKey: 'p2', periodStart: boundary, periodEnd: new Date(now + 86_400_000).toISOString(), eventCreated: 200, eventId: 'evt-2' })).toBe(true);
+		const periods = await testDb().db.select().from(stripeSubscriptionPeriods).all();
+		expect(periods).toHaveLength(2);
+		expect(periods.find(row => row.invoiceId === 'in-1')).toMatchObject({ includedCredits: HOSTED_INCLUDED_CREDITS, consumedCredits: 40 });
+		expect(periods.find(row => row.invoiceId === 'in-2')).toMatchObject({ includedCredits: HOSTED_INCLUDED_CREDITS, consumedCredits: 0 });
+		expect(await getCredits('org-1')).toBe(HOSTED_INCLUDED_CREDITS);
+	});
+
 	test('ignores an older subscription snapshot after a newer event', async () => {
 		expect(await applySubscriptionSnapshot({ orgId: 'org-1', subscriptionId: 'sub-1', status: 'active', periodStart: '2026-09-01', periodEnd: '2026-10-01', cancelAtPeriodEnd: false, eventCreated: 200, eventId: 'evt-new' })).toBe(true);
 		expect(await applySubscriptionSnapshot({ orgId: 'org-1', subscriptionId: 'sub-1', status: 'canceled', periodStart: '2026-09-01', periodEnd: '2026-10-01', cancelAtPeriodEnd: false, eventCreated: 100, eventId: 'evt-old' })).toBe(false);
@@ -52,6 +66,48 @@ describe('subscription period entitlements', () => {
 		expect(await getCredits('org-1')).toBe(0);
 		const period = await testDb().db.select().from(stripeSubscriptionPeriods).where(eq(stripeSubscriptionPeriods.invoiceId, 'in-1')).get();
 		expect(period?.consumedCredits).toBe(2);
+	});
+
+	test('keeps a paid subscription allowance available with no purchased credits', async () => {
+		const now = Date.now();
+		const periodStart = new Date(now - 86_400_000).toISOString();
+		const periodEnd = new Date(now + 86_400_000).toISOString();
+		await testDb().db.update(organizations).set({ plan: 'hosted', creditsRemaining: null, stripeSubscriptionId: 'sub-1', stripeSubscriptionStatus: 'active', stripeSubscriptionPeriodEnd: periodEnd }).where(eq(organizations.id, 'org-1'));
+		await testDb().db.insert(stripeSubscriptionPeriods).values({ orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', periodKey: periodStart.slice(0, 7), periodStart, periodEnd, includedCredits: 100, consumedCredits: 0, status: 'paid' });
+
+		expect(await getCredits('org-1')).toBe(100);
+		expect(await consumeCredit(testDb().db, 'org-1', 'comment-1')).toBe(true);
+		expect(await getCredits('org-1')).toBe(99);
+		const org = await testDb().db.select().from(organizations).where(eq(organizations.id, 'org-1')).get();
+		expect(org?.creditsRemaining).toBeNull();
+	});
+
+	test.each(['expired', 'refunded'] as const)('does not spend an %s subscription allowance', async state => {
+		const now = Date.now();
+		const periodStart = new Date(now - 86_400_000).toISOString();
+		const periodEnd = new Date(now + (state === 'expired' ? -1000 : 86_400_000)).toISOString();
+		await testDb().db.update(organizations).set({ plan: 'hosted', creditsRemaining: 0, stripeSubscriptionId: 'sub-1', stripeSubscriptionStatus: 'active', stripeSubscriptionPeriodEnd: periodEnd }).where(eq(organizations.id, 'org-1'));
+		await testDb().db.insert(stripeSubscriptionPeriods).values({ orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', periodKey: periodStart.slice(0, 7), periodStart, periodEnd, includedCredits: 100, consumedCredits: 0, status: state === 'refunded' ? 'refunded' : 'paid' });
+		expect(await getCredits('org-1')).toBe(0);
+		expect(await consumeCredit(testDb().db, 'org-1', 'comment-1')).toBe(false);
+		expect((await testDb().db.select().from(stripeSubscriptionPeriods).get())?.consumedCredits).toBe(0);
+	});
+
+	test('unused allowance from the previous period does not carry into the current period', async () => {
+		const now = Date.now();
+		const boundary = new Date(now - 1000).toISOString();
+		const periodEnd = new Date(now + 86_400_000).toISOString();
+		await testDb().db.update(organizations).set({ plan: 'hosted', creditsRemaining: 0, stripeSubscriptionId: 'sub-1', stripeSubscriptionStatus: 'active', stripeSubscriptionPeriodEnd: periodEnd }).where(eq(organizations.id, 'org-1'));
+		await testDb().db.insert(stripeSubscriptionPeriods).values([
+			{ orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-old', periodKey: 'old', periodStart: new Date(now - 86_400_000).toISOString(), periodEnd: boundary, includedCredits: 100, consumedCredits: 10, status: 'paid' },
+			{ orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-new', periodKey: 'new', periodStart: boundary, periodEnd, includedCredits: 100, consumedCredits: 2, status: 'paid' }
+		]);
+		expect(await getCredits('org-1')).toBe(98);
+		expect(await consumeCredit(testDb().db, 'org-1', 'comment-1')).toBe(true);
+		expect(await getCredits('org-1')).toBe(97);
+		const periods = await testDb().db.select().from(stripeSubscriptionPeriods).all();
+		expect(periods.find(row => row.invoiceId === 'in-old')?.consumedCredits).toBe(10);
+		expect(periods.find(row => row.invoiceId === 'in-new')?.consumedCredits).toBe(3);
 	});
 
 	test('a refund matches a period that stored only the payment intent', async () => {

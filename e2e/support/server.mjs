@@ -19,6 +19,8 @@ await mkdir(isolatedEnvDirectory);
 const databaseUrl = `file:${join(resolve(process.env.MODERATY_E2E_DIRECTORY), 'disposable.db')}`;
 Object.assign(process.env, {
 	TURSO_DATABASE_URL: databaseUrl, DRY_RUN: 'false',
+	// The public pages build canonical URLs from APP_URL; it is never fetched.
+	APP_URL: 'https://moderaty.invalid',
 	ENCRYPTION_KEY: randomBytes(32).toString('hex'),
 	GOOGLE_CLIENT_ID: 'synthetic-client', GOOGLE_CLIENT_SECRET: randomBytes(32).toString('hex'),
 	OPENAI_API_KEY: `synthetic-${randomBytes(32).toString('hex')}`

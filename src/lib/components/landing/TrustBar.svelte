@@ -10,7 +10,7 @@
 			{/each}
 		</ul>
 		<p class="microcopy">
-			Google asks for standard YouTube access. Moderaty uses it for channel setup, comment moderation, and video titles and descriptions for context. Source-available under PolyForm Shield, free to self-host. 1 free dry run per feature per channel, no credits. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.
+			Google asks for standard YouTube access. Moderaty uses it for channel setup, comment moderation, and video titles and descriptions for context. Source-available under PolyForm Shield, self-hosting costs $0 from Moderaty. Infrastructure and OpenAI charges are separate. 1 free dry run per feature per channel, no credits. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.
 			We keep no data on you beyond what your account needs to run, and nothing after you leave that
 			the LGPD does not require.
 		</p>
@@ -57,7 +57,7 @@
 		text-transform: uppercase;
 		line-height: 1.6;
 		letter-spacing: 0.14em;
-		color: rgb(244 244 248 / 0.5);
+		color: var(--text-muted);
 		margin: 0;
 	}
 	@media (min-width: 768px) {

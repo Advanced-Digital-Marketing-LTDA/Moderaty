@@ -4,16 +4,20 @@ export const SPAM_COMMENTS = {
 	description: 'Use YouTube’s native controls, review suspicious comments, and test narrow rules for impersonation, repeated messages, links, and phone-number patterns.'
 } as const;
 
+// readingMinutes is the rendered article's word count at 200 words per minute,
+// rounded up; article-standards.test.ts recomputes it from the final text.
+export const SPAM_COMMENTS_EDITION = { updated: '2026-10-20', readingMinutes: 12 } as const;
+
 export const SPAM_COMMENT_SECTIONS = [
-	{ id: 'native-controls', title: 'Start with YouTube’s comment controls' },
-	{ id: 'impersonation', title: 'Check creator impersonation comments' },
-	{ id: 'repeated-comments', title: 'Review repeated and copied messages' },
-	{ id: 'suspicious-links', title: 'Hold suspicious links for review' },
-	{ id: 'phone-number-patterns', title: 'Check phone-number requests in context' },
-	{ id: 'reporting', title: 'Report scams and impersonation' },
-	{ id: 'custom-rules', title: 'Test custom moderation rules' },
-	{ id: 'false-positives', title: 'Protect legitimate comments' },
-	{ id: 'preview-rules', title: 'Check the channel preview before broader use' },
+	{ id: 'native-controls', title: 'Which YouTube comment controls stop spam?' },
+	{ id: 'impersonation', title: 'How do you spot creator impersonation comments?' },
+	{ id: 'repeated-comments', title: 'What should you do about repeated and copied comments?' },
+	{ id: 'suspicious-links', title: 'How should you handle suspicious links?' },
+	{ id: 'phone-number-patterns', title: 'Does a phone number in a comment mean a scam?' },
+	{ id: 'reporting', title: 'How do you report scams and impersonation on YouTube?' },
+	{ id: 'custom-rules', title: 'How do you test custom moderation rules?' },
+	{ id: 'false-positives', title: 'How do you protect legitimate comments?' },
+	{ id: 'preview-rules', title: 'How do you preview moderation on your channel?' },
 	{ id: 'faq', title: 'Frequently asked questions' }
 ] as const;
 
