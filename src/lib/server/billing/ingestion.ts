@@ -18,13 +18,14 @@ export type IngestionBlock = 'unpaid' | null;
  * A missing org throws: the caller must not guess.
  */
 export async function ingestionBlock(orgId: string): Promise<IngestionBlock> {
+	// Checked first: self-hosted deployments have no gate and never read the org.
+	if (!isOfficialHosted()) return null;
 	const org = await db
 		.select({ plan: organizations.plan, creditsRemaining: organizations.creditsRemaining })
 		.from(organizations)
 		.where(eq(organizations.id, orgId))
 		.get();
 	if (!org) throw new Error(`org not found: ${orgId}`);
-	if (!isOfficialHosted()) return null;
 	if (await isFunded(orgId, org.plan, org.creditsRemaining)) return null;
 	return (await orgHasUnlimitedAccess(db, orgId)) ? null : 'unpaid';
 }

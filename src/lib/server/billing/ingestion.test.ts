@@ -112,4 +112,9 @@ describe('ingestionBlock on a self-hosted deployment', () => {
 		await seedOrg('org-1');
 		expect(await ingestionBlock('org-1')).toBeNull();
 	});
+
+	test('does not read the org at all, so a missing org is not an error here', async () => {
+		mocks.env.MODERATY_DEPLOYMENT = undefined;
+		expect(await ingestionBlock('no-such-org')).toBeNull();
+	});
 });

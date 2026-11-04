@@ -7,6 +7,7 @@ import { channels } from '$lib/server/db/schema';
 import { DeadlineExceededError } from '$lib/server/http';
 import { channelMatchesClaim } from '$lib/server/dryRun';
 import { resolveOpenAiKey } from '$lib/server/openaiKey';
+import { ingestionBlock } from '$lib/server/billing/ingestion';
 import type { ProtectedIdentities } from '$lib/server/allowlist';
 import { TONE_LEVEL_OMNI_ONLY } from '$lib/toneLevels';
 import { fetchNewComments, refreshAccessToken, type CommentPage } from '$lib/server/youtube';
@@ -130,6 +131,10 @@ async function loadChannelForRun(
 	}
 	const dryRun = forceDryRun === true || env.DRY_RUN === 'true';
 	if (window && !dryRun) throw new Error('window mode requires dry-run semantics (pass forceDryRun)');
+	if (!dryRun && channel.orgId !== null && (await ingestionBlock(channel.orgId)) === 'unpaid') {
+		console.warn(`run ${channelId}: skipped — org ${channel.orgId} is unpaid; no fetch or AI`);
+		return { kind: 'skip', result: { ...emptyResult(), unpaid: true } };
+	}
 	return { kind: 'run', channel, dryRun };
 }
 

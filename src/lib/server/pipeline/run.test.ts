@@ -15,6 +15,9 @@ import {
 	runChannel
 } from './test-support';
 
+const ingestion = vi.hoisted(() => ({ ingestionBlock: vi.fn(async (_orgId: string) => null as 'unpaid' | null) }));
+vi.mock('$lib/server/billing/ingestion', () => ({ ingestionBlock: ingestion.ingestionBlock }));
+
 const mocks = getMocks();
 
 beforeEach(resetPipelineMocks);
@@ -823,6 +826,45 @@ test('window mode without dry-run semantics fails loudly — it can never go liv
 	).rejects.toThrow('window mode requires dry-run');
 	expect(mocks.fetchNewComments).not.toHaveBeenCalled();
 	expect(mocks.state.insertedAudits).toEqual([]);
+});
+
+describe('paid-only ingestion gate (billing)', () => {
+	beforeEach(() => ingestion.ingestionBlock.mockClear());
+
+	test('an unpaid live run returns before any token refresh or YouTube fetch', async () => {
+		mocks.state.channel.orgId = 'org-1';
+		ingestion.ingestionBlock.mockResolvedValueOnce('unpaid');
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			expect(await runChannel('channel')).toMatchObject({ unpaid: true, skipped: true, fetched: 0 });
+			expect(ingestion.ingestionBlock).toHaveBeenCalledWith('org-1');
+			expect(mocks.refreshAccessToken).not.toHaveBeenCalled();
+			expect(mocks.fetchNewComments).not.toHaveBeenCalled();
+			expect(warn).toHaveBeenCalledWith(expect.stringContaining('org-1'));
+		} finally {
+			warn.mockRestore();
+		}
+	});
+
+	test('a funded live run fetches as usual', async () => {
+		mocks.state.channel.orgId = 'org-1';
+		ingestion.ingestionBlock.mockResolvedValueOnce(null);
+		const result = await runChannel('channel');
+		expect(result.unpaid).toBeUndefined();
+		expect(mocks.fetchNewComments).toHaveBeenCalled();
+	});
+
+	test('a dry run never consults the ingestion gate (the one-per-org dry run is gated at the form)', async () => {
+		mocks.state.channel.orgId = 'org-1';
+		await runChannel('channel', { forceDryRun: true });
+		expect(ingestion.ingestionBlock).not.toHaveBeenCalled();
+	});
+
+	test('an orphan channel with no org never consults the ingestion gate', async () => {
+		mocks.state.channel.orgId = null;
+		await runChannel('channel');
+		expect(ingestion.ingestionBlock).not.toHaveBeenCalled();
+	});
 });
 
 describe('credit consumption (billing)', () => {
