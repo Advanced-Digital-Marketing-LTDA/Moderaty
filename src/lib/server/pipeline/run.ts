@@ -131,7 +131,7 @@ async function loadChannelForRun(
 	}
 	const dryRun = forceDryRun === true || env.DRY_RUN === 'true';
 	if (window && !dryRun) throw new Error('window mode requires dry-run semantics (pass forceDryRun)');
-	if (!dryRun && channel.orgId !== null && (await ingestionBlock(channel.orgId)) === 'unpaid') {
+	if (forceDryRun !== true && channel.orgId !== null && (await ingestionBlock(channel.orgId)) === 'unpaid') {
 		console.warn(`run ${channelId}: skipped — org ${channel.orgId} is unpaid; no fetch or AI`);
 		return { kind: 'skip', result: { ...emptyResult(), unpaid: true } };
 	}

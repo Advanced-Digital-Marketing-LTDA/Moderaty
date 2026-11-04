@@ -854,6 +854,35 @@ describe('paid-only ingestion gate (billing)', () => {
 		expect(mocks.fetchNewComments).toHaveBeenCalled();
 	});
 
+	test('a cron tick under DRY_RUN=true is not a preview: the unpaid gate runs and nothing is fetched', async () => {
+		mocks.state.env.DRY_RUN = 'true';
+		mocks.state.channel.orgId = 'org-1';
+		ingestion.ingestionBlock.mockResolvedValueOnce('unpaid');
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			expect(await runChannel('channel')).toMatchObject({ unpaid: true, skipped: true, fetched: 0 });
+			expect(ingestion.ingestionBlock).toHaveBeenCalledWith('org-1');
+			expect(mocks.refreshAccessToken).not.toHaveBeenCalled();
+			expect(mocks.fetchNewComments).not.toHaveBeenCalled();
+		} finally {
+			warn.mockRestore();
+			mocks.state.env.DRY_RUN = 'false';
+		}
+	});
+
+	test('an explicit preview under DRY_RUN=true proceeds without consulting the gate', async () => {
+		mocks.state.env.DRY_RUN = 'true';
+		mocks.state.channel.orgId = 'org-1';
+		try {
+			const result = await runChannel('channel', { forceDryRun: true });
+			expect(result.unpaid).toBeUndefined();
+			expect(ingestion.ingestionBlock).not.toHaveBeenCalled();
+			expect(mocks.fetchNewComments).toHaveBeenCalled();
+		} finally {
+			mocks.state.env.DRY_RUN = 'false';
+		}
+	});
+
 	test('a dry run never consults the ingestion gate (the one-per-org dry run is gated at the form)', async () => {
 		mocks.state.channel.orgId = 'org-1';
 		await runChannel('channel', { forceDryRun: true });
