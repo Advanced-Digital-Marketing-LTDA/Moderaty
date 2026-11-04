@@ -197,7 +197,7 @@
 		windows, subject to the plan's usage requirements.
 	</p>
 	<p class="lede">
-		It does <strong>not</strong> moderate reply threads or live chat, and it does
+		It does <strong>not</strong> moderate live chat, and it does
 		<strong>not</strong> run a separate sweep of comments already held by YouTube for
 		review or marked as spam. It never writes a reply under your name.
 	</p>
