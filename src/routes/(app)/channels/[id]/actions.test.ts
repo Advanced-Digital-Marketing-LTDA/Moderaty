@@ -955,6 +955,19 @@ describe('dry run for an unpaid org on the hosted deployment', () => {
 		}
 	});
 
+	test('a preview that fails after its claim keeps the free run spent', async () => {
+		mocks.runChannel.mockRejectedValueOnce(new Error('upstream failed'));
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			expect(await dryRun('UC1')).toMatchObject({ status: 502, data: { scope: 'dryRun', channelId: 'UC1' } });
+			expect(await freeDryRunStampOf('org-1')).toEqual(expect.any(String));
+			expect(await dryRun('UC2')).toMatchObject({ status: 402, data: { error: UNPAID_COPY } });
+			expect(mocks.runChannel).toHaveBeenCalledTimes(1);
+		} finally {
+			errorSpy.mockRestore();
+		}
+	});
+
 	test('a funded org previews every channel without spending the free dry run', async () => {
 		await updateOrg('org-1', { creditsRemaining: 100 });
 

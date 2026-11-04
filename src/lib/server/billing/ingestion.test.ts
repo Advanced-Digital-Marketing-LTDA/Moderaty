@@ -225,6 +225,37 @@ describe('releaseFreeDryRun', () => {
 	});
 });
 
+describe('free runs and paid periods belong to one organization', () => {
+	test('a paid period in one org never funds another org', async () => {
+		await seedOrg('org-A');
+		await seedOrg('org-B');
+		await seedPeriod('org-A');
+		expect(await ingestionBlock('org-A')).toBeNull();
+		expect(await ingestionBlock('org-B')).toBe('unpaid');
+	});
+
+	test('spending the free run of one organization leaves another unpaid organization untouched', async () => {
+		await seedOrg('org-A');
+		await seedOrg('org-B');
+		await seedChannel('UC-A', { orgId: 'org-A' });
+		expect(await claimDryRunForOrg('UC-A', 'org-A', 'moderation')).toMatchObject({ lease: expect.any(String) });
+		expect(await freeDryRunStampOf('org-A')).toEqual(expect.any(String));
+		expect(await freeDryRunStampOf('org-B')).toBeNull();
+	});
+
+	test('two claims started together for one unpaid org: exactly one wins', async () => {
+		await seedOrg('org-1');
+		await seedChannel('UC1');
+		await seedChannel('UC2');
+		const results = await Promise.all([
+			claimDryRunForOrg('UC1', 'org-1', 'moderation'),
+			claimDryRunForOrg('UC2', 'org-1', 'moderation')
+		]);
+		expect(results.filter((result) => 'lease' in result)).toHaveLength(1);
+		expect(results.filter((result) => 'status' in result && result.status === 402)).toHaveLength(1);
+	});
+});
+
 describe('a free run that cannot be given back is loud', () => {
 	test('a release that matches no row is logged and reported as not given back', async () => {
 		await seedOrg('org-1');

@@ -55,6 +55,18 @@ describe('orgHasUnlimitedAccess on the official hosted deployment', () => {
 	});
 });
 
+describe('owner matching is per organization', () => {
+	test('a listed owner of another org does not exempt this one', async () => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'owner@example.test';
+		await seedOrg('org-A');
+		await seedOrg('org-B');
+		await seedMember('org-A', 'owner', 'owner@example.test');
+		await seedMember('org-B', 'member', 'owner@example.test');
+		expect(await orgHasUnlimitedAccess(testDb().db, 'org-A')).toBe(true);
+		expect(await orgHasUnlimitedAccess(testDb().db, 'org-B')).toBe(false);
+	});
+});
+
 describe('unlimitedAccessEmails', () => {
 	test('throws loudly when the env var is unset', () => {
 		expect(() => unlimitedAccessEmails()).toThrow(

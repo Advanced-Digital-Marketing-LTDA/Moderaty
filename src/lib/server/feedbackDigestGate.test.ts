@@ -45,5 +45,5 @@ test('a funded org proceeds past the unpaid gate', async () => {
 	mocks.ingestionBlock.mockResolvedValueOnce(null);
 	const result = await generateFeedbackDigest('UC1', { force: true });
 	expect(mocks.ingestionBlock).toHaveBeenCalledWith('org-1');
-	expect(result.reason).not.toBe('unpaid');
+	expect(result).toEqual({ status: 'empty' });
 });
