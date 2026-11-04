@@ -15,13 +15,13 @@ vi.mock('$lib/server/youtube', () => ({
 }));
 
 import { countDbStatements, setupTestDb, testDb } from '$lib/server/testdb';
-import { channels, comments, creditTransactions, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence, organizations } from '$lib/server/db/schema';
+import { channels, comments, creditTransactions, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence, organizations, stripeSubscriptionPeriods } from '$lib/server/db/schema';
 import { digestDue, generateFeedbackDigest, runFeedbackPreview, startFeedbackPreview } from './feedbackDigest';
 import type { DryRunClaim } from './dryRun';
 import { CONCEALED_MESSAGE } from './feedbackSanitize';
 import * as ledger from './billing/ledger';
 
-setupTestDb(['finding_evidence', 'feedback_findings', 'feedback_digests', 'feedback_history_comments', 'comments', 'channels', 'organizations', 'credit_transactions']);
+setupTestDb(['finding_evidence', 'feedback_findings', 'feedback_digests', 'feedback_history_comments', 'comments', 'channels', 'organizations', 'credit_transactions', 'stripe_subscription_periods']);
 
 // fetch mock: classify each comment from its text embedded in the prompt.
 // Per-test RESPONSES maps comment-text → classification JSON; anything
@@ -1262,8 +1262,10 @@ test('an org turning unmetered mid-run reports uncharged refs without a credit s
 	// the charge transaction — a concurrent lifetime-plan change produces
 	// uncharged refs with no shortfall owed. Treating every uncharged batch
 	// as InsufficientCreditsError would defer the run needlessly.
-	// Funded at the hosted gate (credits > 0); the flip below is what makes the charge uncharged.
-	await testDb().db.update(organizations).set({ creditsRemaining: 1, plan: 'metered' }).where(eq(organizations.id, 'org-1'));
+	// Funded at the hosted gate by an in-window paid period with no included credits, so the balance stays at its pre-gate 0.
+	// The flip below is what makes the charge uncharged.
+	await testDb().db.update(organizations).set({ creditsRemaining: 0, plan: 'metered' }).where(eq(organizations.id, 'org-1'));
+	await testDb().db.insert(stripeSubscriptionPeriods).values({ orgId: 'org-1', subscriptionId: 'sub-mid-run', invoiceId: 'in-mid-run', periodKey: 'mid-run', periodStart: '2020-01-01T00:00:00.000Z', periodEnd: '2099-01-01T00:00:00.000Z', includedCredits: 0 });
 	await seedChannel('UC1', { feedbackEnabled: 1 });
 	await seedComment('c1', 'UC1', 'when is the next video', '2026-01-05T00:00:00.000Z');
 	// The concurrent plan change: orgIsMetered reads 'metered', then the
