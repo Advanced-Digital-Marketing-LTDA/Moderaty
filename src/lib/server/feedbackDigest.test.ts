@@ -2,7 +2,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { eq, isNull } from 'drizzle-orm';
 
 const mocks = vi.hoisted(() => ({
-	env: { OPENAI_API_KEY: 'test-openai-key', DRY_RUN: 'false' } as Record<string, string | undefined>,
+	env: { OPENAI_API_KEY: 'test-openai-key', DRY_RUN: 'false', UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>,
 	decrypt: vi.fn((enc: string) => `decrypted:${enc}`),
 	fetchNewComments: vi.fn()
 }));

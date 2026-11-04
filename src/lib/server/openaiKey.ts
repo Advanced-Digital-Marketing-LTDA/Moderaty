@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { decrypt } from '$lib/server/crypto';
 import { db } from '$lib/server/db';
 import { organizations } from '$lib/server/db/schema';
+import { orgHasUnlimitedAccess } from '$lib/server/billing/unlimitedAccess';
 
 /**
  * Resolves the OpenAI key a channel run scores with: the org's own BYOK key
@@ -57,6 +58,19 @@ export async function resolveOpenAiKey(
 		console.error('failed to read the stored OpenAI key — plan unknown, so no deployment-key fallback (a lifetime org would burn it)', { orgId, error });
 		if (throwOnReadError) throw error;
 		return undefined;
+	}
+	if (plan === 'lifetime') {
+		let complimentary: boolean;
+		try {
+			complimentary = await orgHasUnlimitedAccess(db, orgId);
+		} catch (error) {
+			// Fail closed like a failed read: no deployment-key fallback when the
+			// complimentary status cannot be checked.
+			console.error('complimentary access check failed — plan unknown for the key, so no deployment-key fallback', { orgId, error });
+			if (throwOnReadError) throw error;
+			return undefined;
+		}
+		if (complimentary) return env.OPENAI_API_KEY;
 	}
 	if (!enc) {
 		if (plan === 'lifetime') {
