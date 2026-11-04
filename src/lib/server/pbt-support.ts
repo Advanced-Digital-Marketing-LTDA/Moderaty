@@ -51,7 +51,7 @@ export function createPipelineMocks() {
 		}), { status: 200 });
 	}));
 	return {
-		env: { DRY_RUN: 'false', FC_NUM_RUNS: process.env.FC_NUM_RUNS, UNLIMITED_ACCESS_EMAILS: '' } as Record<
+		env: { DRY_RUN: 'false', FC_NUM_RUNS: process.env.FC_NUM_RUNS, UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } as Record<
 			string,
 			string | undefined
 		>,

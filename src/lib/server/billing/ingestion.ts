@@ -8,7 +8,7 @@ import { and, eq, gt, isNull, lte } from 'drizzle-orm';
 import { claimDryRun, type PreviewFeature } from '$lib/server/dryRun';
 import { db } from '$lib/server/db';
 import { organizations, stripeSubscriptionPeriods } from '$lib/server/db/schema';
-import { isOfficialHosted } from '$lib/server/welcomeEnrollment';
+import { requireDeploymentMode } from '$lib/server/deploymentMode';
 import { isUnmeteredPlan } from './ledger';
 import { orgHasUnlimitedAccess } from './unlimitedAccess';
 
@@ -20,7 +20,7 @@ export type IngestionBlock = 'unpaid' | null;
  */
 export async function ingestionBlock(orgId: string): Promise<IngestionBlock> {
 	// Checked first: self-hosted deployments have no gate and never read the org.
-	if (!isOfficialHosted()) return null;
+	if (requireDeploymentMode() === 'self-hosted') return null;
 	const org = await db
 		.select({ plan: organizations.plan, creditsRemaining: organizations.creditsRemaining })
 		.from(organizations)

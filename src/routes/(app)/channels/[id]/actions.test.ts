@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 	// a history drain that can never advance on an env-dry deployment.
 	// ENCRYPTION_KEY is a synthetic credential fixture — same maintainer-approved
 	// exception as netlify/cron.test.mjs (2026-07-30, PR #13 review, per AGENTS.md).
-	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'actions-test-key', UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>
+	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'actions-test-key', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>
 }));
 vi.mock('$lib/server/pipeline', () => ({ runChannel: mocks.runChannel }));
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
@@ -860,7 +860,7 @@ describe('dry run for an unpaid org on the hosted deployment', () => {
 	});
 
 	afterEach(() => {
-		delete mocks.env.MODERATY_DEPLOYMENT;
+		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
 		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
 		warnSpy.mockRestore();
 	});

@@ -6,7 +6,7 @@ import { encrypt } from '$lib/server/crypto';
 import { channels, comments, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence, memberships, organizations, stripeSubscriptionPeriods, users } from '$lib/server/db/schema';
 
 const mocks = vi.hoisted(() => ({
-	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'feedback-actions-test-key', UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>,
+	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'feedback-actions-test-key', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>,
 	generateFeedbackDigest: vi.fn(),
 	startFeedbackPreview: vi.fn(),
 	runFeedbackPreview: vi.fn(),
@@ -742,7 +742,7 @@ describe('feedback dry run for an unpaid org on the hosted deployment', () => {
 	});
 
 	afterEach(() => {
-		delete mocks.env.MODERATY_DEPLOYMENT;
+		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
 		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
 		warnSpy.mockRestore();
 	});

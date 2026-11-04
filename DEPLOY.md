@@ -155,6 +155,7 @@ drizzle-kit progress renderer hid these errors behind an exit code. Keep
   | `PROTON_FROM_NAME` | optional sender display name; defaults to `Moderaty` |
   | `APP_URL` | the deployed site URL, e.g. `https://moderaty.netlify.app` |
   | `UNLIMITED_ACCESS_EMAILS` | comma-separated owner e-mails with complimentary access (never metered or charged). Empty grants nobody; unset makes the billing checks fail loudly |
+  | `MODERATY_DEPLOYMENT` | `official-hosted` only on the official hosted deployment; `self-hosted` for your own install. Required: unset or invalid makes the billing gate throw |
   | `DRY_RUN` | start with `true`; flip to `false` after verifying a dry run |
 
 - **Two environments, two deploy contexts.** Set the same keys twice:

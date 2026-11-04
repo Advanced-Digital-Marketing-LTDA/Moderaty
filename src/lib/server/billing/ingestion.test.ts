@@ -192,7 +192,7 @@ describe('claimDryRunForOrg on the hosted deployment', () => {
 	});
 
 	test('a self-hosted deployment never spends the free dry run', async () => {
-		mocks.env.MODERATY_DEPLOYMENT = undefined;
+		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
 
 		expect(await claimDryRunForOrg('UC1', 'org-1', 'moderation')).toMatchObject({ lease: expect.any(String) });
 		expect(await claimDryRunForOrg('UC2', 'org-1', 'moderation')).toMatchObject({ lease: expect.any(String) });
@@ -225,15 +225,23 @@ describe('releaseFreeDryRun', () => {
 	});
 });
 
+describe('ingestionBlock when MODERATY_DEPLOYMENT is unset', () => {
+	test('throws instead of treating the deployment as self-hosted', async () => {
+		mocks.env.MODERATY_DEPLOYMENT = undefined;
+		await seedOrg('org-1');
+		await expect(ingestionBlock('org-1')).rejects.toThrow('MODERATY_DEPLOYMENT must be set to official-hosted or self-hosted');
+	});
+});
+
 describe('ingestionBlock on a self-hosted deployment', () => {
 	test('is never blocked, even with no credits and no subscription', async () => {
-		mocks.env.MODERATY_DEPLOYMENT = undefined;
+		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
 		await seedOrg('org-1');
 		expect(await ingestionBlock('org-1')).toBeNull();
 	});
 
 	test('does not read the org at all, so a missing org is not an error here', async () => {
-		mocks.env.MODERATY_DEPLOYMENT = undefined;
+		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
 		expect(await ingestionBlock('no-such-org')).toBeNull();
 	});
 });
