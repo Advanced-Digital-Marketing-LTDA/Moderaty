@@ -5,11 +5,10 @@ Use this checklist for a release. The operator performs deployments, secret entr
 ## Minimum release gates
 
 1. **Release and cache**: finish the intended fixes, run all three local gates, and record the exact release SHA. The owner merges/deploys. Confirm Coolify deployment success and migration verification for that SHA. Run the read-only preflight below against the public hostname. Separately establish that its commit marker is not cached and that public HTML reflects the release.
-2. **Bunny configuration**: the owner securely supplies the correct production site URL and a least-privilege zone-scoped key as GitHub Actions repository secrets, then reruns the purge workflow. Verify the actual wait/purge evidence, not the green wait-step label alone. Do not put the Bunny key in the app runtime or paste it into a ticket. Verify the public cache policy before relying on the marker.
-3. **Payment and BYOK**: execute the focused dev smoke below using test Stripe, an isolated dev organization/channel and the owner's secure credential entry. Record outcomes against the release SHA. A real-money operator test is a separate purchase approval; it is not implied by this checklist.
-4. **Cron and independent alerts**: prove both a completed scheduled tick and a missed-tick alert in dev, with delivery and recovery confirmed. Then the owner enables separate production checks. A healthy `/api/health` cannot establish that background work runs.
-5. **Recovery and mail**: complete an approved disposable native Turso restore drill, and owner-controlled Proton delivery checks. Keep both open until observed. If the owner accepts a launch exception, record exactly which verification remains missing and who is responding.
-6. **Legal decision**: the operator and legal advisers confirm the effective document version, consent flow and any required notice/cutover timeline before enabling a release or new subprocessor. Record the approved decision separately from technical checks.
+2. **Payment and BYOK**: execute the focused dev smoke below using test Stripe, an isolated dev organization/channel and the owner's secure credential entry. Record outcomes against the release SHA. A real-money operator test is a separate purchase approval; it is not implied by this checklist.
+3. **Cron and independent alerts**: prove both a completed scheduled tick and a missed-tick alert in dev, with delivery and recovery confirmed. Then the owner enables separate production checks. A healthy `/api/health` cannot establish that background work runs.
+4. **Recovery and mail**: complete an approved disposable native Turso restore drill, and owner-controlled Proton delivery checks. Keep both open until observed. If the owner accepts a launch exception, record exactly which verification remains missing and who is responding.
+5. **Legal decision**: the operator and legal advisers confirm the effective document version, consent flow and any required notice/cutover timeline before enabling a release or new subprocessor. Record the approved decision separately from technical checks.
 
 ### Read-only preflight
 

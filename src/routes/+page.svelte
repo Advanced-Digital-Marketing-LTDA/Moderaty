@@ -18,7 +18,7 @@
 	const socialImage = $derived(new URL('/og.png', data.siteOrigin).href);
 
 	const productDescription =
-		'Moderate YouTube comments with custom rules, AI scoring, human review, and an audit log. Try Moderaty with a free moderation preview.';
+		'Moderate YouTube comments with custom rules, AI scoring, human review, and an audit log. Run a free moderation preview on your own channel first.';
 
 	const softwareApplication = $derived(publicSoftwareSchema(canonical, productDescription));
 

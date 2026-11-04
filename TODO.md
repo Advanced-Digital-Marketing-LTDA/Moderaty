@@ -30,7 +30,7 @@ For each of `moderaty-prod` and `moderaty-dev`:
 
 Everything the app writes to stdout/stderr — which is all our logging (`console.error` on failed dry runs, cron errors, OAuth failures) — lands in Axiom, searchable and persistent, instead of evaporating with the container. That's the durable answer to "how do I see server errors": Axiom's query UI (or alerts, if you later want e.g. a notification on `dry run failed`).
 
-One note: the drain ships **container** logs, so the in-container cron ticker (`dev-cron.mjs`) output is included too. Nothing in the repo needs to change — this is pure Coolify/Axiom config, so no commit, no doc update required unless you want it recorded in `docs/COOLIFY_BUNNY.md` (say the word and I'll add a short §"Log drain" there).
+One note: the drain ships **container** logs, so the in-container cron ticker (`dev-cron.mjs`) output is included too. Nothing in the repo needs to change — this is pure Coolify/Axiom config, so no commit, no doc update required unless you want it recorded in `docs/COOLIFY.md` (say the word and I'll add a short §"Log drain" there).
 
 -There needs to be an area to actually sign up for the recurring subscription and also the $49 lifetime deal. 
 -There needs to be a way to cancel any subscriptions or auto top-ups

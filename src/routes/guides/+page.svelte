@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
 	import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
+	import { COMMENT_SETTINGS_GUIDE } from '$lib/blogs/comment-settings-guide';
 	import { GUIDES_INDEX } from '$lib/blogs/guides-index';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
@@ -16,4 +17,8 @@
 <article>
 	<h2><a href={MODERATION_GUIDE.path}>{MODERATION_GUIDE.title}</a></h2>
 	<p>{MODERATION_GUIDE.description}</p>
+</article>
+<article>
+	<h2><a href={COMMENT_SETTINGS_GUIDE.path}>{COMMENT_SETTINGS_GUIDE.title}</a></h2>
+	<p>{COMMENT_SETTINGS_GUIDE.description}</p>
 </article>

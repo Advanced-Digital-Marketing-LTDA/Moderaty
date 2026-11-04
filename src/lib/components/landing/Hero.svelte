@@ -8,15 +8,16 @@
 	<div class="hero-grid">
 		<div class="hero-copy">
 			<Reveal amount={0.1}>
-				<p class="eyebrow"><span class="eyebrow-mark">{'//'}</span> AI YouTube comment moderation. Your rules come first.</p>
+				<p class="eyebrow"><span class="eyebrow-mark">{'//'}</span> AI YouTube comment moderation.</p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.08}>
-				<h1>Trolls get <span class="marker">the hammer.</span></h1>
+				<h1>Never read another hate comment.</h1>
+				<p class="tagline">Trolls get <span class="marker">the hammer</span></p>
 			</Reveal>
 			<Reveal amount={0.1} delay={0.16}>
 				<p class="sub">
 					Reading the comments is the job nobody hired you for. Moderaty checks published
-					top-level comments on your connected YouTube channels: your
+					top-level comments on your connected YouTube channels. Your
 					rules swing first, AI scoring handles the rest, and the borderline ones wait in
 					your review queue. No auto-replies. No posting as you. Just bonks.
 				</p>
@@ -65,16 +66,23 @@
 	.eyebrow-mark {
 		color: var(--ban);
 	}
-	h1 {
-		margin: 20px 0 0;
+	h1,
+	.tagline {
 		max-width: 20ch;
 		text-wrap: balance;
 		font-family: var(--font-display);
-		font-size: 48px;
 		font-weight: 800;
 		line-height: 1.02;
 		letter-spacing: -0.02em;
 		color: var(--paper);
+	}
+	h1 {
+		margin: 20px 0 0;
+		font-size: 48px;
+	}
+	.tagline {
+		margin: 16px 0 0;
+		font-size: 36px;
 	}
 	.sub {
 		margin: 24px 0 0;
@@ -91,7 +99,7 @@
 		gap: 16px;
 	}
 	.cta-primary {
-		border-radius: 999px;
+		border-radius: 0;
 		background: var(--ban);
 		color: var(--ink);
 		font-size: 16px;
@@ -100,7 +108,7 @@
 		text-decoration: none;
 	}
 	.cta-ghost {
-		border-radius: 999px;
+		border-radius: 0;
 		border: 1px solid var(--line);
 		color: var(--paper);
 		font-size: 16px;
@@ -118,6 +126,9 @@
 	@media (min-width: 768px) {
 		h1 {
 			font-size: 60px;
+		}
+		.tagline {
+			font-size: 44px;
 		}
 	}
 	@media (min-width: 1024px) {

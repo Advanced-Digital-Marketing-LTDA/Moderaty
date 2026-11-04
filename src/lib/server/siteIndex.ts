@@ -4,6 +4,7 @@ import { HATE_COMMENTS } from '$lib/blogs/hate-comments';
 import { SPAM_COMMENTS } from '$lib/blogs/spam-comments';
 import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 import { GUIDES_INDEX } from '$lib/blogs/guides-index';
+import { COMMENT_SETTINGS_GUIDE } from '$lib/blogs/comment-settings-guide';
 
 // The crawlable surface: marketing, legal, public utility and editorial
 // pages. Everything else — the (app) console, OAuth/consent/invite/verify
@@ -11,6 +12,7 @@ import { GUIDES_INDEX } from '$lib/blogs/guides-index';
 // the sitemap on purpose.
 export const PUBLIC_PAGES = [
 	'/',
+	'/how-it-works/',
 	'/pricing',
 	'/contact',
 	'/login',
@@ -21,20 +23,23 @@ export const PUBLIC_PAGES = [
 	HATE_COMMENTS.path,
 	SPAM_COMMENTS.path,
 	GUIDES_INDEX.path,
-	MODERATION_GUIDE.path
+	MODERATION_GUIDE.path,
+	COMMENT_SETTINGS_GUIDE.path
 ] as const;
 
 // Pages whose own route renders <link rel="canonical">; the root layout covers the rest.
-const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path, GUIDES_INDEX.path, MODERATION_GUIDE.path];
+const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path, GUIDES_INDEX.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path];
 const LAYOUT_CANONICAL_PAGES = PUBLIC_PAGES.filter((path) => !SELF_CANONICAL_PAGES.includes(path));
 
 // Runtime-rendered editorial and legal pages need the configured origin, not a session or DB.
 export const PUBLIC_BLOG_ROUTE_IDS = [
+	'/how-it-works',
 	'/blogs',
 	HATE_COMMENTS.path.slice(0, -1),
 	SPAM_COMMENTS.path.slice(0, -1),
 	GUIDES_INDEX.path.slice(0, -1),
 	MODERATION_GUIDE.path.slice(0, -1),
+	COMMENT_SETTINGS_GUIDE.path.slice(0, -1),
 	'/privacy',
 	'/terms',
 	'/dpa'
@@ -85,8 +90,12 @@ export function siteOrigin(): string {
  */
 export function canonicalUrl(pathname: string): string | null {
 	const path = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
-	if (!LAYOUT_CANONICAL_PAGES.includes(path as (typeof PUBLIC_PAGES)[number])) return null;
-	return new URL(path, siteOrigin()).toString();
+	const canonicalPath = LAYOUT_CANONICAL_PAGES.find((candidate) => {
+		const candidatePath = candidate.length > 1 ? candidate.replace(/\/$/, '') : candidate;
+		return candidatePath === path;
+	});
+	if (!canonicalPath) return null;
+	return new URL(canonicalPath, siteOrigin()).toString();
 }
 
 /** Keep internal pages crawlable for noindex headers and link the configured sitemap. */
@@ -138,6 +147,7 @@ export function llmsTxt(): string {
 		'## Product',
 		'',
 		`- [Home](${link('/')}) — feature overview, how it works, and FAQ`,
+		`- [How Moderaty works](${link('/how-it-works/')}) — rules, AI scoring, human review, history, digests, and hosting`,
 		`- [Pricing](${link('/pricing')}) — plans and usage-based billing`,
 		`- [Contact](${link('/contact')}) — support and inquiries`,
 		`- [Sign in](${link('/login')}) — Google sign-in`,
@@ -146,6 +156,7 @@ export function llmsTxt(): string {
 		`- [${SPAM_COMMENTS.title}](${link(SPAM_COMMENTS.path)}) — native controls and review for recurring spam patterns`,
 		`- [Guides](${link(GUIDES_INDEX.path)}) — long-form YouTube comment moderation guides`,
 		`- [${MODERATION_GUIDE.title}](${link(MODERATION_GUIDE.path)}) — choosing actions, settings and a review workflow`,
+		`- [${COMMENT_SETTINGS_GUIDE.title}](${link(COMMENT_SETTINGS_GUIDE.path)}) — video comment settings and Community viewer-post controls`,
 		'',
 		'## Legal',
 		'',

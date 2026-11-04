@@ -61,7 +61,7 @@ if (!databaseUrl) {
 			'  - Coolify Docker build: the Dockerfile reads them ONLY as BuildKit secret mounts. Enable\n' +
 			'    "Use Docker Build Secrets" in the application Environment Variables settings and keep\n' +
 			'    the Build Variable flag ON for TURSO_DATABASE_URL and TURSO_AUTH_TOKEN\n' +
-			'    (docs/COOLIFY_BUNNY.md §3.4). If both are set and it still fails, the Coolify server\n' +
+			'    (docs/COOLIFY.md §3.4). If both are set and it still fails, the Coolify server\n' +
 			'    may lack BuildKit secret support (it then silently falls back to build args) — check\n' +
 			'    "docker build --help | grep secret" on the server.\n' +
 			'  - Local: source .env (node --env-file=.env scripts/netlify-migrate.mjs).' +

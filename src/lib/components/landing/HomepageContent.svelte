@@ -74,6 +74,7 @@
 			</p>
 		</article>
 	</div>
+	<a href="/how-it-works/" class="inline-link">See the full moderation workflow <span aria-hidden="true">→</span></a>
 	<a href={LOGIN_URL} class="inline-link">Preview moderation on your channel <span aria-hidden="true">→</span></a>
 </section>
 
@@ -134,7 +135,7 @@
 				does not reply to viewers, post comments, or change moderation decisions.
 				It can run weekly, after 100 new comments, or when you request it.
 			</p>
-			<a href={LOGIN_URL} class="inline-link">Connect a channel to preview the feedback digest <span aria-hidden="true">→</span></a>
+			<a href={LOGIN_URL} class="inline-link">Preview your feedback digest <span aria-hidden="true">→</span></a>
 		</div>
 		<div class="digest-example">
 			<p class="example-label">Illustrative feedback themes</p>
@@ -171,7 +172,7 @@
 				enabled feedback digests. Additional credits are sold in bundles.
 				Automatic top-up is optional and off by default.
 			</p>
-			<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="home_pricing">See hosted usage and costs <span aria-hidden="true">→</span></a>
+			<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="home_pricing">See pricing <span aria-hidden="true">→</span></a>
 		</article>
 		<article class="plan panel">
 			<p class="plan-tag">Lifetime hosting</p>
@@ -181,10 +182,10 @@
 				subscription or per-comment meter under this offer. You supply and
 				pay for your own OpenAI API key.
 			</p>
-			<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="home_pricing">Check offer availability <span aria-hidden="true">→</span></a>
+			<a href="/pricing" data-moderaty-event="pricing_click" data-moderaty-placement="home_pricing">See pricing <span aria-hidden="true">→</span></a>
 		</article>
 	</div>
-	<a href="/pricing" class="inline-link" data-moderaty-event="pricing_click" data-moderaty-placement="home_pricing">Compare plans and estimate usage <span aria-hidden="true">→</span></a>
+	<a href="/pricing" class="inline-link" data-moderaty-event="pricing_click" data-moderaty-placement="home_pricing">See pricing <span aria-hidden="true">→</span></a>
 </section>
 
 <section id="scope" class="section scope-section" aria-labelledby="scope-title">
@@ -196,7 +197,7 @@
 		windows, subject to the plan's usage requirements.
 	</p>
 	<p class="lede">
-		It does <strong>not</strong> moderate reply threads or live chat, and it does
+		It does <strong>not</strong> moderate live chat, and it does
 		<strong>not</strong> run a separate sweep of comments already held by YouTube for
 		review or marked as spam. It never writes a reply under your name.
 	</p>
@@ -220,7 +221,6 @@
 		<div class="trust-links">
 			<a href="/privacy">Privacy Policy <span aria-hidden="true">→</span></a>
 			<a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">Source code <span aria-hidden="true">↗</span></a>
-			<a href="/blogs/how-to-deal-with-hate-comments-on-youtube/">How to deal with hate comments on YouTube <span aria-hidden="true">→</span></a>
 		</div>
 	</div>
 </section>

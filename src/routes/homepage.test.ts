@@ -17,13 +17,16 @@ test('MC-3 homepage owns the commercial query, metadata, and canonical URL', () 
 	const { head } = renderHomepage();
 	expect(head).toContain('AI YouTube Comment Moderation Software | Moderaty');
 	expect(head).toContain('Moderate YouTube comments with custom rules, AI scoring, human review, and an audit log.');
+	// meta, og:description, twitter:description, and the SoftwareApplication JSON-LD share one description.
+	expect(head.match(/Run a free moderation preview on your own channel first\./g)).toHaveLength(4);
+	expect(head).not.toContain('Try Moderaty with a free moderation preview.');
 	expect(head).toContain('rel="canonical" href="https://moderaty.com/"');
 });
 
 test('MC-3 renders the approved rules-first hero and working conversion paths', () => {
 	const { body } = renderHomepage();
 	expect(body).toContain('AI YouTube comment moderation.');
-	expect(body).toContain('Your rules come first.');
+	expect(body).not.toContain('Your rules come first.');
 	expect(body).toContain('Connect your YouTube channel');
 	expect(body).toContain('href="/login"');
 	expect(body).toContain('href="/pricing"');
@@ -70,7 +73,6 @@ test('MC-3 states what is and is not moderated and explains access without overp
 	const { body } = renderHomepage();
 	for (const phrase of [
 		'published top-level YouTube comments',
-		'reply threads',
 		'live chat',
 		'youtube.force-ssl',
 		'href="/privacy"'
@@ -170,7 +172,10 @@ test('hero shows the animated review-queue demo with its labeled illustrative co
 test('homepage keeps the meme-culture voice alongside the factual disclosures', () => {
 	const { body } = renderHomepage();
 	const hero = body.split('id="top"')[1]?.split('</section>')[0];
-	expect(hero).toMatch(/<h1[^>]*>Trolls get <span class="marker">the hammer\.<\/span><\/h1>/);
+	expect(hero).toMatch(/<h1[^>]*>Never read another hate comment\.<\/h1>/);
+	expect(hero).toMatch(/<p class="tagline[^"]*">Trolls get <span class="marker">the hammer<\/span><\/p>/);
+	expect(hero).not.toMatch(/<h2/);
+	expect(visibleText(hero ?? '')).toContain('connected YouTube channels. Your rules swing first');
 	const regulars = body.split('id="regulars"')[1]?.split('</section>')[0];
 	expect(regulars).toContain('Meet the regulars.');
 	for (const rogue of ['The Ackchyually Guy', 'The Edge Lord', 'The Crypto Bot', 'The Brigadier']) {
@@ -229,4 +234,26 @@ test('each animated Regulars card carries a descriptive label naming the fiction
 		'Fictional example: the Crypto Bot posts a fake get-rich-quick crypto claim. Stamp: deleted by a rule.',
 		'Fictional example: the Brigadier arrives from a drama video to pile on. Stamp: held for review.'
 	]);
+});
+
+test('homepage links to no individual blog post or guide', () => {
+	const { body } = renderHomepage();
+	expect(body).not.toMatch(/href="\/(?:blogs|guides)\/[^"]+"/);
+});
+
+test('homepage keeps its Source code link and the footer Blogs link', () => {
+	const { body } = renderHomepage();
+	expect(body).toMatch(/<a href="https:\/\/github\.com\/[^"]+"[^>]*>Source code/);
+	expect(body).toMatch(/<a href="\/blogs\/" class="footer-link[^"]*">Blogs<\/a>/);
+});
+
+test('every homepage pricing link uses the one "See pricing" label', () => {
+	const { body } = renderHomepage();
+	const pricingLabels = [...body.matchAll(/<a[^>]*href="\/pricing"[^>]*>([\s\S]*?)<\/a>/g)]
+		.map(([, label]) => visibleText(label).replace(/\s*→$/, ''))
+		.filter((label) => label !== 'Pricing');
+	expect(pricingLabels.length).toBeGreaterThanOrEqual(5);
+	expect(new Set(pricingLabels)).toEqual(new Set(['See pricing']));
+	expect(visibleText(body)).toContain('Preview your feedback digest');
+	expect(visibleText(body)).not.toContain('Connect a channel to preview the feedback digest');
 });

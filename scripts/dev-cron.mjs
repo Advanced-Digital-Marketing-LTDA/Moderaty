@@ -15,7 +15,7 @@
 // APP_URL defaults to http://localhost:5173; set it to the dev branch deploy
 // (with that deploy's CRON_SECRET) to drive the deployed instance instead.
 //
-// Coolify (docs/COOLIFY_BUNNY.md): the same script, in --once mode, is the
+// Coolify (docs/COOLIFY.md): the same script, in --once mode, is the
 // scheduler for container deployments — a Coolify Scheduled Task runs
 // `APP_URL=http://127.0.0.1:3000 node scripts/dev-cron.mjs --once` every
 // minute inside the app container, replacing the Netlify Scheduled Function.
