@@ -47,7 +47,7 @@ const FAQ_COPY: [question: string, answer: string][] = [
 	],
 	[
 		'Can I test Moderaty without changing anything on my channel?',
-		'Each channel gets 1 free moderation dry run and 1 free feedback dry run. Neither spends credits. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.'
+		'Organizations with credits or a subscription get 1 free moderation dry run and 1 free feedback dry run per channel. Neither spends credits. Without credits or a subscription, an organization gets one free dry run, for life. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.'
 	],
 	[
 		'Is Moderaty LGPD compliant?',

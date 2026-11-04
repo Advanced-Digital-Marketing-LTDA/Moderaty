@@ -26,7 +26,8 @@ describe('landing copy guardrails', () => {
 
 	it('states separate one-time moderation and first-page feedback previews accurately', () => {
 		const previewFaq = FAQ_ENTRIES.find(({ q }) => q === 'Can I test Moderaty without changing anything on my channel?');
-		expect(previewFaq?.a).toContain('Each channel gets 1 free moderation dry run and 1 free feedback dry run. Neither spends credits.');
+		expect(previewFaq?.a).toContain('Organizations with credits or a subscription get 1 free moderation dry run and 1 free feedback dry run per channel. Neither spends credits.');
+			expect(previewFaq?.a).toContain('Without credits or a subscription, an organization gets one free dry run, for life.');
 		expect(previewFaq?.a).toContain('Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.');
 		expect(TICKS_SELF_HOSTED.join(' ')).toContain('1 free dry run per feature per channel');
 		expect(TICKS_SELF_HOSTED_DETAILED.join(' ')).toContain('1 free dry run per feature per channel');

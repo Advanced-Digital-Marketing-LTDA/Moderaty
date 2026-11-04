@@ -154,6 +154,7 @@ drizzle-kit progress renderer hid these errors behind an exit code. Keep
   | `PROTON_SMTP_USERNAME` / `PROTON_SMTP_TOKEN` | Proton Mail SMTP credentials for transactional e-mail (contact-form verification and service notices, including zero-credit account warnings). The username is the custom-domain sender address and doubles as the From address; the token comes from Proton → **Settings → All settings → IMAP/SMTP → SMTP tokens** — never the mailbox password. Mint a separate token per environment |
   | `PROTON_FROM_NAME` | optional sender display name; defaults to `Moderaty` |
   | `APP_URL` | the deployed site URL, e.g. `https://moderaty.netlify.app` |
+  | `UNLIMITED_ACCESS_EMAILS` | comma-separated owner e-mails with complimentary access (never metered or charged). Empty grants nobody; unset makes the billing checks fail loudly |
   | `DRY_RUN` | start with `true`; flip to `false` after verifying a dry run |
 
 - **Two environments, two deploy contexts.** Set the same keys twice:
