@@ -1,7 +1,7 @@
-import { beforeEach, expect, test, vi } from 'vitest';
-import { TEST_OWNER, postForm, setupTestDb, testDb } from '$lib/server/testdb';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { TEST_OWNER, freeDryRunStampOf, postForm, setupTestDb, testDb } from '$lib/server/testdb';
 import { encrypt } from '$lib/server/crypto';
-import { auditLog, channels, comments, moderationActions, organizations, rules, stripeSubscriptionPeriods } from '$lib/server/db/schema';
+import { auditLog, channels, comments, memberships, moderationActions, organizations, rules, stripeSubscriptionPeriods, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 const mocks = vi.hoisted(() => ({
@@ -17,7 +17,7 @@ vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
 
 import { actions } from './+page.server';
 
-setupTestDb(['moderation_actions', 'comments', 'audit_log', 'rules', 'channels', 'stripe_subscription_periods', 'organizations']);
+setupTestDb(['moderation_actions', 'comments', 'audit_log', 'rules', 'channels', 'stripe_subscription_periods', 'organizations', 'memberships', 'users']);
 
 const OWNER = TEST_OWNER;
 
@@ -843,6 +843,76 @@ test('dry run remains available without purchased credits and persists its conti
 	expect(retry).toMatchObject({ status: 409, data: { error: 'Limited to 1 free moderation dry run per channel. This channel has already used it.' } });
 	expect(mocks.runChannel).toHaveBeenCalledTimes(1);
 	expect(await drainStateOf('UC1')).toEqual({ boundary: ch?.dryRunBoundary, pageToken: 'preview-next' });
+});
+
+// Unpaid hosted orgs get one free dry run for life, shared with feedback previews.
+describe('dry run for an unpaid org on the hosted deployment', () => {
+	const UNPAID_COPY = 'This organization has used its one free dry run. Buy credits or subscribe on the Usage page to run more.';
+	let warnSpy: { mockRestore(): void };
+
+	beforeEach(async () => {
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
+		warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await updateOrg('org-1', { creditsRemaining: null });
+		await seedChannel('UC1');
+		await seedChannel('UC2');
+		mocks.runChannel.mockResolvedValue(dryRunResult({ windowComplete: true }));
+	});
+
+	afterEach(() => {
+		delete mocks.env.MODERATY_DEPLOYMENT;
+		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
+		warnSpy.mockRestore();
+	});
+
+	test('the first preview spends the free dry run, and the next channel is refused before anything runs', async () => {
+		expect(await dryRun('UC1')).toMatchObject({ ok: true, dryRunUsed: true });
+
+		expect(await dryRun('UC2')).toMatchObject({ status: 402, data: { scope: 'dryRun', channelId: 'UC2', error: UNPAID_COPY } });
+		expect(mocks.runChannel).toHaveBeenCalledTimes(1);
+		expect((await channelById('UC2'))?.moderationDryRunUsedAt).toBeNull();
+	});
+
+	test('a free dry run already spent on feedback refuses a moderation preview', async () => {
+		await updateOrg('org-1', { freeDryRunUsedAt: '2026-01-01T00:00:00.000Z' });
+
+		expect(await dryRun('UC1')).toMatchObject({ status: 402, data: { scope: 'dryRun', channelId: 'UC1', error: UNPAID_COPY } });
+		expect(mocks.runChannel).not.toHaveBeenCalled();
+	});
+
+	test('a busy channel is refused and gives the free dry run back', async () => {
+		await testDb().db.update(channels).set({ leaseExpiresAt: '2099-01-01T00:00:00.000Z' }).where(eq(channels.id, 'UC1'));
+
+		expect(await dryRun('UC1')).toMatchObject({ status: 409, data: { error: 'This channel is busy. Retry in a minute.' } });
+		expect(await freeDryRunStampOf('org-1')).toBeNull();
+		expect(await dryRun('UC2')).toMatchObject({ ok: true });
+	});
+
+	test('a paused channel is refused and gives the free dry run back', async () => {
+		await testDb().db.update(channels).set({ active: 0 }).where(eq(channels.id, 'UC1'));
+
+		expect(await dryRun('UC1')).toMatchObject({ status: 409, data: { error: 'This channel is paused. Resume it before running a dry run.' } });
+		expect(await freeDryRunStampOf('org-1')).toBeNull();
+		expect(await dryRun('UC2')).toMatchObject({ ok: true });
+	});
+
+	test('a complimentary owner previews every channel without spending the free dry run', async () => {
+		await testDb().db.insert(users).values({ id: OWNER.id, googleSub: 'sub-owner', email: 'owner@example.test', displayName: 'Owner' });
+		await testDb().db.insert(memberships).values({ userId: OWNER.id, orgId: 'org-1', role: 'owner' });
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'owner@example.test';
+
+		expect(await dryRun('UC1')).toMatchObject({ ok: true });
+		expect(await dryRun('UC2')).toMatchObject({ ok: true });
+		expect(await freeDryRunStampOf('org-1')).toBeNull();
+	});
+
+	test('a funded org previews every channel without spending the free dry run', async () => {
+		await updateOrg('org-1', { creditsRemaining: 100 });
+
+		expect(await dryRun('UC1')).toMatchObject({ ok: true });
+		expect(await dryRun('UC2')).toMatchObject({ ok: true });
+		expect(await freeDryRunStampOf('org-1')).toBeNull();
+	});
 });
 
 test('dry run rejects a signed-out request with 401 and never runs', async () => {

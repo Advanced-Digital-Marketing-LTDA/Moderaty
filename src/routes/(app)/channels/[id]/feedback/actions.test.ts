@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 
-import { TEST_OWNER, setupTestDb, testDb } from '$lib/server/testdb';
+import { TEST_OWNER, freeDryRunStampOf, setupTestDb, testDb } from '$lib/server/testdb';
 import { encrypt } from '$lib/server/crypto';
-import { channels, comments, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence, organizations, stripeSubscriptionPeriods } from '$lib/server/db/schema';
+import { channels, comments, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence, memberships, organizations, stripeSubscriptionPeriods, users } from '$lib/server/db/schema';
 
 const mocks = vi.hoisted(() => ({
 	env: { DRY_RUN: 'false', ENCRYPTION_KEY: 'feedback-actions-test-key', UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>,
@@ -33,7 +33,7 @@ vi.mock('$lib/server/feedbackDigest', async (importOriginal) => {
 
 import { actions, load } from './+page.server';
 
-setupTestDb(['finding_evidence', 'feedback_findings', 'feedback_digests', 'feedback_history_comments', 'comments', 'channels', 'organizations', 'stripe_subscription_periods']);
+setupTestDb(['finding_evidence', 'feedback_findings', 'feedback_digests', 'feedback_history_comments', 'comments', 'channels', 'organizations', 'stripe_subscription_periods', 'memberships', 'users']);
 
 const OWNER = TEST_OWNER;
 
@@ -726,6 +726,76 @@ test('feedback dry run validates access and inputs before claiming its allowance
 	}
 	expect(mocks.startFeedbackPreview).not.toHaveBeenCalled();
 	expect(mocks.runFeedbackPreview).not.toHaveBeenCalled();
+});
+
+// Unpaid hosted orgs get one free dry run for life, shared with moderation previews.
+describe('feedback dry run for an unpaid org on the hosted deployment', () => {
+	const UNPAID_COPY = 'This organization has used its one free dry run. Buy credits or subscribe on the Usage page to run more.';
+	let warnSpy: { mockRestore(): void };
+
+	beforeEach(async () => {
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
+		warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await updateOrg('org-1', { creditsRemaining: null });
+		// Keep each started preview in flight so its claim lease stays held.
+		mocks.runFeedbackPreview.mockReturnValue(new Promise(() => {}));
+	});
+
+	afterEach(() => {
+		delete mocks.env.MODERATY_DEPLOYMENT;
+		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
+		warnSpy.mockRestore();
+	});
+
+	test('the first preview spends the free dry run, and the next channel is refused before a preview starts', async () => {
+		await seedChannel('UC1');
+		await seedChannel('UC2');
+
+		expect(await postFeedbackAction('dryRun', 'UC1', { months: '3' })).toMatchObject({ ok: true, dryRunUsed: true });
+
+		expect(await postFeedbackAction('dryRun', 'UC2', { months: '3' })).toMatchObject({ status: 402, data: { scope: 'feedbackDryRun', error: UNPAID_COPY } });
+		expect(mocks.startFeedbackPreview).toHaveBeenCalledTimes(1);
+		expect((await testDb().db.select().from(channels).where(eq(channels.id, 'UC2')).get())?.feedbackDryRunUsedAt).toBeNull();
+	});
+
+	test('a free dry run already spent on moderation refuses a feedback preview', async () => {
+		await updateOrg('org-1', { freeDryRunUsedAt: '2026-01-01T00:00:00.000Z' });
+		await seedChannel('UC1');
+
+		expect(await postFeedbackAction('dryRun', 'UC1', { months: '3' })).toMatchObject({ status: 402, data: { scope: 'feedbackDryRun', error: UNPAID_COPY } });
+		expect(mocks.startFeedbackPreview).not.toHaveBeenCalled();
+	});
+
+	test('a busy channel is refused and gives the free dry run back', async () => {
+		await seedChannel('UC-busy', 'org-1', { leaseExpiresAt: '2099-01-01T00:00:00.000Z' });
+		await seedChannel('UC2');
+
+		expect(await postFeedbackAction('dryRun', 'UC-busy', { months: '3' })).toMatchObject({ status: 409, data: { scope: 'feedbackDryRun' } });
+		expect(await freeDryRunStampOf('org-1')).toBeNull();
+		expect(await postFeedbackAction('dryRun', 'UC2', { months: '3' })).toMatchObject({ ok: true });
+	});
+
+	test('a complimentary owner previews every channel without spending the free dry run', async () => {
+		await testDb().db.insert(users).values({ id: OWNER.id, googleSub: 'sub-owner', email: 'owner@example.test', displayName: 'Owner' });
+		await testDb().db.insert(memberships).values({ userId: OWNER.id, orgId: 'org-1', role: 'owner' });
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'owner@example.test';
+		await seedChannel('UC1');
+		await seedChannel('UC2');
+
+		expect(await postFeedbackAction('dryRun', 'UC1', { months: '3' })).toMatchObject({ ok: true });
+		expect(await postFeedbackAction('dryRun', 'UC2', { months: '3' })).toMatchObject({ ok: true });
+		expect(await freeDryRunStampOf('org-1')).toBeNull();
+	});
+
+	test('a funded org previews every channel without spending the free dry run', async () => {
+		await updateOrg('org-1', { creditsRemaining: 100 });
+		await seedChannel('UC1');
+		await seedChannel('UC2');
+
+		expect(await postFeedbackAction('dryRun', 'UC1', { months: '3' })).toMatchObject({ ok: true });
+		expect(await postFeedbackAction('dryRun', 'UC2', { months: '3' })).toMatchObject({ ok: true });
+		expect(await freeDryRunStampOf('org-1')).toBeNull();
+	});
 });
 
 function postReveal(

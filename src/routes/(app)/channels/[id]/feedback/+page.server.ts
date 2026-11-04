@@ -7,7 +7,7 @@ import { db } from '$lib/server/db';
 import { channels, comments, feedbackDigests, feedbackFindings, feedbackHistoryComments, findingEvidence } from '$lib/server/db/schema';
 import { enabledCategories, generateFeedbackDigest, runFeedbackPreview, startFeedbackPreview, TRANSIENT_DIGEST_STATUSES, type DigestResult } from '$lib/server/feedbackDigest';
 import { runFailureAction } from '$lib/runHealth';
-import { claimDryRun } from '$lib/server/dryRun';
+import { claimDryRunForOrg, type DryRunClaimResult } from '$lib/server/billing/ingestion';
 import { historyAccessError } from '$lib/server/historyAccess';
 import { historyWindowBoundary, parseHistoryWindow } from '$lib/historyWindow';
 import { ownedChannel, requireOrgRole } from '$lib/server/ownership';
@@ -341,9 +341,9 @@ export const actions = {
 		if (window === null) return fail(400, { scope: 'feedbackDryRun', error: 'Choose 1, 3, 6, 12, 24 months, or all time.' });
 		if (env.DRY_RUN !== 'true' && env.DRY_RUN !== 'false') throw error(500, 'DRY_RUN must be true or false');
 		if (!ch.active) return fail(409, { scope: 'feedbackDryRun', error: 'Resume the channel before running a dry run.' });
-		let claim: Awaited<ReturnType<typeof claimDryRun>>;
+		let claim: DryRunClaimResult;
 		try {
-			claim = await claimDryRun(params.id, user.orgId, 'feedback');
+			claim = await claimDryRunForOrg(params.id, user.orgId, 'feedback');
 		} catch (cause) {
 			console.error('feedback dry-run claim failed for channel:', params.id, cause);
 			return fail(500, { scope: 'feedbackDryRun', error: 'The feedback dry run could not be started. Check the server log and try again.' });

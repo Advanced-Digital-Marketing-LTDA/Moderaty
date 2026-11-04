@@ -170,6 +170,7 @@ describe('organizations', () => {
 			personal_for: { notNull: false },
 			openai_key_enc: { notNull: false },
 			credits_remaining: { notNull: false },
+			free_dry_run_used_at: { notNull: false },
 			stripe_customer_id: { notNull: false },
 			stripe_default_pm_id: { notNull: false },
 			auto_topup_enabled: { notNull: false },

@@ -3,7 +3,7 @@ import { channels } from '$lib/server/db/schema';
 import { decrypt } from '$lib/server/crypto';
 import { deleteChannelRecords } from '$lib/server/deletion';
 import { revokeGoogleToken } from '$lib/server/google';
-import { claimDryRun } from '$lib/server/dryRun';
+import { claimDryRunForOrg, type DryRunClaimResult } from '$lib/server/billing/ingestion';
 import { historyAccessError } from '$lib/server/historyAccess';
 import { historyWindowBoundary, parseHistoryWindow } from '$lib/historyWindow';
 import { requireOrgRole } from '$lib/server/ownership';
@@ -215,9 +215,9 @@ export const actions = {
 		// rows and reads as "not found". The lease self-expires if this
 		// request dies mid-preview. Burning the allowance on a failed attempt
 		// is deliberate — cheap retry abuse would otherwise be unlimited.
-		let claim: Awaited<ReturnType<typeof claimDryRun>>;
+		let claim: DryRunClaimResult;
 		try {
-			claim = await claimDryRun(channelId, user.orgId, 'moderation');
+			claim = await claimDryRunForOrg(channelId, user.orgId, 'moderation');
 		} catch (cause) {
 			console.error('dry-run claim failed for channel:', channelId, cause);
 			return fail(500, { scope: 'dryRun', channelId, error: 'The dry run could not be started. Check the server log and try again.' });
