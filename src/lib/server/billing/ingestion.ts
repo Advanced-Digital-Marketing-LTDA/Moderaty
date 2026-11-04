@@ -5,7 +5,7 @@
 // deployments are never blocked.
 
 import { and, eq, gt, isNull, lte } from 'drizzle-orm';
-import { claimDryRun, type DryRunClaim, type PreviewFeature } from '$lib/server/dryRun';
+import { claimDryRun, hasUsedDryRun, type DryRunClaim, type PreviewFeature } from '$lib/server/dryRun';
 import { db } from '$lib/server/db';
 import { organizations, stripeSubscriptionPeriods } from '$lib/server/db/schema';
 import { requireDeploymentMode } from '$lib/server/deploymentMode';
@@ -59,6 +59,8 @@ export async function claimDryRunForOrg(channelId: string, orgId: string, featur
 		.where(and(eq(organizations.id, orgId), isNull(organizations.freeDryRunUsedAt)))
 		.returning({ id: organizations.id });
 	if (reserved.length === 0) {
+		// A channel that already spent its own run keeps the per-channel refusal; claimDryRun refuses it without claiming.
+		if (await hasUsedDryRun(channelId, orgId, feature)) return claimDryRun(channelId, orgId, feature);
 		console.warn('free dry run refused: organization already used its one free dry run', { orgId, channelId, feature });
 		return { status: 402, error: FREE_DRY_RUN_USED };
 	}

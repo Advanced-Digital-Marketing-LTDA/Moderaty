@@ -840,8 +840,7 @@ test('dry run remains available without purchased credits and persists its conti
 	expect((await testDb().db.select({ creditsRemaining: organizations.creditsRemaining }).from(organizations).where(eq(organizations.id, 'org-1')).get())?.creditsRemaining).toBeNull();
 
 	const retry = await dryRun('UC1', OWNER, '6');
-	// The first claim spent the org's one free run, so the org-level refusal answers before the per-channel check.
-	expect(retry).toMatchObject({ status: 402, data: { error: 'This organization has used its one free dry run. Buy credits or subscribe on the Usage page to run more.' } });
+	expect(retry).toMatchObject({ status: 409, data: { error: 'Limited to 1 free moderation dry run per channel. This channel has already used it.' } });
 	expect(mocks.runChannel).toHaveBeenCalledTimes(1);
 	expect(await drainStateOf('UC1')).toEqual({ boundary: ch?.dryRunBoundary, pageToken: 'preview-next' });
 });

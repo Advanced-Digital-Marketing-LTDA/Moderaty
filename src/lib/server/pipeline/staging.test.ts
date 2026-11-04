@@ -311,14 +311,15 @@ test('a dry run with no new comments writes nothing at all', async () => {
 });
 
 test('staging inserts no empty action batch for an approved comment', async () => {
+	// Unmetered, as default runs were before the gate: no credit debit row.
+	mocks.state.plan = 'lifetime';
 	mocks.scoreComment.mockResolvedValue(moderation(0.34));
 
 	await runChannel('channel');
 
-	// Three transaction inserts: the comments row, its approve audit, and the metered org's credit debit.
-	// No empty moderationActions batch is attempted.
-	expect(mocks.db.transactionValue.insert).toHaveBeenCalledTimes(3);
-	expect(mocks.db.transactionValue.insert).toHaveBeenCalledWith(creditTransactions);
+	// Two transaction inserts: the comments row and its approve audit. No empty
+	// moderationActions batch is attempted.
+	expect(mocks.db.transactionValue.insert).toHaveBeenCalledTimes(2);
 	expect(mocks.db.transactionValue.insert).toHaveBeenCalledWith(comments);
 	expect(mocks.db.transactionValue.insert).toHaveBeenCalledWith(auditLog);
 	expect(mocks.db.transactionValue.insert).not.toHaveBeenCalledWith(moderationActions);
