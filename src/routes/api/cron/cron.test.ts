@@ -737,6 +737,22 @@ test('a credit-starved run records failed/credits health, never success', async 
 	expect(row?.lastSuccessAt).toBe('2026-08-01T00:00:00.000Z');
 });
 
+test('an unpaid run records failed/unpaid health, keeps the last success, and still stamps the run time', async () => {
+	// Unpaid is checked before the skipped branch: the unpaid result is also
+	// skipped, and it must surface as failed health, not as "no verdict".
+	await seedChannel('UC-unpaid', { lastRunStatus: 'success', lastSuccessAt: '2026-08-01T00:00:00.000Z' });
+	mocks.runChannel.mockResolvedValue(runResult({ dryRun: false, skipped: true, unpaid: true, fetched: 0 }));
+
+	const res = await call({ bearer: 'test-secret' });
+
+	expect(res.status).toBe(200);
+	const row = await channelRow('UC-unpaid');
+	expect(row?.lastRunStatus).toBe('failed');
+	expect(row?.lastRunError).toBe('unpaid');
+	expect(row?.lastSuccessAt).toBe('2026-08-01T00:00:00.000Z');
+	expect(row?.lastRunAt).toEqual(expect.any(String));
+});
+
 test.each([
 	{ label: 'deactivated mid-run', result: { partial: true, stoppedReason: 'deactivated' } },
 	{ label: 'skipped as inactive', result: { skipped: true } }
