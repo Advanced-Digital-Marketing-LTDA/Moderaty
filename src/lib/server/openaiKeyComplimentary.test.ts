@@ -1,7 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-	env: { OPENAI_API_KEY: 'env-openai-key', UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>
+	env: { OPENAI_API_KEY: 'env-openai-key', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } as Record<string, string | undefined>
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
@@ -15,6 +15,7 @@ setupTestDb(['memberships', 'organizations', 'users']);
 
 beforeEach(() => {
 	mocks.env.OPENAI_API_KEY = 'env-openai-key';
+	mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
 	mocks.env.UNLIMITED_ACCESS_EMAILS = '';
 });
 

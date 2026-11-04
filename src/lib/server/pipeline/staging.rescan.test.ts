@@ -1,6 +1,6 @@
 vi.mock('$env/dynamic/private', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$env/dynamic/private')>();
-	return { env: { ...actual.env, UNLIMITED_ACCESS_EMAILS: '' } };
+	return { env: { ...actual.env, UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } };
 });
 
 // Real-DB coverage for stageDecisions' rescan mode: the mock-db pipeline

@@ -2,7 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-	env: { UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>
+	env: { UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
@@ -69,7 +69,8 @@ const seedExpiredPeriod = (includedCredits: number, consumedCredits: number) => 
 
 describe('complimentary owners are never metered or charged', () => {
 	beforeEach(() => {
-		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
+			mocks.env.UNLIMITED_ACCESS_EMAILS = '';
 	});
 
 	async function seedOwner(orgId: string, email: string): Promise<void> {

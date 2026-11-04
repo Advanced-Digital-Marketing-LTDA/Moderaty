@@ -32,6 +32,7 @@ vi.mock('$env/dynamic/private', () => ({
 		ENCRYPTION_KEY: 'test-encryption-key',
 		STRIPE_PRICE_CREDITS_100: 'price_100',
 		UNLIMITED_ACCESS_EMAILS: '',
+		MODERATY_DEPLOYMENT: 'self-hosted',
 		STRIPE_PRICE_CREDITS_500: 'price_500',
 		STRIPE_PRICE_CREDITS_2000: 'price_2000',
 		STRIPE_PRICE_HOSTED_MONTHLY: 'price_hosted',

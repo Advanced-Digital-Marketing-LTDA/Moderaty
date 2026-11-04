@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-	env: { UNLIMITED_ACCESS_EMAILS: undefined as string | undefined }
+	env: { UNLIMITED_ACCESS_EMAILS: undefined as string | undefined, MODERATY_DEPLOYMENT: 'official-hosted' as string | undefined }
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
@@ -13,6 +13,7 @@ import { orgHasUnlimitedAccess, unlimitedAccessEmails } from './unlimitedAccess'
 setupTestDb(['memberships', 'organizations', 'users']);
 
 beforeEach(() => {
+	mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
 	mocks.env.UNLIMITED_ACCESS_EMAILS = undefined;
 });
 
@@ -25,6 +26,34 @@ async function seedMember(orgId: string, role: 'owner' | 'admin' | 'member', ema
 	await testDb().db.insert(users).values({ id: userId, googleSub: `sub-${userId}`, email, displayName: userId });
 	await testDb().db.insert(memberships).values({ userId, orgId, role });
 }
+
+describe('orgHasUnlimitedAccess on a self-hosted deployment', () => {
+	test('never reads the email list, so an unset list is not an error', async () => {
+		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
+		mocks.env.UNLIMITED_ACCESS_EMAILS = undefined;
+		await seedOrg('org-1');
+		await expect(orgHasUnlimitedAccess(testDb().db, 'org-1')).resolves.toBe(false);
+	});
+});
+
+describe('orgHasUnlimitedAccess with the deployment mode unset', () => {
+	test('throws instead of exempting a listed owner', async () => {
+		mocks.env.MODERATY_DEPLOYMENT = undefined;
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'owner@example.test';
+		await seedOrg('org-1');
+		await seedMember('org-1', 'owner', 'owner@example.test');
+		await expect(orgHasUnlimitedAccess(testDb().db, 'org-1')).rejects.toThrow('MODERATY_DEPLOYMENT must be set to official-hosted or self-hosted');
+	});
+});
+
+describe('orgHasUnlimitedAccess on the official hosted deployment', () => {
+	test('an unset email list throws loudly', async () => {
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
+		mocks.env.UNLIMITED_ACCESS_EMAILS = undefined;
+		await seedOrg('org-1');
+		await expect(orgHasUnlimitedAccess(testDb().db, 'org-1')).rejects.toThrow('UNLIMITED_ACCESS_EMAILS is not set');
+	});
+});
 
 describe('unlimitedAccessEmails', () => {
 	test('throws loudly when the env var is unset', () => {

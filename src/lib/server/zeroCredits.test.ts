@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 const mocks = vi.hoisted(() => ({
-	env: { APP_URL: 'https://moderaty.app', ENCRYPTION_KEY: 'zc-test-key', STRIPE_PRICE_CREDITS_500: 'price_test_500', UNLIMITED_ACCESS_EMAILS: '' } as Record<string, string | undefined>,
+	env: { APP_URL: 'https://moderaty.app', ENCRYPTION_KEY: 'zc-test-key', STRIPE_PRICE_CREDITS_500: 'price_test_500', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'self-hosted' } as Record<string, string | undefined>,
 	sendProtonMailEmail: vi.fn(),
 	revokeGoogleToken: vi.fn(),
 	sessionsRetrieve: vi.fn(),
@@ -282,7 +282,8 @@ describe('eligibility', () => {
 
 describe('complimentary owners never enter the countdown', () => {
 	beforeEach(() => {
-		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
+			mocks.env.UNLIMITED_ACCESS_EMAILS = '';
 	});
 
 	test('a complimentary owner on a metered, zero-balance org is never stamped', async () => {

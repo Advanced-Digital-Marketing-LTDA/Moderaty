@@ -5,6 +5,7 @@
 
 import { and, eq } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
+import { requireDeploymentMode } from '$lib/server/deploymentMode';
 import type { db } from '$lib/server/db';
 import { memberships, users } from '$lib/server/db/schema';
 
@@ -31,6 +32,8 @@ export function unlimitedAccessEmails(): ReadonlySet<string> {
 
 /** True when an owner of the org holds a listed e-mail. Admins and members never count. */
 export async function orgHasUnlimitedAccess(handle: ComplimentaryHandle, orgId: string): Promise<boolean> {
+	// Complimentary access is an official-hosted rule: self-hosted never reads the list.
+	if (requireDeploymentMode() === 'self-hosted') return false;
 	const allowed = unlimitedAccessEmails();
 	if (allowed.size === 0) return false;
 	const owners = await handle
