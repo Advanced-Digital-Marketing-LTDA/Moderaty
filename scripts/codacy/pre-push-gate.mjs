@@ -3,17 +3,16 @@
  * Codacy pre-push gate.
  *
  * Runs Codacy local analysis (via the official Codacy MCP server,
- * @codacy/codacy-mcp, spawned over stdio) on the repository, then blocks the
+ * @codacy/codacy-mcp, spawned over stdio) on the changed files, then blocks the
  * push when any *changed* file carries error-level (critical/major) findings.
  *
- * Usage: node pre-push-gate.mjs <repo-root> <changed-file>...
+ * Usage: node pre-push-gate.mjs --hook=<pre-commit|pre-push> <repo-root> <changed-file>...
  * Exit 0 = allow push; 1 = block push.
  *
  * Talks plain JSON-RPC 2.0 (newline-delimited) to the MCP server — no SDK
- * dependency, so the hook stays self-contained. Degrades to "allow" (with a
- * warning) when the server is missing or analysis tooling fails, because a
- * broken tool must never brick pushes. Escape hatches: `git push --no-verify`
- * or CODACY_GATE_OFF=1.
+ * dependency, so the hook stays self-contained. Fails closed: a missing server
+ * or any analysis failure blocks, with the reason printed. Escape hatches:
+ * `git push --no-verify` / `git commit --no-verify`, or CODACY_GATE_OFF=1.
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, copyFileSync, rmSync, mkdirSync } from 'node:fs';
@@ -21,6 +20,8 @@ import os from 'node:os';
 import path, { resolve as resolvePath } from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { format } from 'node:util';
+import { appliesTo, configFailures, hasFileMapping, mappingFailures, runnerFailures } from './runner-contract.mjs';
 
 /**
  * Resolves the npm global prefix WITHOUT spawning npm or resolving anything
@@ -122,34 +123,44 @@ export function backupCodacyConfig(repoRoot) {
 	}
 	return () => {
 		// Restore the originals, then remove anything the runner generated that
-		// was not committed. Remove the backup directory only AFTER both steps
-		// so a failed restore never loses the only copy.
+		// was not committed. A failed step is a loud warning, and the backup
+		// directory is kept (its path printed) so the only copy survives.
+		const failures = [];
 		for (const name of backedUp) {
-			try { copyFileSync(path.join(backupDir, name), path.join(codacyDir, name)); } catch { /* ignore */ }
+			try { copyFileSync(path.join(backupDir, name), path.join(codacyDir, name)); } catch (err) { failures.push(`restore ${name}: ${err.message}`); }
 		}
 		for (const name of initiallyAbsent) {
-			try { rmSync(path.join(codacyDir, name), { force: true }); } catch { /* ignore */ }
+			try { rmSync(path.join(codacyDir, name), { force: true }); } catch (err) { failures.push(`remove ${name}: ${err.message}`); }
 		}
-		try { rmSync(backupDir, { recursive: true, force: true }); } catch { /* ignore */ }
+		if (failures.length > 0) {
+			console.error(`[codacy-gate] WARNING: could not restore .codacy config (${failures.join('; ')}); backup kept at ${backupDir}`);
+			return;
+		}
+		try { rmSync(backupDir, { recursive: true, force: true }); } catch (err) {
+			console.error(`[codacy-gate] WARNING: could not remove ${backupDir}: ${err.message}`);
+		}
 	};
 }
 
 /**
  * Environment for the MCP server: the process env plus the optional agent
- * CODACY_ACCOUNT_TOKEN (keeps analysis cloud-synced; token is optional).
+ * CODACY_ACCOUNT_TOKEN. A missing token file is fine; an unreadable one throws.
  */
 function mcpEnv() {
 	const env = { ...process.env };
+	const envFile = path.join(os.homedir(), '.prime', 'agent', 'codacy', 'server.env');
+	if (!existsSync(envFile)) return env;
+	let contents;
 	try {
-		const envFile = path.join(os.homedir(), '.prime', 'agent', 'codacy', 'server.env');
-		if (existsSync(envFile)) {
-			for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
-				const match = line.match(/^CODACY_ACCOUNT_TOKEN=(.*)$/);
-				const token = match?.[1]?.trim();
-				if (token) env.CODACY_ACCOUNT_TOKEN = token.replace(/^["']|["']$/g, '');
-			}
-		}
-	} catch { /* token is optional */ }
+		contents = readFileSync(envFile, 'utf8');
+	} catch (cause) {
+		throw new Error(`cannot read the Codacy token file ${envFile} (${cause.message})`);
+	}
+	for (const line of contents.split(/\r?\n/)) {
+		const match = line.match(/^CODACY_ACCOUNT_TOKEN=(.*)$/);
+		const token = match?.[1]?.trim();
+		if (token) env.CODACY_ACCOUNT_TOKEN = token.replace(/^["']|["']$/g, '');
+	}
 	return env;
 }
 
@@ -158,13 +169,15 @@ function mcpEnv() {
  *
  * @param serverBin - Absolute path to the codacy-mcp-server binary
  * @param env - Environment for the spawned server
- * @param repoRoot - Repository root to analyze
- * @returns The parsed analysis payload (or a { success:false } marker) plus any error
+ * @param scope - codacy_cli_analyze arguments, one entry per analysis run
+ * @returns The parsed analysis payloads (one per run) plus any error
  */
-async function analyzeRepository(serverBin, env, repoRoot) {
-	let payload = null;
+async function analyzeRepository(serverBin, env, scope) {
+	const payloads = [];
 	let analysisError = null;
+	const runnerLines = [];
 	const proc = spawn(serverBin, [], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+	const closed = new Promise((resolve) => proc.once('close', resolve));
 	// Minimal MCP stdio client (JSON-RPC 2.0, newline-delimited).
 	function rpc(rl, id, method, params) {
 		return new Promise((resolve, reject) => {
@@ -189,6 +202,7 @@ async function analyzeRepository(serverBin, env, repoRoot) {
 	proc.stderr.on('data', (chunk) => {
 		for (const line of chunk.split(/\r?\n/)) {
 			if (!line) continue;
+			runnerLines.push(line);
 			if (line === lastLine) {
 				repeatCount += 1;
 				continue;
@@ -208,67 +222,185 @@ async function analyzeRepository(serverBin, env, repoRoot) {
 		});
 		proc.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`);
 		console.error('[codacy-gate] analyzing repository (first run may download tool runtimes) ...');
-		const result = await rpc(rl, 2, 'tools/call', {
-			name: 'codacy_cli_analyze',
-			arguments: { rootPath: repoRoot },
-		});
-		const text = result?.content?.[0]?.text;
-		payload = text ? JSON.parse(text) : { success: false, output: 'empty response' };
+		for (const [index, args] of scope.entries()) {
+			const result = await rpc(rl, index + 2, 'tools/call', { name: 'codacy_cli_analyze', arguments: args });
+			const text = result?.content?.[0]?.text;
+			payloads.push(text ? JSON.parse(text) : { success: false, output: 'empty response' });
+		}
 	} catch (err) {
 		analysisError = err;
 	} finally {
+		proc.stdin.end();
+		try {
+			await waitForExit(closed);
+		} catch (err) {
+			analysisError ??= err;
+		}
 		try { proc.kill(); } catch { /* ignore */ }
 	}
-	return { payload, analysisError };
+	return { payloads, analysisError, runnerLines };
 }
 
-export async function main(argv = process.argv.slice(2)) {
-	const ROOT = argv[0];
-	const changed = new Set((argv.slice(1) || []).map((f) => f.replace(/^\.\//, '')));
-	const log = (...a) => console.error('[codacy-gate]', ...a);
+/** Tools whose warning-level findings also block. Hadolint is the only one. */
+export const WARNING_BLOCKING_TOOLS = ['hadolint'];
+
+/** Error-level findings block for every tool; warnings block only for WARNING_BLOCKING_TOOLS. */
+export function isBlockingFinding(finding) {
+	if (finding.level === 'error') return true;
+	return finding.level === 'warning' && WARNING_BLOCKING_TOOLS.includes(String(finding.tool).toLowerCase());
+}
+
+/** Changed-file count up to which each file is analyzed on its own; above it the whole repository is analyzed. */
+export const PER_FILE_SCOPE_LIMIT = 5;
+
+/**
+ * Codacy tools each hook runs. Trivy runs on pre-push only: it is the slow
+ * dependency and secret scan, and it can need network for its database.
+ */
+export const HOOK_TOOLS = {
+	'pre-commit': ['semgrep', 'biome', 'shellcheck', 'hadolint'],
+	'pre-push': ['trivy', 'semgrep', 'biome', 'shellcheck', 'hadolint'],
+};
+
+/**
+ * The codacy_cli_analyze calls for a push: one per changed file and tool for
+ * small pushes, otherwise one per tool for the whole repository.
+ * shortcut: the limit is a fixed count, not timed per tool; upgrade by timing both paths on real pushes.
+ */
+export function analysisScope(repoRoot, files, tools) {
+	if (files.length === 0 || files.length > PER_FILE_SCOPE_LIMIT) {
+		return tools.map((tool) => ({ rootPath: repoRoot, tool }));
+	}
+	return files.flatMap((file) => tools
+		.filter((tool) => appliesTo(tool, file))
+		.map((tool) => ({ rootPath: repoRoot, file: path.join(repoRoot, file), tool })));
+}
+
+/** How many times each tool is asked to run in a scope. */
+export function expectedRuns(scope) {
+	const runs = new Map();
+	for (const call of scope) runs.set(call.tool, (runs.get(call.tool) ?? 0) + 1);
+	return runs;
+}
+
+const EXIT_TIMEOUT_MS = 30_000;
+
+/** Waits for the analysis server to exit, so every stderr line is in; a server that never exits makes the run incomplete. */
+function waitForExit(closed) {
+	let timer;
+	const timeout = new Promise((_, reject) => {
+		timer = setTimeout(() => reject(new Error('the analysis server did not exit; its output is incomplete')), EXIT_TIMEOUT_MS);
+	});
+	return Promise.race([closed, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** The Codacy config text, or null when the file cannot be read. */
+function readCodacyConfig(root) {
+	try {
+		return readFileSync(path.join(root, '.codacy', 'codacy.config.json'), 'utf8');
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Failures that stop the gate before any analysis: hook tools with no file-type
+ * mapping, and mapped tools missing from the Codacy config.
+ */
+function setupFailures(tools, root) {
+	return [...mappingFailures(tools), ...configFailures(readCodacyConfig(root), tools.filter(hasFileMapping))];
+}
+
+/** Logs each failure as a named, blocking message; true when there was any. */
+function reportFailures(log, failures) {
+	for (const { tool, reason } of failures) log('check failed for %s: %s; blocking (fail closed)', tool, reason);
+	return failures.length > 0;
+}
+
+const OVERRIDE_HINT ='  override this gate only: CODACY_GATE_OFF=1 git push (or git commit)';
+
+/** Resolves the server binary and its environment; logs the reason and returns null when the gate must block. */
+function resolveRun(locateServer, log) {
+	// S4036: never resolve executables through PATH — no `npm` subprocess.
+	// npmPrefix() derives the prefix from env/.npmrc/Node layout, and the
+	// server binary is then an absolute path under <prefix>/bin.
+	const serverBin = locateServer();
+	if (!serverBin) {
+		log('@codacy/codacy-mcp is not installed; blocking (fail closed)');
+		log('  install with: npm install -g @codacy/codacy-mcp');
+		log(OVERRIDE_HINT);
+		return null;
+	}
+	try {
+		return { serverBin, env: mcpEnv() };
+	} catch (err) {
+		log('%s; blocking (fail closed)', err.message);
+		return null;
+	}
+}
+
+/** The first failed or malformed analysis response, as a message; null when every response is sound. */
+function analysisFailure(payloads) {
+	const failed = payloads.find((p) => !p.success || !Array.isArray(p.result));
+	if (!failed) return null;
+	return failed.success ? 'response result is not an array' : failed.output || 'unknown';
+}
+
+export async function main(argv = process.argv.slice(2), { locateServer = () => resolveServerBin(), hookTools = HOOK_TOOLS } = {}) {
+	const [hookFlag, ...args] = argv;
+	const hook = hookFlag?.startsWith('--hook=') ? hookFlag.slice('--hook='.length) : undefined;
+	const log = (...a) => console.error('[codacy-gate]', format(...a));
+	if (!Object.hasOwn(hookTools, hook)) {
+		log('unknown or missing --hook (got %s); blocking (fail closed). Use --hook=pre-commit or --hook=pre-push', hook ?? 'none');
+		return 1;
+	}
+	const tools = hookTools[hook];
+	const ROOT = args[0];
+	const changed = new Set((args.slice(1) || []).map((f) => f.replace(/^\.\//, '')));
 
 	if (!ROOT || !existsSync(path.join(ROOT, '.git'))) {
-		log('no repo root given; skipping gate');
-		return 0;
+		log('cannot resolve the repository root (%s); blocking (fail closed)', ROOT || 'none');
+		return 1;
 	}
 	if (changed.size === 0) {
 		log('no changed files; skipping gate');
 		return 0;
 	}
 
-	// --- resolve the global Codacy MCP server binary -----------------------------
-	// S4036: never resolve executables through PATH — no `npm` subprocess.
-	// npmPrefix() derives the prefix from env/.npmrc/Node layout, and the
-	// server binary is then an absolute path under <prefix>/bin.
-	const serverBin = resolveServerBin();
-	if (!serverBin) {
-		log('@codacy/codacy-mcp is not installed globally; skipping Codacy gate');
-		log('  install with: npm install -g @codacy/codacy-mcp');
-		return 0;
-	}
+	if (reportFailures(log, setupFailures(tools, ROOT))) return 1;
+
+	const run = resolveRun(locateServer, log);
+	if (!run) return 1;
 
 	// --- preserve committed .codacy config (the runner regenerates it) -----------
 	const restoreConfig = backupCodacyConfig(ROOT);
-	let payload;
+	const scope = analysisScope(ROOT, [...changed], tools);
+	let payloads;
+	let runnerLines;
 	let analysisError;
 	try {
-		({ payload, analysisError } = await analyzeRepository(serverBin, mcpEnv(), ROOT));
+		({ payloads, analysisError, runnerLines } = await analyzeRepository(run.serverBin, run.env, scope));
 	} finally {
 		restoreConfig(); // restore the initial .codacy state on EVERY exit path
 	}
 	if (analysisError) {
-		log('analysis failed (%s); allowing push (tooling error, not a finding)', analysisError?.message || analysisError);
-		return 0;
+		log('analysis failed (%s); blocking (fail closed, tooling error)', analysisError?.message || analysisError);
+		log(OVERRIDE_HINT);
+		return 1;
 	}
 
-	if (!payload.success) {
-		log('analysis failed: %s; allowing push (tooling error, not a finding)', payload.output || 'unknown');
-		return 0;
+	const failure = analysisFailure(payloads);
+	if (failure) {
+		log('analysis failed: %s; blocking (fail closed, tooling error)', failure);
+		log(OVERRIDE_HINT);
+		return 1;
 	}
 
-	const findings = Array.isArray(payload.result) ? payload.result : [];
+	if (reportFailures(log, runnerFailures(runnerLines, expectedRuns(scope)))) return 1;
+
+	const findings = payloads.flatMap((p) => (Array.isArray(p.result) ? p.result : []));
 	const blockers = findings.filter(
-		(f) => f && f.level === 'error' && changed.has(String(f.filePath || '').replace(/^\.\//, '')),
+		(f) => f && isBlockingFinding(f) && changed.has(String(f.filePath || '').replace(/^\.\//, '')),
 	);
 
 	if (blockers.length === 0) {
@@ -277,7 +409,7 @@ export async function main(argv = process.argv.slice(2)) {
 	}
 
 	console.error('');
-	console.error('Codacy gate: push blocked — %d error-level finding(s) in changed files:', blockers.length);
+	console.error('Codacy gate: blocked — %d error-level finding(s) in changed files:', blockers.length);
 	for (const f of blockers) {
 		const column = f.region?.startColumn ? `:${f.region.startColumn}` : '';
 		const at = f.region ? `${f.filePath}:${f.region.startLine ?? '?'}${column}` : f.filePath;
@@ -285,8 +417,8 @@ export async function main(argv = process.argv.slice(2)) {
 		console.error(`      ${f.message}`);
 	}
 	console.error('');
-	console.error('Fix the findings above (or suppress the pattern in .codacy/), then push again.');
-	console.error('Escape hatch: git push --no-verify  (or CODACY_GATE_OFF=1).');
+	console.error('Fix the findings above (or suppress the pattern in .codacy/), then retry.');
+	console.error('Override this gate only: CODACY_GATE_OFF=1 git push (or git commit).');
 	return 1;
 }
 

@@ -22,6 +22,7 @@
 		"ratchet": "node scripts/ratchets/run.mjs --ratchet all",
 		"ratchet:update": "node scripts/ratchets/run.mjs --ratchet all --update",
 		"test:e2e": "playwright test",
+		"test:real-analyzers": "node --test test-support/real-analyzer.check.mjs",
 		"check:e2e": "tsc --noEmit -p e2e/tsconfig.json"
 	},
 	"devDependencies": {
@@ -36,7 +37,7 @@
 		"dotenv-cli": "11.0.0",
 		"drizzle-kit": "0.31.10",
 		"ecc-agentshield": "1.6.0",
-		"eslint": "9.39.5",
+		"eslint": "10.14.0",
 		"eslint-plugin-sonarjs": "4.2.2",
 		"fast-check": "4.9.0",
 		"svelte": "5.56.8",

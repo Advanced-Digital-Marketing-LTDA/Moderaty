@@ -56,3 +56,5 @@ reasonix.toml
 .agents/*
 # Reviewed local workflow compiler (never committed)
 /.tools/
+# SonarQube CLI project link (per machine; not shared config)
+.sonar-config.json

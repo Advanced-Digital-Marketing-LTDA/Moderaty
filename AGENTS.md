@@ -9,16 +9,13 @@ validate it, and leave unrelated work untouched.
 
 Change only what I explicitly ask you to change. Never remove, restyle, or "clean up" anything else (design, images, animations, layout, code, settings). If I ask for a text rewrite, touch text only. Standard development steps the repo requires (tests, evidence, checks) are expected; this rule means never changing or removing existing work based on assumptions about what I meant.
 
-## Branching Model (sole full-stack dev + `dev` branch)
+## Branching Model (sole full-stack dev)
 
 One agent works the full stack. There are no per-layer agent boundaries.
 
-- **`main` is production.** Use `dev → main` as the normal batched release
-  path. A direct update to `main` is allowed only when the user explicitly
-  requests it; it deploys the `moderaty-prod` Coolify app.
-- Keep `dev` releasable: `npm run check`, `npm run build`, and
-  `npm run test` green at all times so the human can batch-merge at any
-  point. 
+- **`main` is production.** New work branches from `main`. The human decides
+  when a branch merges to `main`. A direct update to `main` is allowed only when
+  the user explicitly requests it; it deploys the `moderaty-prod` Coolify app.
 
 # Rules
 - Always fail loudly. 
@@ -62,7 +59,7 @@ sees them. Edit the source in the repo, then re-copy to install updates.
 
 ## Git & Review Workflow (execution plan v3, section 0)
 
-Day-to-day work uses `dev`; use the branch/worktree the user specifies.
+Day-to-day work branches from `main`; use the branch/worktree the user specifies.
 Pull requests are optional (large/risky work, or to trigger the review bots).
 Executor rules:
 
@@ -72,14 +69,13 @@ Executor rules:
   messages — the message is the conventional subject and body only.
 - **Never commit or open a PR while `npm run check`, `npm run build`, or
   `npm run test` is red.** Green is proven locally, not discovered in CI.
-- When a PR is used: target `dev`, and the agent NEVER merges or closes
+- When a PR is used: target `main`, and the agent NEVER merges or closes
   it — not even when checks are green and review findings are resolved.
   Open the PR, triage bot findings, then stop and report; merging is the
-  human's call. Resume with `git checkout dev && git pull`.
+  human's call. Resume with `git checkout main && git pull`.
 - Push only when explicitly requested, and only to the requested branch.
   Never force-push. A user-authorized direct push to `main` is a production
-  update: it deploys `moderaty-prod`; otherwise,
-  `dev → main` remains the human's batched release path.
+  update: it deploys `moderaty-prod`.
 - **Every review finding (human or bot) gets a failing test BEFORE its fix.**
   Add the reproducing test, watch it fail, then fix, watch it pass, commit
   both together (`fix: review — <what>`). A fix without its reproducing

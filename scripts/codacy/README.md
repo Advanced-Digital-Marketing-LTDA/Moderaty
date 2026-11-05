@@ -3,7 +3,7 @@
 The repo is wired with a **Codacy pre-push gate**: before a `git push` completes,
 the official [Codacy MCP server](https://www.npmjs.com/package/@codacy/codacy-mcp)
 runs a local analysis (in-process `@codacy/analysis-runner`, no Docker needed)
-on the repository, and the push is **blocked** when any changed file carries an
+on the changed files, and the push is **blocked** when any changed file carries an
 error-level (critical/major) finding. `scripts/hooks/pre-commit` runs the same
 gate on *staged* files, after an `eslint-plugin-sonarjs` pass (SonarQube rules,
 `scripts/eslint.sonarjs.config.mjs`).
@@ -14,12 +14,16 @@ gate on *staged* files, after an `eslint-plugin-sonarjs` pass (SonarQube rules,
 - `scripts/hooks/pre-push` — the git hook (wired via `git config core.hooksPath
   scripts/hooks`). Collects the files being pushed, filters to code files, and
   invokes the gate.
-- `scripts/codacy/pre-push-gate.mjs` — spawns the MCP server over stdio, calls
-  `codacy_cli_analyze(rootPath=<repo>)`, filters results to changed files with
-  `level === "error"`, and exits 1 (block) or 0 (allow).
+- `scripts/codacy/pre-push-gate.mjs` — spawns the MCP server over stdio and runs
+  `codacy_cli_analyze` once per changed file (`file=<path>`) for up to 5 changed
+  files, or once for the whole repository (`rootPath=<repo>`) above that, and once per
+  tool. `--hook=pre-commit` runs semgrep, biome, shellcheck and hadolint; `--hook=pre-push`
+  adds trivy, which never runs on commit. It keeps
+  results for changed files with `level === "error"` and exits 1 (block) or 0 (allow).
 
-The gate **degrades to allow** (with a warning) when the MCP server is missing
-or analysis tooling fails — a broken tool must never brick pushes.
+The gate **fails closed**: a missing MCP server, an analysis error, a push whose
+changed files cannot be listed, or a missing eslint in pre-commit all block, and
+the block message prints the fix and the scoped override.
 
 ## Setup (one-time, per machine)
 
@@ -35,8 +39,7 @@ distrobox — then the Node install layout), a controlled PATH scan, or the
 
 ## Escape hatches
 
-- `git push --no-verify` / `git commit --no-verify` — standard git override.
-- `CODACY_GATE_OFF=1` — skip the Codacy gate (both hooks).
+- `CODACY_GATE_OFF=1 git push` (or `git commit`) — skip the Codacy gate for that command.
 - `SONARJS_GATE_OFF=1 git commit` — skip the sonarjs gate (pre-commit only).
 
 ## First run
@@ -60,4 +63,11 @@ await codacy.codacy_cli_analyze(rootPath=".")   # local analysis (no token neede
 Cloud tools (repo issues, security findings, PR analysis) need a token in
 `~/.prime/agent/codacy/server.env` (`CODACY_ACCOUNT_TOKEN`, from
 https://app.codacy.com/account/access-management). The repo key on Codacy would
-be `gh/Bonobo791/Moderaty` (from the git remote).
+be `gh/Advanced-Digital-Marketing-LTDA/Moderaty`.
+
+## Biome rules turned off
+
+Rules: `useTemplate`, `noDescendingSpecificity`.
+
+- `useTemplate` is off: the dynamic-import cache-buster and the `</script>` source split are deliberate concatenations.
+- CSS cascade order is intentional; reordering risks visual regressions.
