@@ -1340,6 +1340,259 @@
    "localConfigurationFile": "biome.json",
    "useLocalConfigurationFile": true,
    "patterns": []
+  },
+  {
+   "toolId": "shellcheck",
+   "patterns": [
+    {
+     "patternId": "shellcheck_SC2001"
+    },
+    {
+     "patternId": "shellcheck_SC2002"
+    },
+    {
+     "patternId": "shellcheck_SC2003"
+    },
+    {
+     "patternId": "shellcheck_SC2004"
+    },
+    {
+     "patternId": "shellcheck_SC2006"
+    },
+    {
+     "patternId": "shellcheck_SC2015"
+    },
+    {
+     "patternId": "shellcheck_SC2016"
+    },
+    {
+     "patternId": "shellcheck_SC2020"
+    },
+    {
+     "patternId": "shellcheck_SC2022"
+    },
+    {
+     "patternId": "shellcheck_SC2024"
+    },
+    {
+     "patternId": "shellcheck_SC2025"
+    },
+    {
+     "patternId": "shellcheck_SC2026"
+    },
+    {
+     "patternId": "shellcheck_SC2027"
+    },
+    {
+     "patternId": "shellcheck_SC2028"
+    },
+    {
+     "patternId": "shellcheck_SC2029"
+    },
+    {
+     "patternId": "shellcheck_SC2031"
+    },
+    {
+     "patternId": "shellcheck_SC2033"
+    },
+    {
+     "patternId": "shellcheck_SC2034"
+    },
+    {
+     "patternId": "shellcheck_SC2035"
+    },
+    {
+     "patternId": "shellcheck_SC2036"
+    },
+    {
+     "patternId": "shellcheck_SC2086"
+    },
+    {
+     "patternId": "shellcheck_SC2092"
+    },
+    {
+     "patternId": "shellcheck_SC2115"
+    },
+    {
+     "patternId": "shellcheck_SC2148"
+    },
+    {
+     "patternId": "shellcheck_SC2156"
+    }
+   ]
+  },
+  {
+   "toolId": "Hadolint",
+   "patterns": [
+    {
+     "patternId": "Hadolint_DL3000"
+    },
+    {
+     "patternId": "Hadolint_DL3001"
+    },
+    {
+     "patternId": "Hadolint_DL3002"
+    },
+    {
+     "patternId": "Hadolint_DL3003"
+    },
+    {
+     "patternId": "Hadolint_DL3004"
+    },
+    {
+     "patternId": "Hadolint_DL3006"
+    },
+    {
+     "patternId": "Hadolint_DL3007"
+    },
+    {
+     "patternId": "Hadolint_DL3008"
+    },
+    {
+     "patternId": "Hadolint_DL3009"
+    },
+    {
+     "patternId": "Hadolint_DL3010"
+    },
+    {
+     "patternId": "Hadolint_DL3011"
+    },
+    {
+     "patternId": "Hadolint_DL3012"
+    },
+    {
+     "patternId": "Hadolint_DL3013"
+    },
+    {
+     "patternId": "Hadolint_DL3014"
+    },
+    {
+     "patternId": "Hadolint_DL3015"
+    },
+    {
+     "patternId": "Hadolint_DL3020"
+    },
+    {
+     "patternId": "Hadolint_DL3021"
+    },
+    {
+     "patternId": "Hadolint_DL3022"
+    },
+    {
+     "patternId": "Hadolint_DL3023"
+    },
+    {
+     "patternId": "Hadolint_DL3024"
+    },
+    {
+     "patternId": "Hadolint_DL4000"
+    },
+    {
+     "patternId": "Hadolint_DL4001"
+    },
+    {
+     "patternId": "Hadolint_DL4003"
+    },
+    {
+     "patternId": "Hadolint_DL4004"
+    },
+    {
+     "patternId": "Hadolint_DL4005"
+    },
+    {
+     "patternId": "Hadolint_SC1000"
+    },
+    {
+     "patternId": "Hadolint_SC1001"
+    },
+    {
+     "patternId": "Hadolint_SC1007"
+    },
+    {
+     "patternId": "Hadolint_SC1010"
+    },
+    {
+     "patternId": "Hadolint_SC1018"
+    },
+    {
+     "patternId": "Hadolint_SC1035"
+    },
+    {
+     "patternId": "Hadolint_SC1045"
+    },
+    {
+     "patternId": "Hadolint_SC1065"
+    },
+    {
+     "patternId": "Hadolint_SC1066"
+    },
+    {
+     "patternId": "Hadolint_SC1068"
+    },
+    {
+     "patternId": "Hadolint_SC1077"
+    },
+    {
+     "patternId": "Hadolint_SC1078"
+    },
+    {
+     "patternId": "Hadolint_SC1079"
+    },
+    {
+     "patternId": "Hadolint_SC1081"
+    },
+    {
+     "patternId": "Hadolint_SC1083"
+    },
+    {
+     "patternId": "Hadolint_SC1086"
+    },
+    {
+     "patternId": "Hadolint_SC1087"
+    },
+    {
+     "patternId": "Hadolint_SC1095"
+    },
+    {
+     "patternId": "Hadolint_SC1097"
+    },
+    {
+     "patternId": "Hadolint_SC1098"
+    },
+    {
+     "patternId": "Hadolint_SC1099"
+    },
+    {
+     "patternId": "Hadolint_SC2002"
+    },
+    {
+     "patternId": "Hadolint_SC2015"
+    },
+    {
+     "patternId": "Hadolint_SC2026"
+    },
+    {
+     "patternId": "Hadolint_SC2028"
+    },
+    {
+     "patternId": "Hadolint_SC2035"
+    },
+    {
+     "patternId": "Hadolint_SC2046"
+    },
+    {
+     "patternId": "Hadolint_SC2086"
+    },
+    {
+     "patternId": "Hadolint_SC2140"
+    },
+    {
+     "patternId": "Hadolint_SC2154"
+    },
+    {
+     "patternId": "Hadolint_SC2164"
+    }
+   ]
   }
  ],
  "exclude": [
