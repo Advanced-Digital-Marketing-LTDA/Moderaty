@@ -262,6 +262,29 @@ are held for human review, never auto-rejected or deleted. Detector failures
 queue through `aiUnavailable`; deadline expiry aborts the run instead. The
 optional `OPENAI_JAILBREAK_MODEL` defaults to `gpt-6-luna`.
 
+## Demo Pages (screenshots only)
+
+`/demo/*` (`src/routes/demo/`) renders the real dashboard and channel pages
+(overview, queue, rules, log) with fictional data from
+`src/lib/server/demo/fixtures.ts`, for screenshots in social videos. It has
+no functionality: no database, session, sign-in, consent, cron, YouTube or
+OpenAI call, and no form actions.
+
+- Off unless `DEMO_PAGES_ENABLED=true` (unset or `false` = 404; any other
+  value fails loudly). Refused with a loud 500 when `APP_URL` is
+  `moderaty.com`/`www.moderaty.com` or `GOOGLE_CLIENT_ID` is the production
+  client. Never set it on `moderaty-prod`.
+- Every demo load calls `requireDemoPages()` itself; a client navigation
+  can skip a parent layout's load.
+- **Always noindex:** `/demo/` stays in `NOINDEX_PREFIXES`
+  (`src/lib/server/siteIndex.ts`), which sends `X-Robots-Tag: noindex`.
+  Never add `/demo` to `robots.txt`; a Disallow hides that header.
+- **Never in the sitemap:** never add a `/demo` path to `PUBLIC_PAGES`, so
+  it stays out of `sitemap.xml` and `llms.txt`.
+- Demo routes only wrap the real components; never edit a real page to suit
+  the demo. Fixture comments are fictional, labeled so by the channel
+  title, follow the editorial voice, and carry no author identity.
+
 ## Environments
 
 Dev and production are **fully isolated**, each with its own Google OAuth
