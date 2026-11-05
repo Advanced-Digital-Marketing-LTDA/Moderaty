@@ -232,3 +232,20 @@ test('every sitemap page is either canonicalised by the layout or by its own rou
 		expect(canonicalUrl(path) !== null || selfManaged.includes(path)).toBe(true);
 	}
 });
+
+test.each(['/demo/dashboard', '/demo/channel', '/demo/channel/queue', '/demo/channel/rules', '/demo/channel/log'])(
+	'isNoIndexRoute marks the demo page %s as internal',
+	(routeId) => {
+		expect(isNoIndexRoute(routeId)).toBe(true);
+	}
+);
+
+test('a public route whose name merely starts with "demo" stays indexable', () => {
+	expect(isNoIndexRoute('/demonstration')).toBe(false);
+});
+
+test('demo pages never appear in the sitemap, llms.txt or the public page list', () => {
+	expect(PUBLIC_PAGES.some((path) => path.startsWith('/demo'))).toBe(false);
+	expect(sitemapXml()).not.toContain('/demo');
+	expect(llmsTxt()).not.toContain('/demo');
+});

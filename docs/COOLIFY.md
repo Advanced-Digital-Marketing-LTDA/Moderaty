@@ -87,6 +87,7 @@ One-time setup (human, in the Coolify dashboard):
    | `APP_URL` | `https://<public-domain>` | `https://<dev-domain>` | drives OAuth `redirect_uri` + Secure cookies |
    | `ORIGIN` | `https://<public-domain>` | `https://<dev-domain>` | adapter-node URL generation — pins origin behind the proxy |
    | `DRY_RUN` | `true` → `false` after verification | `true` | I8 |
+   | `DEMO_PAGES_ENABLED` | never set | optional `true` for screenshots | screenshot-only `/demo/*` pages with fictional data; noindex, never in the sitemap; refused on the production domain and the production Google client |
    | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | production | dev | Stripe is live on this branch |
    | `STRIPE_PRICE_CREDITS_100` / `STRIPE_PRICE_CREDITS_500` / `STRIPE_PRICE_CREDITS_2000` | production Prices | dev Prices | one-time USD Price IDs for the 100/500/2,000-credit bundles; auto top-up validates active/currency/type |
    | `STRIPE_PRICE_HOSTED_MONTHLY` / `STRIPE_PRICE_LIFETIME` | production Prices | dev Prices | hosted USD 5 monthly recurring Price and USD 49 one-time Price; the app validates mode, currency, amount, and interval |
