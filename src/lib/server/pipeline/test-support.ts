@@ -1,5 +1,6 @@
 // Shared test harness for the pipeline module suites.
 import { expect, vi } from 'vitest';
+import type { RunChannelOptions } from './types';
 
 const mocks = vi.hoisted(() => {
 	const state = {
@@ -549,7 +550,8 @@ function matchesBoundParam(condition: unknown, column: SQLiteColumn, value: unkn
 
 function comparisonParam(condition: unknown, column: SQLiteColumn, operator: string): string | undefined {
 	const expression = querySql(condition);
-	const position = expression.indexOf(`${querySql(sql`${column}`)} ${operator} ?`);
+	const columnSql = querySql(sql`${column}`);
+	const position = expression.indexOf(`${columnSql} ${operator} ?`);
 	if (position < 0) return undefined;
 	return queryParams(condition)[expression.slice(0, position).split('?').length - 1] as string;
 }
@@ -790,6 +792,6 @@ export function restoreDryRun() {
 }
 
 
-export async function runChannel(channelId: string, options?: import('./types').RunChannelOptions) {
+export async function runChannel(channelId: string, options?: RunChannelOptions) {
 	return (await import('./run')).runChannel(channelId, options);
 }
