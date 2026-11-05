@@ -18,7 +18,7 @@ const isolatedEnvDirectory = join(resolve(process.env.MODERATY_E2E_DIRECTORY), '
 await mkdir(isolatedEnvDirectory);
 const databaseUrl = `file:${join(resolve(process.env.MODERATY_E2E_DIRECTORY), 'disposable.db')}`;
 Object.assign(process.env, {
-	TURSO_DATABASE_URL: databaseUrl, DRY_RUN: 'false',
+	TURSO_DATABASE_URL: databaseUrl, DRY_RUN: 'false', MODERATY_DEPLOYMENT: 'self-hosted',
 	// The public pages build canonical URLs from APP_URL; it is never fetched.
 	APP_URL: 'https://moderaty.invalid',
 	ENCRYPTION_KEY: randomBytes(32).toString('hex'),

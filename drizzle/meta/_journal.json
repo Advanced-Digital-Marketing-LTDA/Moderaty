@@ -519,6 +519,13 @@
       "when": 1791570822667,
       "tag": "0073_protected_handles_rollout_compatibility",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "6",
+      "when": 1793820409517,
+      "tag": "0074_free_dry_run_used_at",
+      "breakpoints": true
     }
   ]
 }

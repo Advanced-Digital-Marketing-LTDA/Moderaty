@@ -26,18 +26,22 @@ describe('landing copy guardrails', () => {
 
 	it('states separate one-time moderation and first-page feedback previews accurately', () => {
 		const previewFaq = FAQ_ENTRIES.find(({ q }) => q === 'Can I test Moderaty without changing anything on my channel?');
-		expect(previewFaq?.a).toContain('Each channel gets 1 free moderation dry run and 1 free feedback dry run. Neither spends credits.');
+		expect(previewFaq?.a).toContain('With credits, a subscription, or the lifetime plan, each channel gets 1 free moderation dry run and 1 free feedback dry run.');
+			expect(previewFaq?.a).toContain('A hosted account without any of those gets 1 free dry run in total, which scores the newest 100 comments.');
+			expect(previewFaq?.a).toContain('Dry runs spend no credits and never change comments on YouTube.');
 		expect(previewFaq?.a).toContain('Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.');
 		expect(TICKS_SELF_HOSTED.join(' ')).toContain('1 free dry run per feature per channel');
 		expect(TICKS_SELF_HOSTED_DETAILED.join(' ')).toContain('1 free dry run per feature per channel');
 		const howItWorks = readFileSync(new URL('../components/landing/HowItWorks.svelte', import.meta.url), 'utf8').replace(/\s+/g, ' ');
 		const trustBar = readFileSync(new URL('../components/landing/TrustBar.svelte', import.meta.url), 'utf8').replace(/\s+/g, ' ');
-		expect(howItWorks).toContain('Each channel gets 1 free moderation dry run and 1 free feedback dry run. Neither spends credits.');
+			const helpPage = readFileSync(new URL('../../routes/(app)/help/+page.svelte', import.meta.url), 'utf8').replace(/\s+/g, ' ');
+			expect(helpPage).toContain('With credits, a subscription, or the lifetime plan, each channel gets 1 free moderation dry run and 1 free feedback dry run. A hosted account without any of those gets 1 free dry run in total, which scores the newest 100 comments. Dry runs spend no credits and never change comments on YouTube.');
+		expect(howItWorks).toContain('With credits, a subscription, or the lifetime plan, each channel gets 1 free moderation dry run and 1 free feedback dry run. A hosted account without any of those gets 1 free dry run in total, which scores the newest 100 comments. Dry runs spend no credits and never change comments on YouTube.');
 		expect(howItWorks).toContain('Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.');
 		// The full preview sentence — dropping "no credits" or the feedback
 		// scope half must fail, not slip through as a substring (cubic).
 		expect(trustBar).toContain(
-			'1 free dry run per feature per channel, no credits. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.'
+			'Dry runs spend no credits and never change comments on YouTube: 1 per feature per channel, or 1 in total, scoring the newest 100 comments, on a hosted account without credits, a subscription, or the lifetime plan. Moderation previews drain the selected window in the background; feedback previews cover the first page, up to 100 comments.'
 		);
 	});
 });

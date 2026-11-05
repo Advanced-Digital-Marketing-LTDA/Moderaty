@@ -22,6 +22,20 @@ export function channelMatchesClaim(
 	return channel.orgId === claim.orgId && channel.refreshTokenEnc === claim.refreshTokenEnc && channel.leaseExpiresAt === claim.leaseExpiresAt;
 }
 
+function usedDryRunColumn(feature: PreviewFeature) {
+	return feature === 'moderation' ? channels.moderationDryRunUsedAt : channels.feedbackDryRunUsedAt;
+}
+
+/** True when this channel has already spent its own dry run for the feature. */
+export async function hasUsedDryRun(channelId: string, orgId: string, feature: PreviewFeature): Promise<boolean> {
+	const row = await db
+		.select({ used: usedDryRunColumn(feature) })
+		.from(channels)
+		.where(and(eq(channels.id, channelId), eq(channels.orgId, orgId)))
+		.get();
+	return row?.used != null;
+}
+
 export async function claimDryRun(
 	channelId: string,
 	orgId: string,
@@ -29,7 +43,7 @@ export async function claimDryRun(
 ): Promise<{ lease: string; identity: DryRunClaim } | { status: 404 | 409; error: string }> {
 	const now = new Date().toISOString();
 	const lease = new Date(Date.now() + 60_000).toISOString();
-	const usedColumn = feature === 'moderation' ? channels.moderationDryRunUsedAt : channels.feedbackDryRunUsedAt;
+	const usedColumn = usedDryRunColumn(feature);
 	const claimed = await db
 		.update(channels)
 		.set(

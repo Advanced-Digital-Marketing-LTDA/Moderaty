@@ -99,6 +99,8 @@ One-time setup (human, in the Coolify dashboard):
    | `ANALYTICS_ENABLED` | `false` until activation checklist passes | `false` until staging verification | optional Umami opt-in; Runtime Variable only, **Build Variable OFF** |
    | `UMAMI_URL` / `UMAMI_WEBSITE_ID` | own HTTPS collector origin / production website UUID | separate staging website UUID | Runtime Variables only, **Build Variable OFF**; no configured values in Docker images |
    | `ANALYTICS_ALLOWED_HOSTNAMES` | exact production browser hostnames | exact staging browser hostnames | comma-separated DNS names, at most 100 characters each; Runtime Variable only, **Build Variable OFF** |
+   | `UNLIMITED_ACCESS_EMAILS` | comma-separated owner e-mails with complimentary access | comma-separated dev test-owner e-mails | never metered or charged, history unlocked, deployment OpenAI key; empty grants nobody; unset makes the billing checks fail loudly on the hosted app |
+   | `MODERATY_DEPLOYMENT` | `official-hosted` | `official-hosted` | Runtime Variable only, **Build Variable OFF**. Required on every hosted app: unset or invalid makes the billing gate throw. Self-hosted installs set `self-hosted` |
 
    **Optional audience measurement.** Use a separate Umami service and PostgreSQL
    volume; Moderaty's database is unchanged. Keep production measurement disabled

@@ -51,6 +51,24 @@ function pageData(over: Record<string, unknown> = {}) {
 	};
 }
 
+describe('unpaid organization banner (SSR)', () => {
+	const PAUSED = 'Feedback digests are paused: this organization has no credits or subscription. Buy credits or subscribe on the';
+
+	it('shows the paused copy with a Usage link when feedback is enabled and the org is unpaid', () => {
+		const body = renderFeedback(pageData({ ingestionPaused: true }));
+		expect(body).toContain(PAUSED);
+		expect(body).toContain('href="/usage"');
+	});
+
+	it('stays hidden for a funded organization', () => {
+		expect(renderFeedback(pageData({ ingestionPaused: false }))).not.toContain(PAUSED);
+	});
+
+	it('stays hidden while feedback is disabled', () => {
+		expect(renderFeedback(pageData({ ingestionPaused: true, settings: { ...SETTINGS, enabled: false } }))).not.toContain(PAUSED);
+	});
+});
+
 describe('feedback page role gating (SSR)', () => {
 	it('does not mistake feedback excluded by category settings for below-threshold themes', () => {
 		const settings = { ...SETTINGS, categories: ['question'] };

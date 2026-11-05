@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-	env: { ENCRYPTION_KEY: 'test-encryption-key', OPENAI_API_KEY: 'env-openai-key' } as Record<string, string | undefined>
+	env: { ENCRYPTION_KEY: 'test-encryption-key', OPENAI_API_KEY: 'env-openai-key', UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } as Record<string, string | undefined>
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));

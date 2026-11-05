@@ -388,6 +388,20 @@ describe('dev cron tick', () => {
 		for (const run of [tickOnce, netlifyCron]) await expect(run()).rejects.toThrow(expected);
 	});
 
+	it('names the complimentary access list failure instead of the generic ok:false problem', async () => {
+		const payload = {
+			ok: false, complimentaryAccessError: true, results: {},
+			failureDiagnostics: [{ sweep: 'complimentaryAccessError', operation: 'complimentary_access', category: 'unknown', cronRunId: '11111111-1111-4111-8111-111111111111', causes: [] }]
+		};
+		vi.stubGlobal('fetch', vi.fn(async () => cronResponse(payload)));
+
+		const error = await tickOnce().catch((cause) => cause);
+		expect(error).toBeInstanceOf(Error);
+		expect(error.message).toContain('complimentaryAccessError: ');
+		expect(error.message).toContain('operation=complimentary_access');
+		expect(error.message).not.toContain('ok:false with no sweep error detail');
+	});
+
 	it('an out-of-credits channel result on a 200 is a healthy tick', async () => {
 		const payload = { ok: true, results: { UC1: { fetched: 2, outOfCredits: true } } };
 		vi.stubGlobal('fetch', vi.fn(async () => cronResponse(payload)));

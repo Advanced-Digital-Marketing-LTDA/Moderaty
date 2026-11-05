@@ -53,6 +53,7 @@ const CONTEXTS = new Map(Object.entries({
 	'google revocation outbox retry': { sweep: 'googleRevocationSweepError', operation: 'google_revocation', service: 'youtube', provider: 'google' },
 	'pending-reversal sweep': { sweep: 'pendingReversalSweepError', operation: 'pending_reversal', service: 'database', provider: 'turso' },
 	'zero-credit account sweep': { sweep: 'zeroCreditSweepError', operation: 'zero_credit', service: 'billing' },
+	'complimentary access list': { sweep: 'complimentaryAccessError', operation: 'complimentary_access', service: 'billing' },
 	'stale feedback preview cleanup': { sweep: 'feedbackPreviewSweepError', operation: 'preview_cleanup', service: 'database', provider: 'turso' },
 	'workload claim': { sweep: 'schedulerError', operation: 'workload_claim', service: 'database', provider: 'turso' },
 	'channel run': { sweep: 'channelRun', operation: 'channel_run', service: 'youtube' },

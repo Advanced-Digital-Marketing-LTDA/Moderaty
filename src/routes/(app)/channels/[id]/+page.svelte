@@ -282,6 +282,7 @@
 				{form.acted} would be acted on, {form.queued} would go to the review queue.
 				{#if form.partial}Partial — the 20 s preview limit was hit; see the audit log for what completed. {/if}
 				{#if form.background}The remaining pages in this window will continue in the background. {/if}
+				{#if form.capped}This free preview scored the newest 100 comments. Buy credits or subscribe on the Usage page to preview the full window. {/if}
 				<a href="/channels/{ch.id}/log">See the audit log</a>.
 			</p>
 		{/if}
