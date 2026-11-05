@@ -3,7 +3,7 @@
 // `npm test` does not include them. They need the global @codacy/codacy-mcp install.
 // Without it the gate blocks, and these checks fail: they never skip.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -105,6 +105,16 @@ describe('real analyzer blocks a known-bad line in a real commit', () => {
 		const result = commitWith(indexFile);
 		assert.equal(result.status, 1, result.output);
 		assert.match(result.output, /\[hadolint\]/i);
+		assert.ok(result.output.includes(rel), result.output);
+	});
+
+	test('a known-bad line appended to the pre-push body blocks the commit', () => {
+		const indexFile = privateIndex();
+		const body = readFileSync(join(root, 'scripts/hooks/pre-push.sh'), 'utf8');
+		const rel = stageFixture(indexFile, `scripts/hooks/pre-push-fixture-${process.pid}.sh`, `${body}rm -rf "$dir/"*\n`);
+		const result = commitWith(indexFile);
+		assert.equal(result.status, 1, result.output);
+		assert.match(result.output, /\[shellcheck\]/i);
 		assert.ok(result.output.includes(rel), result.output);
 	});
 });

@@ -1,6 +1,6 @@
 # Shared by pre-commit and pre-push (sourced, not executed): which changed files a
 # Codacy analysis covers. Code by extension, Dockerfiles (Hadolint), and the hook
-# scripts themselves (ShellCheck). One definition, so the hooks cannot drift apart.
+# bodies in scripts/hooks/*.sh (ShellCheck). One definition, so the hooks cannot drift apart.
 
 CODE_RE='\.(ts|tsx|js|mjs|cjs|jsx|astro|css|py|rb|go|java|php|sh|vue|svelte)$'
 DOCKERFILE_RE='(^|/)([^/]*\.)?Dockerfile$'

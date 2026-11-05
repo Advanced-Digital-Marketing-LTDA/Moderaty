@@ -19,7 +19,7 @@ export function makeHookRepo(hook) {
 	const dir = mkdtempSync(join(tmpdir(), `hook-repo-${hook}-`));
 	scratchDirs.push(dir);
 	execFileSync('git', ['init', '-q'], { cwd: dir });
-	for (const rel of [`scripts/hooks/${hook}`, 'scripts/hooks/analysis-scope.sh', 'scripts/codacy/pre-push-gate.mjs', 'scripts/codacy/runner-contract.mjs']) {
+	for (const rel of [`scripts/hooks/${hook}`, `scripts/hooks/${hook}.sh`, 'scripts/hooks/analysis-scope.sh', 'scripts/codacy/pre-push-gate.mjs', 'scripts/codacy/runner-contract.mjs']) {
 		mkdirSync(dirname(join(dir, rel)), { recursive: true });
 		copyFileSync(join(repoRoot, rel), join(dir, rel));
 	}
