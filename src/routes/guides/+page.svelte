@@ -2,6 +2,7 @@
 	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
 	import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 	import { COMMENT_SETTINGS_GUIDE } from '$lib/blogs/comment-settings-guide';
+	import { COMMENT_REVIEW_ROUTINE } from '$lib/blogs/comment-review-routine';
 	import { GUIDES_INDEX } from '$lib/blogs/guides-index';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
@@ -21,4 +22,8 @@
 <article>
 	<h2><a href={COMMENT_SETTINGS_GUIDE.path}>{COMMENT_SETTINGS_GUIDE.title}</a></h2>
 	<p>{COMMENT_SETTINGS_GUIDE.description}</p>
+</article>
+<article>
+	<h2><a href={COMMENT_REVIEW_ROUTINE.path}>{COMMENT_REVIEW_ROUTINE.title}</a></h2>
+	<p>{COMMENT_REVIEW_ROUTINE.description}</p>
 </article>
