@@ -22,7 +22,6 @@
 		"ratchet": "node scripts/ratchets/run.mjs --ratchet all",
 		"ratchet:update": "node scripts/ratchets/run.mjs --ratchet all --update",
 		"test:e2e": "playwright test",
-		"test:real-analyzers": "node --test test-support/real-analyzer.check.mjs",
 		"check:e2e": "tsc --noEmit -p e2e/tsconfig.json"
 	},
 	"devDependencies": {
