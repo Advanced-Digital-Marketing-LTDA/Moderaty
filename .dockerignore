@@ -18,7 +18,6 @@ build
 .playwright-cli
 .impeccable
 .serena
-.codacy
 .codex
 
 .env
