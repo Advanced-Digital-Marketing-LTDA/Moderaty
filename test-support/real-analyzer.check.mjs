@@ -3,7 +3,7 @@
 // `npm test` does not include them. They need the global @codacy/codacy-mcp install.
 // Without it the gate blocks, and these checks fail: they never skip.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +41,41 @@ function commitWith(indexFile) {
 after(() => {
 	for (const rel of fixtures.splice(0)) rmSync(join(root, rel), { force: true });
 	for (const dir of indexDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+describe('biome config loads for clean TypeScript, CSS and JSON', () => {
+	const fixtureDir = `test-support/biome-fixtures-${process.pid}`;
+	after(() => rmSync(join(root, fixtureDir), { recursive: true, force: true }));
+
+	/** Runs the gate's pre-commit path over one file; returns the runner's Biome status lines. */
+	function biomeLinesFor(rel) {
+		const env = { ...process.env };
+		delete env.CODACY_MCP_SERVER;
+		const result = spawnSync(process.execPath, ['scripts/codacy/pre-push-gate.mjs', '--hook=pre-commit', root, rel], { cwd: root, encoding: 'utf8', env });
+		const lines = `${result.stdout}${result.stderr}`.split('\n');
+		return {
+			result,
+			starting: lines.filter((line) => /^Starting analysis \(Biome,/.test(line)),
+			complete: lines.filter((line) => /^Analysis complete \(Biome,/.test(line)),
+		};
+	}
+
+	const cases = [
+		['a clean TypeScript file', 'clean.ts', 'export const clean: number = 1;\n'],
+		['a clean CSS file', 'clean.css', 'a {\n\tcolor: red;\n}\n'],
+		['a clean package.json', 'package.json', '{\n\t"name": "biome-fixture",\n\t"private": true\n}\n'],
+	];
+	for (const [label, name, content] of cases) {
+		test(`${label} gets 0 Biome errors`, () => {
+			mkdirSync(join(root, fixtureDir), { recursive: true });
+			const rel = `${fixtureDir}/${name}`;
+			writeFileSync(join(root, rel), content);
+			const { result, starting, complete } = biomeLinesFor(rel);
+			assert.equal(starting.length, 1, result.stdout + result.stderr);
+			assert.equal(complete.length, 1, result.stdout + result.stderr);
+			assert.doesNotMatch(complete[0], /\d+ errors/, complete[0]);
+		});
+	}
 });
 
 describe('real analyzer blocks a known-bad line in a real commit', () => {

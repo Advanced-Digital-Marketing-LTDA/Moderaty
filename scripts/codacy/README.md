@@ -64,3 +64,10 @@ Cloud tools (repo issues, security findings, PR analysis) need a token in
 `~/.prime/agent/codacy/server.env` (`CODACY_ACCOUNT_TOKEN`, from
 https://app.codacy.com/account/access-management). The repo key on Codacy would
 be `gh/Advanced-Digital-Marketing-LTDA/Moderaty`.
+
+## Biome rules turned off
+
+Rules: `useTemplate`, `noDescendingSpecificity`.
+
+- `useTemplate` is off: the dynamic-import cache-buster and the `</script>` source split are deliberate concatenations.
+- CSS cascade order is intentional; reordering risks visual regressions.
