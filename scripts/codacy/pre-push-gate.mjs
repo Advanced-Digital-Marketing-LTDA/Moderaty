@@ -227,6 +227,15 @@ async function analyzeRepository(serverBin, env, scope) {
 	return { payloads, analysisError };
 }
 
+/** Tools whose warning-level findings also block. Hadolint is the only one. */
+export const WARNING_BLOCKING_TOOLS = ['hadolint'];
+
+/** Error-level findings block for every tool; warnings block only for WARNING_BLOCKING_TOOLS. */
+export function isBlockingFinding(finding) {
+	if (finding.level === 'error') return true;
+	return finding.level === 'warning' && WARNING_BLOCKING_TOOLS.includes(String(finding.tool).toLowerCase());
+}
+
 /** Changed-file count up to which each file is analyzed on its own; above it the whole repository is analyzed. */
 export const PER_FILE_SCOPE_LIMIT = 5;
 
@@ -308,7 +317,7 @@ export async function main(argv = process.argv.slice(2), { locateServer = () => 
 
 	const findings = payloads.flatMap((p) => (Array.isArray(p.result) ? p.result : []));
 	const blockers = findings.filter(
-		(f) => f && f.level === 'error' && changed.has(String(f.filePath || '').replace(/^\.\//, '')),
+		(f) => f && isBlockingFinding(f) && changed.has(String(f.filePath || '').replace(/^\.\//, '')),
 	);
 
 	if (blockers.length === 0) {

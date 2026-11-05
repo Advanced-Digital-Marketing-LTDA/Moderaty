@@ -187,4 +187,16 @@ describe('scripts/hooks/pre-commit blocks a known-bad line (real analyzer)', () 
 		expect(output).toContain(rel);
 		expect(output).toContain('[codacy] commit blocked');
 	}, 120000);
+
+	test('a Hadolint warning in a staged Dockerfile blocks a real commit', () => {
+		const indexFile = privateIndex();
+		const rel = stageFixture(indexFile, `scripts/hooks/hadolint-fixture-${process.pid}.Dockerfile`, 'FROM ubuntu:22.04\nRUN echo $HOME\n');
+		const env = { ...process.env, GIT_INDEX_FILE: indexFile, SONARJS_GATE_OFF: '1', CODACY_GATE_OFF: '0' };
+		delete env.CODACY_MCP_SERVER;
+		const result = spawnSync('bash', ['scripts/hooks/pre-commit'], { cwd: root, encoding: 'utf8', env });
+		const output = result.stdout + result.stderr;
+		expect(result.status).toBe(1);
+		expect(output).toMatch(/\[hadolint\]/i);
+		expect(output).toContain(rel);
+	}, 120000);
 });

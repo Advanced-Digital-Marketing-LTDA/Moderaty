@@ -279,6 +279,23 @@ describe('main — the gate fails closed', () => {
 		expect(logged()).toContain('src/a.ts');
 	});
 
+	test('a Hadolint warning in a changed file blocks', async () => {
+		process.env.FAKE_PAYLOAD = analysis([
+			{ level: 'warning', filePath: 'Dockerfile', tool: 'Hadolint', rule: { id: 'Hadolint_DL3002' }, message: 'root' },
+		]);
+		const code = await main(['--hook=pre-commit', gitRoot(), 'Dockerfile'], { locateServer: fakeServer });
+		expect(code).toBe(1);
+		expect(logged()).toContain('Dockerfile');
+	});
+
+	test('a warning from any tool other than Hadolint does not block', async () => {
+		process.env.FAKE_PAYLOAD = analysis([
+			{ level: 'warning', filePath: 'src/a.ts', tool: 'Biome', rule: { id: 'rule-x' }, message: 'style' },
+		]);
+		const code = await main(['--hook=pre-commit', gitRoot(), 'src/a.ts'], { locateServer: fakeServer });
+		expect(code).toBe(0);
+	});
+
 	test('error-level findings in unchanged files do not block', async () => {
 		process.env.FAKE_PAYLOAD = analysis([
 			{ level: 'error', filePath: 'src/other.ts', tool: 'Biome', rule: { id: 'rule-x' }, message: 'bad' },
