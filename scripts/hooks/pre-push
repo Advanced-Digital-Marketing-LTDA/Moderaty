@@ -25,7 +25,7 @@ EMPTY_TREE="$(git hash-object -t tree /dev/null)"
 
 declare -A FILES=()
 declare -A FILE_SHA=()
-while read -r local_ref local_sha remote_ref remote_sha; do
+while read -r _ local_sha _ remote_sha; do
   [[ -n "$local_sha" && "$local_sha" != "0000000000000000000000000000000000000000" ]] || continue
   if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
     # New branch: analyze everything since the parent of the oldest commit that no
