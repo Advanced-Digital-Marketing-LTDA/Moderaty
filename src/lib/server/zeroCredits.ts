@@ -18,6 +18,7 @@ import { and, asc, eq, inArray, isNotNull, isNull, notInArray, notLike, or, sql 
 import { env } from '$env/dynamic/private';
 
 import { effectiveBalanceSql, isUnmeteredPlan, paidSubscriptionPeriodExistsSql } from '$lib/server/billing/ledger';
+import { orgHasUnlimitedAccess } from '$lib/server/billing/unlimitedAccess';
 import { isActiveSubscriptionStatus } from '$lib/server/billing/plans';
 import { db } from '$lib/server/db';
 import { memberships, mercadoPagoCheckoutAttempts, organizations, stripeCheckoutAttempts, users } from '$lib/server/db/schema';
@@ -233,6 +234,10 @@ async function fundingState(
 		.all();
 	if (!orgs.length) return 'corrupt';
 	if (orgs.some((org) => isUnmeteredPlan(org.plan))) return 'funded'; // lifetime exempts the account
+	// A complimentary owner is never in the countdown, whatever the balance.
+	for (const org of orgs) {
+		if (await orgHasUnlimitedAccess(handle, org.orgId)) return 'funded';
+	}
 	// 'broke' requires every BILLING-ENGAGED org unfunded. Engagement needs
 	// real purchase evidence — the hosted plan, a granted balance, or a paid
 	// subscription period. A bare stripeSubscriptionId is NOT evidence:

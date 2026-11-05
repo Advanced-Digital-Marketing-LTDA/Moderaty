@@ -87,6 +87,7 @@ One-time setup (human, in the Coolify dashboard):
    | `APP_URL` | `https://<public-domain>` | `https://<dev-domain>` | drives OAuth `redirect_uri` + Secure cookies |
    | `ORIGIN` | `https://<public-domain>` | `https://<dev-domain>` | adapter-node URL generation — pins origin behind the proxy |
    | `DRY_RUN` | `true` → `false` after verification | `true` | I8 |
+   | `DEMO_PAGES_ENABLED` | never set | optional `true` for screenshots | screenshot-only `/demo/*` pages with fictional data; noindex, never in the sitemap; refused on the production domain and the production Google client |
    | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | production | dev | Stripe is live on this branch |
    | `STRIPE_PRICE_CREDITS_100` / `STRIPE_PRICE_CREDITS_500` / `STRIPE_PRICE_CREDITS_2000` | production Prices | dev Prices | one-time USD Price IDs for the 100/500/2,000-credit bundles; auto top-up validates active/currency/type |
    | `STRIPE_PRICE_HOSTED_MONTHLY` / `STRIPE_PRICE_LIFETIME` | production Prices | dev Prices | hosted USD 5 monthly recurring Price and USD 49 one-time Price; the app validates mode, currency, amount, and interval |
@@ -98,6 +99,8 @@ One-time setup (human, in the Coolify dashboard):
    | `ANALYTICS_ENABLED` | `false` until activation checklist passes | `false` until staging verification | optional Umami opt-in; Runtime Variable only, **Build Variable OFF** |
    | `UMAMI_URL` / `UMAMI_WEBSITE_ID` | own HTTPS collector origin / production website UUID | separate staging website UUID | Runtime Variables only, **Build Variable OFF**; no configured values in Docker images |
    | `ANALYTICS_ALLOWED_HOSTNAMES` | exact production browser hostnames | exact staging browser hostnames | comma-separated DNS names, at most 100 characters each; Runtime Variable only, **Build Variable OFF** |
+   | `UNLIMITED_ACCESS_EMAILS` | comma-separated owner e-mails with complimentary access | comma-separated dev test-owner e-mails | never metered or charged, history unlocked, deployment OpenAI key; empty grants nobody; unset makes the billing checks fail loudly on the hosted app |
+   | `MODERATY_DEPLOYMENT` | `official-hosted` | `official-hosted` | Runtime Variable only, **Build Variable OFF**. Required on every hosted app: unset or invalid makes the billing gate throw. Self-hosted installs set `self-hosted` |
 
    **Optional audience measurement.** Use a separate Umami service and PostgreSQL
    volume; Moderaty's database is unchanged. Keep production measurement disabled

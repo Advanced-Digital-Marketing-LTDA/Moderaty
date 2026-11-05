@@ -7,6 +7,7 @@ import { channels } from '$lib/server/db/schema';
 import { DeadlineExceededError } from '$lib/server/http';
 import { channelMatchesClaim } from '$lib/server/dryRun';
 import { resolveOpenAiKey } from '$lib/server/openaiKey';
+import { ingestionBlock } from '$lib/server/billing/ingestion';
 import type { ProtectedIdentities } from '$lib/server/allowlist';
 import { TONE_LEVEL_OMNI_ONLY } from '$lib/toneLevels';
 import { fetchNewComments, refreshAccessToken, type CommentPage } from '$lib/server/youtube';
@@ -130,6 +131,19 @@ async function loadChannelForRun(
 	}
 	const dryRun = forceDryRun === true || env.DRY_RUN === 'true';
 	if (window && !dryRun) throw new Error('window mode requires dry-run semantics (pass forceDryRun)');
+	if (forceDryRun !== true && channel.orgId !== null && (await ingestionBlock(channel.orgId)) === 'unpaid') {
+		console.warn(`run ${channelId}: skipped — org ${channel.orgId} is unpaid; no fetch or AI`);
+		return { kind: 'skip', result: { ...emptyResult(), unpaid: true } };
+	}
+	// A dry-run window without a claim is a cron drain: an unpaid org's drain, on any page, is refused and cleared so cron never retries it. Manual previews always pass a claim.
+	if (forceDryRun === true && window !== undefined && claim === undefined && channel.orgId !== null && (await ingestionBlock(channel.orgId)) === 'unpaid') {
+		console.warn(`run ${channelId}: drain refused — org ${channel.orgId} is unpaid; clearing its dry-run window`);
+		await db
+			.update(channels)
+			.set({ dryRunBoundary: null, dryRunPageToken: null })
+			.where(and(eq(channels.id, channelId), eq(channels.dryRunBoundary, window.boundary)));
+		return { kind: 'skip', result: { ...emptyResult(), unpaid: true } };
+	}
 	return { kind: 'run', channel, dryRun };
 }
 

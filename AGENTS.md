@@ -262,6 +262,29 @@ are held for human review, never auto-rejected or deleted. Detector failures
 queue through `aiUnavailable`; deadline expiry aborts the run instead. The
 optional `OPENAI_JAILBREAK_MODEL` defaults to `gpt-6-luna`.
 
+## Demo Pages (screenshots only)
+
+`/demo/*` (`src/routes/demo/`) renders the real dashboard and channel pages
+(overview, queue, rules, log) with fictional data from
+`src/lib/server/demo/fixtures.ts`, for screenshots in social videos. It has
+no functionality: no database, session, sign-in, consent, cron, YouTube or
+OpenAI call, and no form actions.
+
+- Off unless `DEMO_PAGES_ENABLED=true` (unset or `false` = 404; any other
+  value fails loudly). Refused with a loud 500 when `APP_URL` is
+  `moderaty.com`/`www.moderaty.com` or `GOOGLE_CLIENT_ID` is the production
+  client. Never set it on `moderaty-prod`.
+- Every demo load calls `requireDemoPages()` itself; a client navigation
+  can skip a parent layout's load.
+- **Always noindex:** `/demo/` stays in `NOINDEX_PREFIXES`
+  (`src/lib/server/siteIndex.ts`), which sends `X-Robots-Tag: noindex`.
+  Never add `/demo` to `robots.txt`; a Disallow hides that header.
+- **Never in the sitemap:** never add a `/demo` path to `PUBLIC_PAGES`, so
+  it stays out of `sitemap.xml` and `llms.txt`.
+- Demo routes only wrap the real components; never edit a real page to suit
+  the demo. Fixture comments are fictional, labeled so by the channel
+  title, follow the editorial voice, and carry no author identity.
+
 ## Environments
 
 Dev and production are **fully isolated**, each with its own Google OAuth
@@ -327,8 +350,12 @@ boolean.
 available purchased credits or paid subscription allowance, or the lifetime
 plan with a usable stored organization OpenAI key. Unpaid requests show a
 purchase message; lifetime accounts missing their key are directed to Team.
-**Dry run remains available without a purchase** — do not apply the history
-purchase gate to previews.
+**Dry runs need no purchase, with one limit:** on the hosted deployment an
+unpaid org gets one free dry run for life, shared by moderation and feedback
+previews (`claimDryRunForOrg`). Funded, complimentary and self-hosted orgs keep
+one per channel per feature. Complimentary means an owner's email is in
+UNLIMITED_ACCESS_EMAILS, a runtime-only env var. Never commit the addresses. Do
+not apply the history purchase gate to previews.
 `users.plan` is the hook for the future Stripe integration (hosted plans;
 free tier = self-hosted only). Card and hosted-subscription management runs
 through the Stripe customer portal (usage page → **Manage cards**,

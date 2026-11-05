@@ -57,3 +57,5 @@ reasonix.toml
 /.tools/
 # SonarQube CLI project link (per machine; not shared config)
 .sonar-config.json
+# Local Pi runtime state
+.atl/

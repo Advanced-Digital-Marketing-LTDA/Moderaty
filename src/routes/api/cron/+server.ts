@@ -402,7 +402,7 @@ const runCronSweeps = async (dryRun: boolean, deadline: number, startedAt: numbe
 	return base;
 };
 
-type RunCategory = 'token' | 'quota' | 'scoring' | 'timeout' | 'credits' | 'handles' | 'error';
+type RunCategory = 'token' | 'quota' | 'scoring' | 'timeout' | 'credits' | 'handles' | 'unpaid' | 'error';
 
 /**
  * Runs the claimed channel and writes its bookkeeping row. The run's health
@@ -424,7 +424,8 @@ const runAndRecord = async (
 	const runStartedAt = Date.now();
 	try {
 		const { result, dryRunWindow, digest } = await runClaimedChannel(channel, deadline, diagnostics);
-		if (result.dryRun || result.stoppedReason === 'deactivated' || result.skipped) runHealth = 'none';
+		if (result.unpaid) runHealth = { status: 'failed', error: 'unpaid' };
+			else if (result.dryRun || result.stoppedReason === 'deactivated' || result.skipped) runHealth = 'none';
 		else if (result.outOfCredits) runHealth = { status: 'failed', error: 'credits' };
 		else if (result.partial) runHealth = { status: 'failed', error: 'timeout' };
 		else if (result.handleLookupError) runHealth = { status: 'failed', error: 'handles' };
@@ -495,8 +496,13 @@ export const GET: RequestHandler = async ({ url, request }) => {
 	const dryRun = env.DRY_RUN === 'true';
 	const diagnostics = new CronDiagnostics();
 	// Snapshot at serialization: failures can arrive after the sweeps finish.
+	// Set when the complimentary list could not be read. Unpaid orgs are excluded
+	// from the pick, so the tick must say so: ok:false, like a failed sweep.
+	let complimentaryListFailed = false;
 	const respond = (body: Record<string, unknown>, status = 200) => json({
-		...body, cronRunId: diagnostics.cronRunId, failureDiagnostics: diagnostics.failures
+		...body,
+		...(complimentaryListFailed ? { ok: false, complimentaryAccessError: true } : {}),
+		cronRunId: diagnostics.cronRunId, failureDiagnostics: diagnostics.failures
 	}, { status });
 	console.info(`cron: tick start (dryRun=${dryRun}, run=${diagnostics.cronRunId})`);
 	const base = await runCronSweeps(dryRun, deadline, startedAt, diagnostics);
@@ -522,7 +528,10 @@ export const GET: RequestHandler = async ({ url, request }) => {
 	}
 	const afterCleanup = { ...base, ...(feedbackPreviewSweepError ? { ok: false, feedbackPreviewSweepError } : {}) };
 	try {
-		workload = await claimCronWorkload(deadline);
+		workload = await claimCronWorkload(deadline, (cause) => {
+			complimentaryListFailed = true;
+			diagnostics.report('complimentary access list', cause);
+		});
 	} catch (cause) {
 		// A transaction failure rolls back the lease and turn together. Fail
 		// loudly rather than guessing which workload another tick owns.

@@ -62,7 +62,8 @@ const SWEEP_ERROR_FIELDS = [
 	'zeroCreditSweepError',
 	'contactNotificationSweepError',
 	'welcomeEmailSweepError',
-	'feedbackPreviewSweepError'
+	'feedbackPreviewSweepError',
+	'complimentaryAccessError'
 ];
 
 /** Only allowlisted diagnostics cross back into scheduled task output. */

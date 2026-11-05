@@ -311,6 +311,8 @@ test('a dry run with no new comments writes nothing at all', async () => {
 });
 
 test('staging inserts no empty action batch for an approved comment', async () => {
+	// Unmetered, as default runs were before the gate: no credit debit row.
+	mocks.state.plan = 'lifetime';
 	mocks.scoreComment.mockResolvedValue(moderation(0.34));
 
 	await runChannel('channel');

@@ -1,4 +1,5 @@
-import { and, asc, eq, gte, isNull, lt, or } from 'drizzle-orm';
+import { and, asc, eq, gte, isNotNull, isNull, lt, notInArray, or } from 'drizzle-orm';
+import { unpaidOrgIds } from './billing/ingestion';
 import { db, withBusyRetry } from './db';
 import { channels, cronWorkloadState, feedbackDigests } from './db/schema';
 
@@ -21,7 +22,10 @@ export type CronWorkload =
  * No provider work happens under the DB lock. A crash after commit still
  * yields the next class its turn; failed/rolled-back claims never spend one.
  */
-export async function claimCronWorkload(deadline: number): Promise<CronWorkload> {
+export async function claimCronWorkload(deadline: number, onGateError: (cause: unknown) => void): Promise<CronWorkload> {
+	if (Date.now() >= deadline) return { kind: 'budget-exhausted' };
+	// Read before the write transaction, so a busy retry never re-runs the list read and the write lock stays as short as before.
+	const unpaid = await unpaidOrgIds(db, onGateError);
 	return withBusyRetry(() => db.transaction(async (tx): Promise<CronWorkload> => {
 		if (Date.now() >= deadline) return { kind: 'budget-exhausted' };
 		await tx.insert(cronWorkloadState).values({ id: 1 }).onConflictDoNothing();
@@ -36,7 +40,8 @@ export async function claimCronWorkload(deadline: number): Promise<CronWorkload>
 			.where(and(eq(feedbackDigests.status, 'dry-run-pending'), claimable,
 				or(isNull(feedbackDigests.attemptedAt), gte(feedbackDigests.attemptedAt, staleBefore))))
 			.orderBy(asc(feedbackDigests.id)).limit(1).get();
-		const live = await tx.select().from(channels).where(claimable)
+		const liveEligible = unpaid.length === 0 ? claimable : and(claimable, or(isNull(channels.orgId), notInArray(channels.orgId, unpaid), isNotNull(channels.dryRunBoundary)));
+		const live = await tx.select().from(channels).where(liveEligible)
 			.orderBy(asc(channels.lastRunAt), asc(channels.id)).limit(1).get();
 		if (!preview && !live) return { kind: 'none' };
 		const kind = preview && (!live || state.nextWorkload === 'preview') ? 'preview' : 'live';
