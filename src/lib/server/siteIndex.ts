@@ -49,13 +49,14 @@ export const PUBLIC_BLOG_ROUTE_IDS = [
 ];
 
 // Route ids that must never appear in a search index: the authenticated
-// (app) console, single-use flow pages, and every API endpoint. Keyed on
+// (app) console, the screenshot-only /demo pages, single-use flow pages,
+// and every API endpoint. Keyed on
 // route.id (not the URL) so trailing-slash variants and param routes match.
 // The header these drive (X-Robots-Tag, set in hooks.server.ts) also marks
 // the 302 an anonymous crawler gets from an auth-gated page, where a <meta>
 // tag could never exist.
 const NOINDEX_ROUTES = ['/consent', '/connect-channel', '/logout', '/account-deleted', '/contact/verify'];
-const NOINDEX_PREFIXES = ['/(app)/', '/api/', '/invite/'];
+const NOINDEX_PREFIXES = ['/(app)/', '/api/', '/invite/', '/demo/'];
 
 export function isNoIndexRoute(routeId: string | null | undefined): boolean {
 	if (!routeId) return false;
