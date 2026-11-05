@@ -60,7 +60,7 @@ test('a non-reasoning OPENAI_TONE_MODEL override keeps temperature 0', async () 
 	try {
 		await scoreTone('a comment', CONTEXT, undefined, {}, 'test-openai-key');
 	} finally {
-		delete env.OPENAI_TONE_MODEL;
+		delete (env as Record<string, string | undefined>).OPENAI_TONE_MODEL;
 	}
 
 	const body = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
