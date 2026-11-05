@@ -171,9 +171,22 @@ describe('scripts/hooks/pre-commit fails closed on unlistable paths and keeps no
 		tempDirs.push(dir);
 		const badIndex = join(dir, 'index');
 		writeFileSync(badIndex, 'not a git index\n');
-		const result = runHook({ GIT_INDEX_FILE: badIndex, SONARJS_GATE_OFF: '1', CODACY_GATE_OFF: '1' });
+		// Codacy disabled, sonarjs on: the listing must fail closed before the sonarjs gate runs.
+		const result = runHook({ GIT_INDEX_FILE: badIndex, SONARJS_GATE_OFF: '0', CODACY_GATE_OFF: '1' });
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain('cannot list staged files');
+	});
+
+	test('a commit outside a repository blocks with a message (fail closed)', () => {
+		const outside = mkdtempSync(join(tmpdir(), 'not-a-repo-'));
+		tempDirs.push(outside);
+		const result = spawnSync('bash', [join(rootPath, 'scripts/hooks/pre-commit')], {
+			cwd: outside,
+			encoding: 'utf8',
+			env: { ...process.env, SONARJS_GATE_OFF: '0', CODACY_GATE_OFF: '0' }
+		});
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('cannot resolve the repository root');
 	});
 
 	test('a staged file with a non-ASCII name is analyzed', () => {

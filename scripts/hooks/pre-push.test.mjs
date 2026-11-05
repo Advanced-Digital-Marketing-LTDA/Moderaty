@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -102,6 +103,23 @@ test('a new-branch push skips the commits a remote already has', () => {
 	const input = `refs/heads/main ${head} refs/heads/main ${fakeHook.ZERO_SHA}\n`;
 	const result = fakeHook.runHook(repo.dir, 'pre-push', { ...repo, stdin: input, env: { FAKE_PAYLOAD: blockingFinding('src/a.ts') } });
 	expect(result.status).toBe(0);
+});
+
+test('a push outside a repository blocks with a message (fail closed)', () => {
+	const outside = mkdtempSync(join(tmpdir(), 'not-a-repo-'));
+	try {
+		const input = `refs/heads/main ${'1'.repeat(40)} refs/heads/main ${fakeHook.ZERO_SHA}\n`;
+		const result = spawnSync('bash', [join(rootPath, 'scripts/hooks/pre-push')], {
+			cwd: outside,
+			input,
+			encoding: 'utf8',
+			env: { ...process.env, CODACY_GATE_OFF: '0' }
+		});
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('cannot resolve the repository root');
+	} finally {
+		rmSync(outside, { recursive: true, force: true });
+	}
 });
 
 test('a non-ASCII file name is analyzed on push, not dropped by git quoting', () => {

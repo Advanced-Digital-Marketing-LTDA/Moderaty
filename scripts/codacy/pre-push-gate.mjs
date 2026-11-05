@@ -142,20 +142,23 @@ export function backupCodacyConfig(repoRoot) {
 
 /**
  * Environment for the MCP server: the process env plus the optional agent
- * CODACY_ACCOUNT_TOKEN (keeps analysis cloud-synced; token is optional).
+ * CODACY_ACCOUNT_TOKEN. A missing token file is fine; an unreadable one throws.
  */
 function mcpEnv() {
 	const env = { ...process.env };
+	const envFile = path.join(os.homedir(), '.prime', 'agent', 'codacy', 'server.env');
+	if (!existsSync(envFile)) return env;
+	let contents;
 	try {
-		const envFile = path.join(os.homedir(), '.prime', 'agent', 'codacy', 'server.env');
-		if (existsSync(envFile)) {
-			for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
-				const match = line.match(/^CODACY_ACCOUNT_TOKEN=(.*)$/);
-				const token = match?.[1]?.trim();
-				if (token) env.CODACY_ACCOUNT_TOKEN = token.replace(/^["']|["']$/g, '');
-			}
-		}
-	} catch { /* token is optional */ }
+		contents = readFileSync(envFile, 'utf8');
+	} catch (cause) {
+		throw new Error(`cannot read the Codacy token file ${envFile} (${cause.message})`);
+	}
+	for (const line of contents.split(/\r?\n/)) {
+		const match = line.match(/^CODACY_ACCOUNT_TOKEN=(.*)$/);
+		const token = match?.[1]?.trim();
+		if (token) env.CODACY_ACCOUNT_TOKEN = token.replace(/^["']|["']$/g, '');
+	}
 	return env;
 }
 
@@ -260,6 +263,35 @@ export function analysisScope(repoRoot, files, tools) {
 	return targets.flatMap((target) => tools.map((tool) => ({ ...target, tool })));
 }
 
+const OVERRIDE_HINT = '  override this gate only: CODACY_GATE_OFF=1 git push (or git commit)';
+
+/** Resolves the server binary and its environment; logs the reason and returns null when the gate must block. */
+function resolveRun(locateServer, log) {
+	// S4036: never resolve executables through PATH — no `npm` subprocess.
+	// npmPrefix() derives the prefix from env/.npmrc/Node layout, and the
+	// server binary is then an absolute path under <prefix>/bin.
+	const serverBin = locateServer();
+	if (!serverBin) {
+		log('@codacy/codacy-mcp is not installed; blocking (fail closed)');
+		log('  install with: npm install -g @codacy/codacy-mcp');
+		log(OVERRIDE_HINT);
+		return null;
+	}
+	try {
+		return { serverBin, env: mcpEnv() };
+	} catch (err) {
+		log('%s; blocking (fail closed)', err.message);
+		return null;
+	}
+}
+
+/** The first failed or malformed analysis response, as a message; null when every response is sound. */
+function analysisFailure(payloads) {
+	const failed = payloads.find((p) => !p.success || !Array.isArray(p.result));
+	if (!failed) return null;
+	return failed.success ? 'response result is not an array' : failed.output || 'unknown';
+}
+
 export async function main(argv = process.argv.slice(2), { locateServer = () => resolveServerBin() } = {}) {
 	const [hookFlag, ...args] = argv;
 	const hook = hookFlag?.startsWith('--hook=') ? hookFlag.slice('--hook='.length) : undefined;
@@ -273,45 +305,36 @@ export async function main(argv = process.argv.slice(2), { locateServer = () => 
 	const changed = new Set((args.slice(1) || []).map((f) => f.replace(/^\.\//, '')));
 
 	if (!ROOT || !existsSync(path.join(ROOT, '.git'))) {
-		log('no repo root given; skipping gate');
-		return 0;
+		log('cannot resolve the repository root (%s); blocking (fail closed)', ROOT || 'none');
+		return 1;
 	}
 	if (changed.size === 0) {
 		log('no changed files; skipping gate');
 		return 0;
 	}
 
-	// --- resolve the global Codacy MCP server binary -----------------------------
-	// S4036: never resolve executables through PATH — no `npm` subprocess.
-	// npmPrefix() derives the prefix from env/.npmrc/Node layout, and the
-	// server binary is then an absolute path under <prefix>/bin.
-	const serverBin = locateServer();
-	if (!serverBin) {
-		log('@codacy/codacy-mcp is not installed; blocking (fail closed)');
-		log('  install with: npm install -g @codacy/codacy-mcp');
-		log('  override this gate only: CODACY_GATE_OFF=1 git push (or git commit)');
-		return 1;
-	}
+	const run = resolveRun(locateServer, log);
+	if (!run) return 1;
 
 	// --- preserve committed .codacy config (the runner regenerates it) -----------
 	const restoreConfig = backupCodacyConfig(ROOT);
 	let payloads;
 	let analysisError;
 	try {
-		({ payloads, analysisError } = await analyzeRepository(serverBin, mcpEnv(), analysisScope(ROOT, [...changed], tools)));
+		({ payloads, analysisError } = await analyzeRepository(run.serverBin, run.env, analysisScope(ROOT, [...changed], tools)));
 	} finally {
 		restoreConfig(); // restore the initial .codacy state on EVERY exit path
 	}
 	if (analysisError) {
 		log('analysis failed (%s); blocking (fail closed, tooling error)', analysisError?.message || analysisError);
-		log('  override this gate only: CODACY_GATE_OFF=1 git push (or git commit)');
+		log(OVERRIDE_HINT);
 		return 1;
 	}
 
-	const failed = payloads.find((p) => !p.success || !Array.isArray(p.result));
-	if (failed) {
-		log('analysis failed: %s; blocking (fail closed, tooling error)', failed.success ? 'response result is not an array' : failed.output || 'unknown');
-		log('  override this gate only: CODACY_GATE_OFF=1 git push (or git commit)');
+	const failure = analysisFailure(payloads);
+	if (failure) {
+		log('analysis failed: %s; blocking (fail closed, tooling error)', failure);
+		log(OVERRIDE_HINT);
 		return 1;
 	}
 

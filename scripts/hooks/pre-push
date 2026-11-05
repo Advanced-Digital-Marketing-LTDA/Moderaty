@@ -9,9 +9,13 @@
 #   CODACY_GATE_OFF=1 git push
 set -uo pipefail
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-[[ -n "$ROOT" ]] || exit 0
 [[ "${CODACY_GATE_OFF:-0}" != "1" ]] || exit 0
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$ROOT" ]]; then
+  echo "[codacy] push blocked: cannot resolve the repository root (fail closed). Override this gate only: CODACY_GATE_OFF=1 git push" >&2
+  exit 1
+fi
 
 # shellcheck source=analysis-scope.sh
 source "$ROOT/scripts/hooks/analysis-scope.sh"

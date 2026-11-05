@@ -225,6 +225,27 @@ describe('main — the gate fails closed', () => {
 		expect(logged()).toContain('unknown or missing --hook');
 	});
 
+	test('an unresolved repository root blocks with a message', async () => {
+		const missing = join(tempDir(), 'no-such-repo');
+		const code = await main(['--hook=pre-push', missing, 'src/a.ts'], { locateServer: fakeServer });
+		expect(code).toBe(1);
+		expect(logged()).toContain('cannot resolve the repository root');
+	});
+
+	test('an unreadable Codacy token file blocks with a message', async () => {
+		const home = tempDir('codacy-gate-home-');
+		mkdirSync(join(home, '.prime', 'agent', 'codacy', 'server.env'), { recursive: true });
+		const originalHome = process.env.HOME;
+		process.env.HOME = home;
+		try {
+			const code = await main(['--hook=pre-push', gitRoot(), 'src/a.ts'], { locateServer: fakeServer });
+			expect(code).toBe(1);
+			expect(logged()).toContain('cannot read the Codacy token file');
+		} finally {
+			process.env.HOME = originalHome;
+		}
+	});
+
 	test('an unknown --hook blocks, including prototype names', async () => {
 		expect(await main(['--hook=pre-merge', gitRoot(), 'src/a.ts'], { locateServer: fakeServer })).toBe(1);
 		expect(await main(['--hook=constructor', gitRoot(), 'src/a.ts'], { locateServer: fakeServer })).toBe(1);
