@@ -1,27 +1,34 @@
 #!/usr/bin/env bash
 # Pre-commit quality gates (wired via `git config core.hooksPath scripts/hooks`).
 #
-# Runs two gates over the files about to be committed, cheapest first:
-#   1. eslint-plugin-sonarjs (SonarQube rules) — blocks the commit on any
-#      error-level finding in a staged file.
-#   2. Codacy local analysis — same gate as the pre-push hook, but scoped to
-#      staged files instead of pushed files.
+# Runs two gates over the files about to be committed, cheapest first. Both
+# fail closed: a tool that cannot run blocks the commit and prints the fix.
+#   1. eslint-plugin-sonarjs (SonarQube rules) — blocks on error-level findings
+#      and on eslint tooling failures.
+#   2. Codacy local analysis (semgrep, biome, shellcheck, hadolint; trivy runs
+#      on pre-push only), scoped to staged files.
 #
-# Escape hatches:
-#   git commit --no-verify        (standard git override)
-#   SONARJS_GATE_OFF=1 git commit (skip the sonarjs gate)
-#   CODACY_GATE_OFF=1 git commit  (skip the Codacy gate)
+# Scoped overrides (one gate each; prefer these to --no-verify):
+#   SONARJS_GATE_OFF=1 git commit   skip the sonarjs gate
+#   CODACY_GATE_OFF=1 git commit    skip the Codacy gate
 set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 [[ -n "$ROOT" ]] || exit 0
 cd "$ROOT" || exit 0
 
-# Only files that could plausibly carry static-analysis findings.
-CODE_RE='\.(ts|tsx|js|mjs|cjs|jsx|astro|css|py|rb|go|java|php|sh|vue|svelte)$'
-SKIP_RE='^(node_modules/|dist/|dist-server/|\.svelte-kit/|\.codacy/)'
+# shellcheck source=analysis-scope.sh
+source "$ROOT/scripts/hooks/analysis-scope.sh"
 
-mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACMR | grep -E "$CODE_RE" | grep -vE "$SKIP_RE")
+# core.quotePath=false keeps non-ASCII names unquoted, so they match the scope regexes.
+if ! listing="$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR 2>&1)"; then
+  echo "[codacy] commit blocked: cannot list staged files: $listing (fail closed)" >&2
+  exit 1
+fi
+STAGED=()
+while IFS= read -r f; do
+  is_analysis_file "$f" && STAGED+=("$f")
+done <<< "$listing"
 [[ ${#STAGED[@]} -gt 0 ]] || exit 0
 
 # --- sonarjs gate -------------------------------------------------------------
@@ -30,27 +37,34 @@ mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACMR | grep -E
 if [[ "${SONARJS_GATE_OFF:-0}" != "1" ]]; then
 	ESLINT="$ROOT/node_modules/eslint/bin/eslint.js"
 	if [[ ! -f "$ESLINT" ]]; then
-		echo "[sonarjs] eslint not installed locally (run npm install); skipping sonarjs gate" >&2
-	else
-		node "$ESLINT" --no-warn-ignored --config "$ROOT/scripts/eslint.sonarjs.config.mjs" "${STAGED[@]}"
-		status=$?
-		if [[ $status -eq 1 ]]; then
-			echo "[sonarjs] commit blocked by sonarjs findings (fix them, or 'git commit --no-verify' to override)" >&2
-			exit 1
-		elif [[ $status -ne 0 ]]; then
-			# exit 2 = eslint config/tooling failure; a broken tool must never brick commits.
-			echo "[sonarjs] eslint run failed (exit $status); allowing commit (tooling error, not a finding)" >&2
-		fi
+		echo "[sonarjs] commit blocked: eslint is not installed in this checkout (fail closed)." >&2
+		echo "[sonarjs]   fix: npm ci" >&2
+		echo "[sonarjs]   override this gate only: SONARJS_GATE_OFF=1 git commit" >&2
+		exit 1
+	fi
+	node "$ESLINT" --no-warn-ignored --config "$ROOT/scripts/eslint.sonarjs.config.mjs" "${STAGED[@]}"
+	status=$?
+	if [[ $status -eq 1 ]]; then
+		echo "[sonarjs] commit blocked by sonarjs findings: fix them, then retry." >&2
+		echo "[sonarjs]   override this gate only: SONARJS_GATE_OFF=1 git commit" >&2
+		exit 1
+	elif [[ $status -ne 0 ]]; then
+		# exit 2 = eslint config or tooling failure: blocked and reported, never allowed through.
+		echo "[sonarjs] commit blocked: eslint tooling failed (exit $status) (fail closed)." >&2
+		echo "[sonarjs]   fix: npm ci, then check scripts/eslint.sonarjs.config.mjs" >&2
+		echo "[sonarjs]   override this gate only: SONARJS_GATE_OFF=1 git commit" >&2
+		exit 1
 	fi
 fi
 
 # --- Codacy gate ---------------------------------------------------------------
 if [[ "${CODACY_GATE_OFF:-0}" != "1" ]]; then
 	echo "[codacy] analyzing ${#STAGED[@]} staged file(s) ..."
-	node "$ROOT/scripts/codacy/pre-push-gate.mjs" "$ROOT" "${STAGED[@]}"
+	node "$ROOT/scripts/codacy/pre-push-gate.mjs" --hook=pre-commit "$ROOT" "${STAGED[@]}"
 	status=$?
 	if [[ $status -ne 0 ]]; then
-		echo "[codacy] commit blocked by Codacy gate (fix findings, or 'git commit --no-verify' to override)" >&2
+		echo "[codacy] commit blocked by Codacy gate (fail closed): fix the findings or tooling error above." >&2
+		echo "[codacy]   override this gate only: CODACY_GATE_OFF=1 git commit" >&2
 		exit 1
 	fi
 fi
