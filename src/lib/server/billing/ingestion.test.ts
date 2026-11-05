@@ -12,10 +12,10 @@ vi.mock('$lib/server/dryRun', async (importOriginal) => {
 });
 
 import { channels, memberships, organizations, stripeSubscriptionPeriods, users } from '$lib/server/db/schema';
-import { freeDryRunStampOf, setupTestDb, testDb } from '$lib/server/testdb';
+import { countDbStatements, freeDryRunStampOf, setupTestDb, statementSql, testDb } from '$lib/server/testdb';
 // After testdb: its db mock must be registered before dryRun.ts loads the db.
 import { claimDryRun } from '$lib/server/dryRun';
-import { claimDryRunForOrg, ingestionBlock, releaseFreeDryRun } from './ingestion';
+import { claimDryRunForOrg, ingestionBlock, releaseFreeDryRun, unpaidOrgIds } from './ingestion';
 import { eq } from 'drizzle-orm';
 
 setupTestDb(['channels', 'memberships', 'organizations', 'stripe_subscription_periods', 'users']);
@@ -316,5 +316,124 @@ describe('ingestionBlock on a self-hosted deployment', () => {
 	test('does not read the org at all, so a missing org is not an error here', async () => {
 		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
 		expect(await ingestionBlock('no-such-org')).toBeNull();
+	});
+});
+
+describe('unpaidOrgIds agrees with the per-org gate', () => {
+	beforeEach(() => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'owner-listed@example.test,admin-listed@example.test';
+	});
+
+	async function seedMember(orgId: string, email: string, role: 'owner' | 'admin'): Promise<void> {
+		const userId = `user-${orgId}-${role}-${email}`;
+		await testDb().db.insert(users).values({ id: userId, googleSub: `sub-${userId}`, email, displayName: userId });
+		await testDb().db.insert(memberships).values({ userId, orgId, role });
+	}
+
+	test('lists exactly the orgs the per-org gate blocks', async () => {
+		await seedOrg('org-credits', { credits: 1 });
+		await seedOrg('org-paid-period', { credits: 0 });
+		await seedPeriod('org-paid-period');
+		await seedOrg('org-expired');
+		await seedPeriod('org-expired', { window: 'expired' });
+		await seedOrg('org-void');
+		await seedPeriod('org-void', { status: 'void' });
+		await seedOrg('org-refunded');
+		await seedPeriod('org-refunded', { status: 'refunded' });
+		await seedOrg('org-lifetime', { plan: 'lifetime' });
+		await seedOrg('org-null-credits');
+		await seedOrg('org-owner-listed');
+		await seedMember('org-owner-listed', 'owner-listed@example.test', 'owner');
+		await seedOrg('org-admin-listed');
+		await seedMember('org-admin-listed', 'admin-listed@example.test', 'admin');
+		await seedMember('org-admin-listed', 'owner-unlisted@example.test', 'owner');
+		const orgIds = [
+			'org-credits', 'org-paid-period', 'org-expired', 'org-void', 'org-refunded',
+			'org-lifetime', 'org-null-credits', 'org-owner-listed', 'org-admin-listed'
+		];
+		for (const orgId of orgIds) await seedChannel(`UC-${orgId}`, { orgId });
+
+		const onListError = vi.fn();
+		const unpaid = await unpaidOrgIds(testDb().db, onListError);
+
+		expect([...unpaid].sort()).toEqual(['org-admin-listed', 'org-expired', 'org-null-credits', 'org-refunded', 'org-void']);
+		expect(onListError).not.toHaveBeenCalled();
+		for (const orgId of orgIds) {
+			expect(unpaid.includes(orgId), orgId).toBe((await ingestionBlock(orgId)) === 'unpaid');
+		}
+	});
+
+	test('on a self-hosted deployment the list is empty after one candidate read that never touches funding or owners', async () => {
+		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
+		await seedOrg('org-1');
+		await seedChannel('UC1', { orgId: 'org-1' });
+		const client = testDb().client;
+		const execute = client.execute.bind(client);
+		const executed: string[] = [];
+		const spy = vi.spyOn(client, 'execute').mockImplementation((statement) => {
+			executed.push(statementSql(statement));
+			return execute(statement);
+		});
+
+		try {
+			expect(await unpaidOrgIds(testDb().db, vi.fn())).toEqual([]);
+		} finally {
+			spy.mockRestore();
+		}
+		expect(executed).toHaveLength(1);
+		expect(executed[0]).toContain('"channels"');
+		expect(executed[0]).not.toMatch(/stripe_subscription_periods|memberships/);
+	});
+
+	test('with the deployment mode unset and no active org channel, the list is empty and nothing throws', async () => {
+		mocks.env.MODERATY_DEPLOYMENT = undefined;
+		await seedOrg('org-1');
+
+		expect(await unpaidOrgIds(testDb().db, vi.fn())).toEqual([]);
+	});
+
+	test('with the deployment mode unset and an active org channel, the descriptive error is thrown', async () => {
+		mocks.env.MODERATY_DEPLOYMENT = undefined;
+		await seedOrg('org-1');
+		await seedChannel('UC1', { orgId: 'org-1' });
+
+		await expect(unpaidOrgIds(testDb().db, vi.fn())).rejects.toThrow('MODERATY_DEPLOYMENT must be set to official-hosted or self-hosted');
+	});
+
+	test('a period ending exactly now does not fund the org on either path', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		try {
+			const now = new Date('2026-11-05T12:00:00.000Z');
+			vi.setSystemTime(now);
+			await seedOrg('org-ended');
+			await testDb().db.insert(stripeSubscriptionPeriods).values({
+				orgId: 'org-ended',
+				subscriptionId: 'sub-org-ended',
+				invoiceId: 'in-org-ended',
+				periodKey: 'period-org-ended',
+				periodStart: new Date(now.getTime() - 60 * 60_000).toISOString(),
+				periodEnd: now.toISOString(),
+				includedCredits: 100,
+				consumedCredits: 0,
+				status: 'paid'
+			});
+			await seedChannel('UC-ended', { orgId: 'org-ended' });
+
+			expect(await ingestionBlock('org-ended')).toBe('unpaid');
+			expect(await unpaidOrgIds(testDb().db, vi.fn())).toEqual(['org-ended']);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	test('an unset complimentary list on hosted fails closed: every unfunded org is unpaid and the error is reported once', async () => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = undefined;
+		await seedOrg('org-1');
+		await seedChannel('UC1', { orgId: 'org-1' });
+		const onListError = vi.fn();
+
+		expect(await unpaidOrgIds(testDb().db, onListError)).toEqual(['org-1']);
+		expect(onListError).toHaveBeenCalledTimes(1);
+		expect((onListError.mock.calls[0][0] as Error).message).toContain('UNLIMITED_ACCESS_EMAILS is not set');
 	});
 });

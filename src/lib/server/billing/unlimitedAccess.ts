@@ -30,6 +30,11 @@ export function unlimitedAccessEmails(): ReadonlySet<string> {
 	return new Set(entries);
 }
 
+/** True when this e-mail is on the complimentary list. Both sides are normalized the same way. */
+export function isComplimentaryEmail(allowed: ReadonlySet<string>, email: string): boolean {
+	return allowed.has(email.trim().toLowerCase());
+}
+
 /** True when an owner of the org holds a listed e-mail. Admins and members never count. */
 export async function orgHasUnlimitedAccess(handle: ComplimentaryHandle, orgId: string): Promise<boolean> {
 	// Complimentary access is an official-hosted rule: self-hosted never reads the list.
@@ -42,5 +47,5 @@ export async function orgHasUnlimitedAccess(handle: ComplimentaryHandle, orgId: 
 		.innerJoin(users, eq(users.id, memberships.userId))
 		.where(and(eq(memberships.orgId, orgId), eq(memberships.role, 'owner')))
 		.all();
-	return owners.some((owner) => allowed.has(owner.email.trim().toLowerCase()));
+	return owners.some((owner) => isComplimentaryEmail(allowed, owner.email));
 }

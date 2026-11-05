@@ -4,13 +4,18 @@
 // Complimentary owners (unlimitedAccess) are always allowed. Self-hosted
 // deployments are never blocked.
 
-import { and, eq, gt, isNull, lte } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 import { claimDryRun, hasUsedDryRun, type DryRunClaim, type PreviewFeature } from '$lib/server/dryRun';
 import { db } from '$lib/server/db';
-import { organizations, stripeSubscriptionPeriods } from '$lib/server/db/schema';
+import { channels, memberships, organizations, stripeSubscriptionPeriods, users } from '$lib/server/db/schema';
 import { requireDeploymentMode } from '$lib/server/deploymentMode';
-import { isUnmeteredPlan } from './ledger';
-import { orgHasUnlimitedAccess } from './unlimitedAccess';
+import { isUnmeteredPlan, UNMETERED_PLAN_IDS } from './ledger';
+import {
+	isComplimentaryEmail,
+	orgHasUnlimitedAccess,
+	unlimitedAccessEmails,
+	type ComplimentaryHandle
+} from './unlimitedAccess';
 
 export type IngestionBlock = 'unpaid' | null;
 
@@ -116,4 +121,63 @@ async function isFunded(orgId: string, plan: string, creditsRemaining: number | 
 		.limit(1)
 		.get();
 	return period !== undefined;
+}
+
+/**
+ * The SQL twin of isFunded, used only by unpaidOrgIds. Parity with isFunded is
+ * enforced by the "lists exactly the orgs the per-org gate blocks" and
+ * "a period ending exactly now" tests in ingestion.test.ts, not by shared code.
+ * The CASE keeps the result non-NULL, so `= 0` cannot read an unknown as funded.
+ */
+function fundedOrgSql(nowIso: string) {
+	// Uncorrelated on purpose: a correlated EXISTS resolves organizations.id against the period table's own id column.
+	const paidNow = db
+		.select({ orgId: stripeSubscriptionPeriods.orgId })
+		.from(stripeSubscriptionPeriods)
+		.where(and(eq(stripeSubscriptionPeriods.status, 'paid'), lte(stripeSubscriptionPeriods.periodStart, nowIso), gt(stripeSubscriptionPeriods.periodEnd, nowIso)));
+	return sql<number>`CASE WHEN ${inArray(organizations.plan, UNMETERED_PLAN_IDS)} OR coalesce(${organizations.creditsRemaining}, 0) > 0 OR ${organizations.id} IN ${paidNow} THEN 1 ELSE 0 END`;
+}
+
+/**
+ * The hosted orgs with an active channel that may not ingest. Statements:
+ * the candidate read; then, only on hosted, the unfunded filter and, when a
+ * complimentary list is set, the owner read. A malformed or unset list fails
+ * closed: every unfunded candidate counts as unpaid and the cause goes to
+ * onListError, so the caller reports it.
+ */
+export async function unpaidOrgIds(handle: ComplimentaryHandle, onListError: (cause: unknown) => void): Promise<string[]> {
+	const candidateRows = await handle
+		.select({ orgId: channels.orgId })
+		.from(channels)
+		.where(and(eq(channels.active, 1), isNotNull(channels.orgId)))
+		.groupBy(channels.orgId)
+		.all();
+	const candidates = candidateRows.flatMap((row) => (row.orgId === null ? [] : [row.orgId]));
+	if (candidates.length === 0) return [];
+	if (requireDeploymentMode() === 'self-hosted') return [];
+	const nowIso = new Date().toISOString();
+	const unfunded = (
+		await handle
+			.select({ orgId: organizations.id })
+			.from(organizations)
+			.where(and(inArray(organizations.id, candidates), sql`${fundedOrgSql(nowIso)} = 0`))
+			.all()
+	).map((row) => row.orgId);
+	if (unfunded.length === 0) return [];
+	let allowed: ReadonlySet<string>;
+	try {
+		allowed = unlimitedAccessEmails();
+	} catch (cause) {
+		onListError(cause);
+		return unfunded;
+	}
+	if (allowed.size === 0) return unfunded;
+	const owners = await handle
+		.select({ orgId: memberships.orgId, email: users.email })
+		.from(memberships)
+		.innerJoin(users, eq(users.id, memberships.userId))
+		.where(and(inArray(memberships.orgId, unfunded), eq(memberships.role, 'owner')))
+		.all();
+	const complimentary = new Set(owners.filter((owner) => isComplimentaryEmail(allowed, owner.email)).map((owner) => owner.orgId));
+	return unfunded.filter((orgId) => !complimentary.has(orgId));
 }

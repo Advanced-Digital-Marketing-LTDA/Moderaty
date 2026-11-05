@@ -134,7 +134,8 @@ export async function getCredits(orgId: string): Promise<number> {
  * after a credit purchase (Terms §6.1(c): the lifetime hosted plan). A
  * lifetime org buying a bundle must not silently convert its unlimited
  * account into a finite balance that pauses AI scoring (codex review). */
-const UNMETERED_PLANS = new Set(['lifetime']);
+export const UNMETERED_PLAN_IDS: readonly string[] = ['lifetime'];
+const UNMETERED_PLANS = new Set(UNMETERED_PLAN_IDS);
 
 export function isUnmeteredPlan(plan: string | null | undefined): boolean {
 	return UNMETERED_PLANS.has(plan ?? '');

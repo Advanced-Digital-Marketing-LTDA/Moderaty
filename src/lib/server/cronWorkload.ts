@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, isNotNull, isNull, lt, notInArray, or } from 'drizzle-orm';
-import { ingestionBlock } from './billing/ingestion';
+import { unpaidOrgIds } from './billing/ingestion';
 import { db, withBusyRetry } from './db';
 import { channels, cronWorkloadState, feedbackDigests } from './db/schema';
 
@@ -22,9 +22,10 @@ export type CronWorkload =
  * No provider work happens under the DB lock. A crash after commit still
  * yields the next class its turn; failed/rolled-back claims never spend one.
  */
-export async function claimCronWorkload(deadline: number): Promise<CronWorkload> {
-	// The billing gate reads through the shared client, so the unpaid set is read before the write transaction.
-	const unpaid = await unpaidOrgIds();
+export async function claimCronWorkload(deadline: number, onGateError: (cause: unknown) => void): Promise<CronWorkload> {
+	if (Date.now() >= deadline) return { kind: 'budget-exhausted' };
+	// Read before the write transaction, so a busy retry never re-runs the list read and the write lock stays as short as before.
+	const unpaid = await unpaidOrgIds(db, onGateError);
 	return withBusyRetry(() => db.transaction(async (tx): Promise<CronWorkload> => {
 		if (Date.now() >= deadline) return { kind: 'budget-exhausted' };
 		await tx.insert(cronWorkloadState).values({ id: 1 }).onConflictDoNothing();
@@ -62,24 +63,6 @@ export async function claimCronWorkload(deadline: number): Promise<CronWorkload>
 		const claim = { channel, leaseExpiresAt, nowIso };
 		return kind === 'preview' ? { ...claim, kind, digest: preview!.digest } : { ...claim, kind };
 	}));
-}
-
-/**
- * Unfunded hosted orgs. Their channels never take a live cron pick unless a pre-cap
- * dry-run window is still planted: that one pick runs the window's backstop, which
- * refuses and clears the drain, so the channel is never picked again.
- */
-async function unpaidOrgIds(): Promise<string[]> {
-	const orgs = await db
-		.selectDistinct({ orgId: channels.orgId })
-		.from(channels)
-		.where(and(eq(channels.active, 1), isNotNull(channels.orgId)))
-		.all();
-	const unpaid: string[] = [];
-	for (const { orgId } of orgs) {
-		if (orgId !== null && (await ingestionBlock(orgId)) === 'unpaid') unpaid.push(orgId);
-	}
-	return unpaid;
 }
 
 /** Release only this claimant's lease; a later owner is never disturbed. */
