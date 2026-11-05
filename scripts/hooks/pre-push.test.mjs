@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -64,6 +65,19 @@ test('pre-push runs every push tool, trivy included', () => {
 	expect(result.status).toBe(0);
 	const tools = new Set(fakeHook.readCalls(repo.callLog).map((call) => call.tool));
 	expect(tools).toEqual(new Set(HOOK_TOOLS['pre-push']));
+});
+
+test('a file that differs from the pushed commit blocks the push and is named', () => {
+	const repo = fakeHook.makeHookRepo('pre-push');
+	fakeHook.stageFile(repo.dir, 'src/a.ts', 'export const v = 1;\n');
+	const head = fakeHook.commitAll(repo.dir);
+	writeFileSync(join(repo.dir, 'src/a.ts'), 'export const v = 2;\n');
+	const input = `refs/heads/main ${head} refs/heads/main ${fakeHook.ZERO_SHA}\n`;
+	const result = fakeHook.runHook(repo.dir, 'pre-push', { ...repo, stdin: input });
+	expect(result.status).toBe(1);
+	expect(result.stderr).toContain('src/a.ts');
+	expect(result.stderr).toContain('git stash --keep-index');
+	expect(fakeHook.readCalls(repo.callLog)).toEqual([]);
 });
 
 test('a non-ASCII file name is analyzed on push, not dropped by git quoting', () => {

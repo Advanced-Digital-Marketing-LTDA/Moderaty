@@ -31,6 +31,21 @@ while IFS= read -r f; do
 done <<< "$listing"
 [[ ${#STAGED[@]} -gt 0 ]] || exit 0
 
+# The gates read working-tree files. Block when one differs from the index, so the
+# analysis never passes content the commit does not contain.
+if [[ "${SONARJS_GATE_OFF:-0}" != "1" || "${CODACY_GATE_OFF:-0}" != "1" ]]; then
+	UNSTAGED=()
+	for f in "${STAGED[@]}"; do
+		git diff --quiet -- "$f" || UNSTAGED+=("$f")
+	done
+	if [[ ${#UNSTAGED[@]} -gt 0 ]]; then
+		echo "[codacy] commit blocked: these files differ from the index, so the analysis would check content the commit does not contain:" >&2
+		printf '[codacy]   %s\n' "${UNSTAGED[@]}" >&2
+		echo "[codacy]   fix: git add the files, or set the unstaged changes aside with: git stash --keep-index" >&2
+		exit 1
+	fi
+fi
+
 # --- sonarjs gate -------------------------------------------------------------
 # S4036: never resolve executables through PATH — the eslint binary is an
 # absolute path under the repo's node_modules.

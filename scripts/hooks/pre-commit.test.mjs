@@ -145,6 +145,17 @@ describe('scripts/hooks/pre-commit runs Codacy per hook (fake server)', () => {
 		expect(files).toEqual(new Set([join(repo.dir, 'Dockerfile'), join(repo.dir, 'scripts/hooks/example.sh')]));
 	});
 
+	test('a file that differs from the index blocks the commit and is named', () => {
+		const repo = fakeHook.makeHookRepo('pre-commit');
+		fakeHook.stageFile(repo.dir, 'src/a.ts', 'export const v = 1;\n');
+		writeFileSync(join(repo.dir, 'src/a.ts'), 'export const v = 2;\n');
+		const result = fakeHook.runHook(repo.dir, 'pre-commit', repo);
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain('src/a.ts');
+		expect(result.stderr).toContain('git stash --keep-index');
+		expect(fakeHook.readCalls(repo.callLog)).toEqual([]);
+	});
+
 	test('a commit with nothing in scope runs no analysis', () => {
 		const repo = fakeHook.makeHookRepo('pre-commit');
 		fakeHook.stageFile(repo.dir, 'README.md', '# readme\n');

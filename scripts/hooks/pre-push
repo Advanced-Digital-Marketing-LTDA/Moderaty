@@ -20,6 +20,7 @@ source "$ROOT/scripts/hooks/analysis-scope.sh"
 EMPTY_TREE="$(git hash-object -t tree /dev/null)"
 
 declare -A FILES=()
+declare -A FILE_SHA=()
 while read -r local_ref local_sha remote_ref remote_sha; do
   [[ -n "$local_sha" && "$local_sha" != "0000000000000000000000000000000000000000" ]] || continue
   if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
@@ -42,7 +43,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     exit 1
   fi
   while IFS= read -r f; do
-    [[ -n "$f" ]] && FILES["$f"]=1
+    [[ -n "$f" ]] && FILES["$f"]=1 && FILE_SHA["$f"]="$local_sha"
   done <<< "$changed"
 done
 
@@ -53,6 +54,19 @@ for f in "${!FILES[@]}"; do
   is_analysis_file "$f" && CHANGED+=("$f")
 done
 [[ ${#CHANGED[@]} -gt 0 ]] || exit 0
+
+# The gate reads working-tree files. Block when one differs from the commit it is
+# pushed from, so the analysis never passes content the push does not contain.
+UNCOMMITTED=()
+for f in "${CHANGED[@]}"; do
+  git diff --quiet "${FILE_SHA[$f]}" -- "$f" || UNCOMMITTED+=("$f")
+done
+if [[ ${#UNCOMMITTED[@]} -gt 0 ]]; then
+  echo "[codacy] push blocked: these files differ from the commit being pushed, so the analysis would check content the push does not contain:" >&2
+  printf '[codacy]   %s\n' "${UNCOMMITTED[@]}" >&2
+  echo "[codacy]   fix: commit the changes, or set the unstaged changes aside with: git stash --keep-index" >&2
+  exit 1
+fi
 
 echo "[codacy] analyzing ${#CHANGED[@]} changed file(s) ..."
 node "$ROOT/scripts/codacy/pre-push-gate.mjs" --hook=pre-push "$ROOT" "${CHANGED[@]}"
