@@ -24,13 +24,17 @@ declare -A FILE_SHA=()
 while read -r local_ref local_sha remote_ref remote_sha; do
   [[ -n "$local_sha" && "$local_sha" != "0000000000000000000000000000000000000000" ]] || continue
   if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
-    # New branch: diff against origin/<branch> if known locally, else against the
-    # parent of the pushed commit, or the empty tree for a root commit.
-    remote_branch="${remote_ref#refs/heads/}"
-    if git rev-parse --verify -q "refs/remotes/origin/$remote_branch" >/dev/null 2>&1; then
-      base="refs/remotes/origin/$remote_branch"
-    elif git rev-parse --verify -q "$local_sha^" >/dev/null 2>&1; then
-      base="$local_sha^"
+    # New branch: analyze everything since the parent of the oldest commit that no
+    # remote has (the whole push, not just the tip), or the empty tree for a root commit.
+    if ! unpushed="$(git rev-list --reverse "$local_sha" --not --remotes 2>&1)"; then
+      echo "[codacy] push blocked: cannot list the commits no remote has ($unpushed) (fail closed)" >&2
+      exit 1
+    fi
+    oldest="$(printf '%s\n' "$unpushed" | head -n 1)"
+    if [[ -z "$oldest" ]]; then
+      base="$local_sha"
+    elif git rev-parse --verify -q "$oldest^" >/dev/null 2>&1; then
+      base="$oldest^"
     else
       base="$EMPTY_TREE"
     fi

@@ -80,6 +80,30 @@ test('a file that differs from the pushed commit blocks the push and is named', 
 	expect(fakeHook.readCalls(repo.callLog)).toEqual([]);
 });
 
+test('a new-branch push analyzes from the oldest commit no remote has, not the tip', () => {
+	const repo = fakeHook.makeHookRepo('pre-push');
+	fakeHook.stageFile(repo.dir, 'src/a.ts');
+	fakeHook.commitAll(repo.dir);
+	fakeHook.stageFile(repo.dir, 'notes.txt', 'later commit\n');
+	const head = fakeHook.commitAll(repo.dir);
+	const input = `refs/heads/main ${head} refs/heads/main ${fakeHook.ZERO_SHA}\n`;
+	const result = fakeHook.runHook(repo.dir, 'pre-push', { ...repo, stdin: input, env: { FAKE_PAYLOAD: blockingFinding('src/a.ts') } });
+	expect(result.status).toBe(1);
+	expect(result.stderr).toContain('src/a.ts');
+});
+
+test('a new-branch push skips the commits a remote already has', () => {
+	const repo = fakeHook.makeHookRepo('pre-push');
+	fakeHook.stageFile(repo.dir, 'src/a.ts');
+	const first = fakeHook.commitAll(repo.dir);
+	fakeHook.stageFile(repo.dir, 'notes.txt', 'later commit\n');
+	const head = fakeHook.commitAll(repo.dir);
+	execFileSync('git', ['update-ref', 'refs/remotes/origin/main', first], { cwd: repo.dir });
+	const input = `refs/heads/main ${head} refs/heads/main ${fakeHook.ZERO_SHA}\n`;
+	const result = fakeHook.runHook(repo.dir, 'pre-push', { ...repo, stdin: input, env: { FAKE_PAYLOAD: blockingFinding('src/a.ts') } });
+	expect(result.status).toBe(0);
+});
+
 test('a non-ASCII file name is analyzed on push, not dropped by git quoting', () => {
 	const repo = fakeHook.makeHookRepo('pre-push');
 	fakeHook.stageFile(repo.dir, 'src/café.ts');
