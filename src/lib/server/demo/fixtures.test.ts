@@ -37,6 +37,10 @@ test('the fixture covers every status column, at least one ban, and stays within
 	}
 });
 
+test('the channel title labels the comments fictional', () => {
+	expect(DEMO_CHANNEL_TITLE).toMatch(/fictional/);
+});
+
 test('the app shell shows one demo owner in one org, never in maintenance', () => {
 	const data = demoAppLayoutData();
 	expect(data.maintenance).toBe(false);

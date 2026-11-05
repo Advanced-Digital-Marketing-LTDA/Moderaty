@@ -80,6 +80,10 @@ const publishedAt = (now: number, comment: DemoComment) => now - comment.hoursAg
 const countOf = (status: DemoStatus) => DEMO_COMMENTS.filter((comment) => comment.status === status).length;
 const banCount = () => DEMO_COMMENTS.filter((comment) => comment.auditAction === 'ban').length;
 const lastRunAt = (now: number) => iso(now - 4 * MINUTE_MS);
+// The queue, log and rules loads have an outage arm (maintenance: true), so the
+// page type has no maintenance key on its normal arm. undefined fits that arm;
+// the channel layout still supplies the real flag to its own overlay.
+const PAGE_MAINTENANCE_UNSET: undefined = undefined;
 
 function reasonFor(comment: DemoComment): string {
 	if (comment.decision.by === 'ai') return comment.decision.reason;
@@ -164,7 +168,7 @@ export function demoQueueData(now: number) {
 			holdState: 'completed',
 			reason: reasonFor(comment)
 		}));
-	return { ch: { id: DEMO_CHANNEL_ID, title: DEMO_CHANNEL_TITLE }, pending };
+	return { ch: { id: DEMO_CHANNEL_ID, title: DEMO_CHANNEL_TITLE }, pending, maintenance: PAGE_MAINTENANCE_UNSET };
 }
 
 /** The rules load's data: the two keyword rules, and no protected handles. */
@@ -177,7 +181,7 @@ export function demoRulesData(now: number) {
 		action: rule.action,
 		createdAt: iso(now - rule.daysAgo * DAY_MS)
 	}));
-	return { ch: { id: DEMO_CHANNEL_ID, title: DEMO_CHANNEL_TITLE }, rs, handles: [] };
+	return { ch: { id: DEMO_CHANNEL_ID, title: DEMO_CHANNEL_TITLE }, rs, handles: [], maintenance: PAGE_MAINTENANCE_UNSET };
 }
 
 /** The log load's data: one system decision per comment, newest first, no undo or recovery. */
@@ -207,6 +211,7 @@ export function demoLogData(now: number) {
 		firstDispatchHref: null,
 		canRecover: true,
 		nextCursor: null,
-		hasPrev: false
+		hasPrev: false,
+		maintenance: PAGE_MAINTENANCE_UNSET
 	};
 }
