@@ -8,7 +8,8 @@ const FAILURE_ACTIONS: Record<string, string> = {
 	credits: 'AI credits ran out — top up on the usage page; we retry on the next check',
 	quota: 'YouTube quota is exhausted — we retry on the next check',
 	scoring: 'AI scoring was unavailable — we retry on the next check',
-	timeout: 'The last check timed out — we retry on the next check'
+	timeout: 'The last check timed out — we retry on the next check',
+	unpaid: 'Moderation is paused: this organization has no credits or subscription. Buy credits or subscribe on the Usage page.'
 };
 
 export function runFailureAction(category: string | null): string {

@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { organizations } from '$lib/server/db/schema';
 import { getCredits } from '$lib/server/billing/ledger';
+import { orgHasUnlimitedAccess } from '$lib/server/billing/unlimitedAccess';
 import { resolveOpenAiKey } from '$lib/server/openaiKey';
 
 /**
@@ -13,7 +14,8 @@ import { resolveOpenAiKey } from '$lib/server/openaiKey';
  * allowance). Read failures throw — the caller turns them into a loud 503.
  */
 export async function historyAccessError(orgId: string): Promise<'purchase' | 'key' | null> {
-	const org = await db.select({ plan: organizations.plan }).from(organizations).where(eq(organizations.id, orgId)).get();
+	if (await orgHasUnlimitedAccess(db, orgId)) return null;
+	const org =await db.select({ plan: organizations.plan }).from(organizations).where(eq(organizations.id, orgId)).get();
 	if (!org) throw new Error(`organization not found: ${orgId}`);
 	if (org.plan === 'lifetime') {
 		return (await resolveOpenAiKey(orgId, { throwOnReadError: true }))?.trim() ? null : 'key';

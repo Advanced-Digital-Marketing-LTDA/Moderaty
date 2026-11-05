@@ -3,7 +3,7 @@ import { channels } from '$lib/server/db/schema';
 import { decrypt } from '$lib/server/crypto';
 import { deleteChannelRecords } from '$lib/server/deletion';
 import { revokeGoogleToken } from '$lib/server/google';
-import { claimDryRun } from '$lib/server/dryRun';
+import { claimDryRunForOrg, refusalMessage, type DryRunClaimResult } from '$lib/server/billing/ingestion';
 import { historyAccessError } from '$lib/server/historyAccess';
 import { historyWindowBoundary, parseHistoryWindow } from '$lib/historyWindow';
 import { requireOrgRole } from '$lib/server/ownership';
@@ -215,21 +215,24 @@ export const actions = {
 		// rows and reads as "not found". The lease self-expires if this
 		// request dies mid-preview. Burning the allowance on a failed attempt
 		// is deliberate — cheap retry abuse would otherwise be unlimited.
-		let claim: Awaited<ReturnType<typeof claimDryRun>>;
+		let claim: DryRunClaimResult;
 		try {
-			claim = await claimDryRun(channelId, user.orgId, 'moderation');
+			claim = await claimDryRunForOrg(channelId, user.orgId, 'moderation');
 		} catch (cause) {
 			console.error('dry-run claim failed for channel:', channelId, cause);
 			return fail(500, { scope: 'dryRun', channelId, error: 'The dry run could not be started. Check the server log and try again.' });
 		}
-		if ('status' in claim) return fail(claim.status, { scope: 'dryRun', channelId, error: claim.error });
+		if ('status' in claim) return fail(claim.status, { scope: 'dryRun', channelId, error: refusalMessage(claim) });
 		// First page synchronously (one page, hard 20 s ceiling); a window with
 		// more pages drains one page per cron invocation afterwards. The run
 		// writes nothing durable except dry-run audit rows (I8).
 		try {
+			const capped = claim.orgFreeRun === true;
+			// An unpaid org's free run is one page and plants no drain (the cap); other previews keep their first-page-then-drain behavior.
 			const result = await runChannel(channelId, {
 				deadline: Date.now() + 20_000,
 				forceDryRun: true,
+				...(capped ? { maxPages: 1 } : {}),
 				window: { boundary, pageToken: null },
 				// Bind execution to the row that claimed the allowance — a
 				// delete/reconnect under the same channel id must abort the
@@ -247,19 +250,19 @@ export const actions = {
 			// claimed the channel mid-run, the drain state belongs to cron now
 			// and a 0-row update leaves it untouched.
 			const stillOurs = and(eq(channels.id, channelId), eq(channels.leaseExpiresAt, claim.lease));
-			const background = !result.skipped && result.windowComplete !== true;
-			if (result.windowComplete === true) {
+			const background = !capped && !result.skipped && result.windowComplete !== true;
+			if (!capped && result.windowComplete === true) {
 				await db
 					.update(channels)
 					.set({ dryRunBoundary: null, dryRunPageToken: null })
 					.where(stillOurs);
-			} else if (!result.skipped) {
+			} else if (!capped && !result.skipped) {
 				await db
 					.update(channels)
 					.set({ dryRunBoundary: boundary, dryRunPageToken: result.windowNextPageToken ?? null })
 					.where(stillOurs);
 			}
-			return { ok: true as const, scope: 'dryRun', channelId, months, dryRunUsed: true, ...result, background };
+			return { ok: true as const, scope: 'dryRun', channelId, months, dryRunUsed: true, ...result, background, capped };
 		} catch (e) {
 			// Loud server-side, generic client-side — never return raw
 			// YouTube/OpenAI error detail to the browser. attempted:true tells

@@ -402,7 +402,7 @@ const runCronSweeps = async (dryRun: boolean, deadline: number, startedAt: numbe
 	return base;
 };
 
-type RunCategory = 'token' | 'quota' | 'scoring' | 'timeout' | 'credits' | 'handles' | 'error';
+type RunCategory = 'token' | 'quota' | 'scoring' | 'timeout' | 'credits' | 'handles' | 'unpaid' | 'error';
 
 /**
  * Runs the claimed channel and writes its bookkeeping row. The run's health
@@ -424,7 +424,8 @@ const runAndRecord = async (
 	const runStartedAt = Date.now();
 	try {
 		const { result, dryRunWindow, digest } = await runClaimedChannel(channel, deadline, diagnostics);
-		if (result.dryRun || result.stoppedReason === 'deactivated' || result.skipped) runHealth = 'none';
+		if (result.unpaid) runHealth = { status: 'failed', error: 'unpaid' };
+			else if (result.dryRun || result.stoppedReason === 'deactivated' || result.skipped) runHealth = 'none';
 		else if (result.outOfCredits) runHealth = { status: 'failed', error: 'credits' };
 		else if (result.partial) runHealth = { status: 'failed', error: 'timeout' };
 		else if (result.handleLookupError) runHealth = { status: 'failed', error: 'handles' };

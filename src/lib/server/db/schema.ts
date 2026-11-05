@@ -117,6 +117,8 @@ export const organizations = sqliteTable('organizations', {
 	// rail; the ledger itself is provider-agnostic (a future MercadoPago
 	// provider reuses it). Columns are nullable until the contract migration.
 	creditsRemaining: integer('credits_remaining'),
+	// Unpaid hosted orgs' one-time free dry run, org-wide and for life (billing/ingestion.ts). Null = unspent; funded and complimentary orgs never set it.
+	freeDryRunUsedAt: text('free_dry_run_used_at'),
 	stripeCustomerId: text('stripe_customer_id'), // Stripe Customer for this org
 	stripeDefaultPmId: text('stripe_default_pm_id'), // card saved for off-session auto top-up
 	autoTopupEnabled: integer('auto_topup_enabled'),

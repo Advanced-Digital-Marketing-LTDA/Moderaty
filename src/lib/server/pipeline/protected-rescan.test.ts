@@ -1,4 +1,9 @@
 import { beforeEach, expect, test, vi } from 'vitest';
+
+vi.mock('$env/dynamic/private', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$env/dynamic/private')>();
+	return { env: { ...actual.env, UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } };
+});
 import { eq } from 'drizzle-orm';
 import { setupTestDb, testDb } from '$lib/server/testdb';
 import { auditLog, channels, comments, creditTransactions, organizations } from '$lib/server/db/schema';
