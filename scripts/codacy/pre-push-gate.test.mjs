@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { writeCodacyConfig } from '../../test-support/codacy-config.mjs';
 import { writeFakeServer } from './fake-mcp-server.mjs';
 import {
 	HOOK_TOOLS,
@@ -162,13 +163,16 @@ describe('HOOK_TOOLS — which Codacy tools each hook runs', () => {
 describe('analysisScope', () => {
 	const tools = ['semgrep', 'shellcheck'];
 
-	test('one call per changed file and tool for a small push', () => {
-		expect(analysisScope('/repo', ['src/a.ts', 'src/b.ts'], tools)).toEqual([
+	test('one call per changed file and tool that applies to it, for a small push', () => {
+		expect(analysisScope('/repo', ['src/a.ts', 'install.sh'], tools)).toEqual([
 			{ rootPath: '/repo', file: '/repo/src/a.ts', tool: 'semgrep' },
-			{ rootPath: '/repo', file: '/repo/src/a.ts', tool: 'shellcheck' },
-			{ rootPath: '/repo', file: '/repo/src/b.ts', tool: 'semgrep' },
-			{ rootPath: '/repo', file: '/repo/src/b.ts', tool: 'shellcheck' },
+			{ rootPath: '/repo', file: '/repo/install.sh', tool: 'semgrep' },
+			{ rootPath: '/repo', file: '/repo/install.sh', tool: 'shellcheck' },
 		]);
+	});
+
+	test('a file no requested tool applies to gets no call', () => {
+		expect(analysisScope('/repo', ['scripts/hooks/pre-commit'], ['biome', 'shellcheck'])).toEqual([]);
 	});
 
 	test('one whole-repository call per tool above the per-file limit', () => {
@@ -195,12 +199,69 @@ function fakeServer() {
 function gitRoot() {
 	const root = tempDir('codacy-gate-repo-');
 	mkdirSync(join(root, '.git'));
+	writeCodacyConfig(root);
 	return root;
 }
 
 function analysis(result) {
 	return JSON.stringify({ success: true, result });
 }
+
+describe('runner status and config checks (fail closed)', () => {
+	let errorSpy;
+
+	beforeEach(() => {
+		errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		// A clean tool result, so only the runner-status and config checks can block.
+		process.env.FAKE_PAYLOAD = JSON.stringify({ success: true, result: [] });
+	});
+
+	afterEach(() => {
+		errorSpy.mockRestore();
+		delete process.env.FAKE_RUNNER_STDERR;
+		delete process.env.FAKE_PAYLOAD;
+	});
+
+	// Only the gate's own block messages: the echoed runner lines are not evidence.
+	const blockMessages = () => errorSpy.mock.calls.map((args) => args.join(' ')).filter((line) => line.startsWith('[codacy-gate]')).join('\n');
+
+	test('removing a tool from the Codacy config blocks and names it', async () => {
+		const root = gitRoot();
+		writeCodacyConfig(root, ['trivy', 'semgrep', 'biome', 'hadolint']);
+		const code = await main(['--hook=pre-commit', root, 'install.sh'], { locateServer: fakeServer });
+		expect(code).toBe(1);
+		expect(blockMessages()).toContain('shellcheck');
+		expect(blockMessages()).toContain('codacy.config.json');
+	});
+
+	test('a runner status with no Analysis complete line blocks and names the tool', async () => {
+		process.env.FAKE_RUNNER_STDERR = 'Starting analysis ({tool}, 1 files)';
+		const code = await main(['--hook=pre-push', gitRoot(), 'src/a.ts'], { locateServer: fakeServer });
+		expect(code).toBe(1);
+		expect(blockMessages()).toContain('semgrep');
+		expect(blockMessages()).toContain('Analysis complete');
+	});
+
+	test('"1 errors" in the runner summary blocks and names the tool', async () => {
+		process.env.FAKE_RUNNER_STDERR = 'Starting analysis ({tool}, 1 files)\nAnalysis complete ({tool}, 0 issues, 1 errors, 0.1s)';
+		const code = await main(['--hook=pre-push', gitRoot(), 'src/a.ts'], { locateServer: fakeServer });
+		expect(code).toBe(1);
+		expect(blockMessages()).toContain('biome');
+		expect(blockMessages()).toContain('check failed for biome: 1 errors reported');
+	});
+
+	test('an unrecognized runner summary blocks: it is never a pass', async () => {
+		process.env.FAKE_RUNNER_STDERR = 'Starting analysis ({tool}, 1 files)\nAnalysis complete ({tool}, weird output)';
+		const code = await main(['--hook=pre-push', gitRoot(), 'src/a.ts'], { locateServer: fakeServer });
+		expect(code).toBe(1);
+		expect(blockMessages()).toContain('unrecognized runner line');
+	});
+
+	test('clean runner output passes', async () => {
+		const code = await main(['--hook=pre-push', gitRoot(), 'src/a.ts'], { locateServer: fakeServer });
+		expect(code).toBe(0);
+	});
+});
 
 describe('main — the gate fails closed', () => {
 	let errorSpy;
@@ -249,6 +310,14 @@ describe('main — the gate fails closed', () => {
 	test('an unknown --hook blocks, including prototype names', async () => {
 		expect(await main(['--hook=pre-merge', gitRoot(), 'src/a.ts'], { locateServer: fakeServer })).toBe(1);
 		expect(await main(['--hook=constructor', gitRoot(), 'src/a.ts'], { locateServer: fakeServer })).toBe(1);
+	});
+
+	test('a hook set with a tool that has no file-type mapping blocks and names it', async () => {
+		const locateServer = vi.fn(fakeServer);
+		const code = await main(['--hook=pre-commit', gitRoot(), 'src/a.ts'], { locateServer, hookTools: { 'pre-commit': ['semgrep', 'constructor'] } });
+		expect(code).toBe(1);
+		expect(logged()).toContain('check failed for constructor: no file-type mapping for tool constructor');
+		expect(locateServer).not.toHaveBeenCalled();
 	});
 
 	test('a missing server blocks and names the override', async () => {
@@ -331,25 +400,25 @@ describe('main — the gate fails closed', () => {
 		expect(code).toBe(0);
 	});
 
-	test('pre-commit calls the commit tools only, never trivy', async () => {
+	test('pre-commit calls the tools that apply to the file, never trivy', async () => {
 		const root = gitRoot();
 		const logFile = join(root, 'calls.jsonl');
 		process.env.FAKE_LOG = logFile;
 		process.env.FAKE_PAYLOAD = analysis([]);
 		await main(['--hook=pre-commit', root, 'src/a.ts'], { locateServer: fakeServer });
 		const tools = new Set(callsIn(logFile).map((call) => call.tool));
-		expect(tools).toEqual(new Set(HOOK_TOOLS['pre-commit']));
+		expect(tools).toEqual(new Set(['semgrep', 'biome']));
 		expect(tools.has('trivy')).toBe(false);
 	});
 
-	test('pre-push calls every push tool, trivy included', async () => {
+	test('pre-push calls trivy and every tool that applies to the file', async () => {
 		const root = gitRoot();
 		const logFile = join(root, 'calls.jsonl');
 		process.env.FAKE_LOG = logFile;
 		process.env.FAKE_PAYLOAD = analysis([]);
 		await main(['--hook=pre-push', root, 'src/a.ts'], { locateServer: fakeServer });
 		const tools = new Set(callsIn(logFile).map((call) => call.tool));
-		expect(tools).toEqual(new Set(HOOK_TOOLS['pre-push']));
+		expect(tools).toEqual(new Set(['trivy', 'semgrep', 'biome']));
 	});
 
 	test('a small push is analyzed one changed file at a time', async () => {

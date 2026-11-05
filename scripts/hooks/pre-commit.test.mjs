@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
-import { HOOK_TOOLS } from '../codacy/pre-push-gate.mjs';
 import * as fakeHook from '../../test-support/hook-repo.mjs';
 
 const root = new URL('../..', import.meta.url);
@@ -114,13 +113,13 @@ describe('scripts/hooks/pre-commit', () => {
 });
 
 describe('scripts/hooks/pre-commit runs Codacy per hook (fake server)', () => {
-	test('the commit tools run and trivy never does', () => {
+	test('the tools that apply to the file run, and trivy never does', () => {
 		const repo = fakeHook.makeHookRepo('pre-commit');
 		fakeHook.stageFile(repo.dir, 'src/a.ts');
 		const result = fakeHook.runHook(repo.dir, 'pre-commit', repo);
 		expect(result.status).toBe(0);
 		const tools = new Set(fakeHook.readCalls(repo.callLog).map((call) => call.tool));
-		expect(tools).toEqual(new Set(HOOK_TOOLS['pre-commit']));
+		expect(tools).toEqual(new Set(['semgrep', 'biome']));
 		expect(tools.has('trivy')).toBe(false);
 	});
 

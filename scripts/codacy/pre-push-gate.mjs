@@ -20,6 +20,8 @@ import os from 'node:os';
 import path, { resolve as resolvePath } from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { format } from 'node:util';
+import { appliesTo, configFailures, hasFileMapping, mappingFailures, runnerFailures } from './runner-contract.mjs';
 
 /**
  * Resolves the npm global prefix WITHOUT spawning npm or resolving anything
@@ -173,7 +175,9 @@ function mcpEnv() {
 async function analyzeRepository(serverBin, env, scope) {
 	const payloads = [];
 	let analysisError = null;
+	const runnerLines = [];
 	const proc = spawn(serverBin, [], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+	const closed = new Promise((resolve) => proc.once('close', resolve));
 	// Minimal MCP stdio client (JSON-RPC 2.0, newline-delimited).
 	function rpc(rl, id, method, params) {
 		return new Promise((resolve, reject) => {
@@ -198,6 +202,7 @@ async function analyzeRepository(serverBin, env, scope) {
 	proc.stderr.on('data', (chunk) => {
 		for (const line of chunk.split(/\r?\n/)) {
 			if (!line) continue;
+			runnerLines.push(line);
 			if (line === lastLine) {
 				repeatCount += 1;
 				continue;
@@ -225,9 +230,15 @@ async function analyzeRepository(serverBin, env, scope) {
 	} catch (err) {
 		analysisError = err;
 	} finally {
+		proc.stdin.end();
+		try {
+			await waitForExit(closed);
+		} catch (err) {
+			analysisError ??= err;
+		}
 		try { proc.kill(); } catch { /* ignore */ }
 	}
-	return { payloads, analysisError };
+	return { payloads, analysisError, runnerLines };
 }
 
 /** Tools whose warning-level findings also block. Hadolint is the only one. */
@@ -257,13 +268,56 @@ export const HOOK_TOOLS = {
  * shortcut: the limit is a fixed count, not timed per tool; upgrade by timing both paths on real pushes.
  */
 export function analysisScope(repoRoot, files, tools) {
-	const targets = files.length > 0 && files.length <= PER_FILE_SCOPE_LIMIT
-		? files.map((file) => ({ rootPath: repoRoot, file: path.join(repoRoot, file) }))
-		: [{ rootPath: repoRoot }];
-	return targets.flatMap((target) => tools.map((tool) => ({ ...target, tool })));
+	if (files.length === 0 || files.length > PER_FILE_SCOPE_LIMIT) {
+		return tools.map((tool) => ({ rootPath: repoRoot, tool }));
+	}
+	return files.flatMap((file) => tools
+		.filter((tool) => appliesTo(tool, file))
+		.map((tool) => ({ rootPath: repoRoot, file: path.join(repoRoot, file), tool })));
 }
 
-const OVERRIDE_HINT = '  override this gate only: CODACY_GATE_OFF=1 git push (or git commit)';
+/** How many times each tool is asked to run in a scope. */
+export function expectedRuns(scope) {
+	const runs = new Map();
+	for (const call of scope) runs.set(call.tool, (runs.get(call.tool) ?? 0) + 1);
+	return runs;
+}
+
+const EXIT_TIMEOUT_MS = 30_000;
+
+/** Waits for the analysis server to exit, so every stderr line is in; a server that never exits makes the run incomplete. */
+function waitForExit(closed) {
+	let timer;
+	const timeout = new Promise((_, reject) => {
+		timer = setTimeout(() => reject(new Error('the analysis server did not exit; its output is incomplete')), EXIT_TIMEOUT_MS);
+	});
+	return Promise.race([closed, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** The Codacy config text, or null when the file cannot be read. */
+function readCodacyConfig(root) {
+	try {
+		return readFileSync(path.join(root, '.codacy', 'codacy.config.json'), 'utf8');
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Failures that stop the gate before any analysis: hook tools with no file-type
+ * mapping, and mapped tools missing from the Codacy config.
+ */
+function setupFailures(tools, root) {
+	return [...mappingFailures(tools), ...configFailures(readCodacyConfig(root), tools.filter(hasFileMapping))];
+}
+
+/** Logs each failure as a named, blocking message; true when there was any. */
+function reportFailures(log, failures) {
+	for (const { tool, reason } of failures) log('check failed for %s: %s; blocking (fail closed)', tool, reason);
+	return failures.length > 0;
+}
+
+const OVERRIDE_HINT ='  override this gate only: CODACY_GATE_OFF=1 git push (or git commit)';
 
 /** Resolves the server binary and its environment; logs the reason and returns null when the gate must block. */
 function resolveRun(locateServer, log) {
@@ -292,15 +346,15 @@ function analysisFailure(payloads) {
 	return failed.success ? 'response result is not an array' : failed.output || 'unknown';
 }
 
-export async function main(argv = process.argv.slice(2), { locateServer = () => resolveServerBin() } = {}) {
+export async function main(argv = process.argv.slice(2), { locateServer = () => resolveServerBin(), hookTools = HOOK_TOOLS } = {}) {
 	const [hookFlag, ...args] = argv;
 	const hook = hookFlag?.startsWith('--hook=') ? hookFlag.slice('--hook='.length) : undefined;
-	const log = (...a) => console.error('[codacy-gate]', ...a);
-	if (!Object.hasOwn(HOOK_TOOLS, hook)) {
+	const log = (...a) => console.error('[codacy-gate]', format(...a));
+	if (!Object.hasOwn(hookTools, hook)) {
 		log('unknown or missing --hook (got %s); blocking (fail closed). Use --hook=pre-commit or --hook=pre-push', hook ?? 'none');
 		return 1;
 	}
-	const tools = HOOK_TOOLS[hook];
+	const tools = hookTools[hook];
 	const ROOT = args[0];
 	const changed = new Set((args.slice(1) || []).map((f) => f.replace(/^\.\//, '')));
 
@@ -313,15 +367,19 @@ export async function main(argv = process.argv.slice(2), { locateServer = () => 
 		return 0;
 	}
 
+	if (reportFailures(log, setupFailures(tools, ROOT))) return 1;
+
 	const run = resolveRun(locateServer, log);
 	if (!run) return 1;
 
 	// --- preserve committed .codacy config (the runner regenerates it) -----------
 	const restoreConfig = backupCodacyConfig(ROOT);
+	const scope = analysisScope(ROOT, [...changed], tools);
 	let payloads;
+	let runnerLines;
 	let analysisError;
 	try {
-		({ payloads, analysisError } = await analyzeRepository(run.serverBin, run.env, analysisScope(ROOT, [...changed], tools)));
+		({ payloads, analysisError, runnerLines } = await analyzeRepository(run.serverBin, run.env, scope));
 	} finally {
 		restoreConfig(); // restore the initial .codacy state on EVERY exit path
 	}
@@ -337,6 +395,8 @@ export async function main(argv = process.argv.slice(2), { locateServer = () => 
 		log(OVERRIDE_HINT);
 		return 1;
 	}
+
+	if (reportFailures(log, runnerFailures(runnerLines, expectedRuns(scope)))) return 1;
 
 	const findings = payloads.flatMap((p) => (Array.isArray(p.result) ? p.result : []));
 	const blockers = findings.filter(

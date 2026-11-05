@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
-import { HOOK_TOOLS } from '../codacy/pre-push-gate.mjs';
 import * as fakeHook from '../../test-support/hook-repo.mjs';
 
 const root = new URL('../..', import.meta.url);
@@ -57,7 +56,7 @@ test('a root-commit push analyzes its code files against the empty tree', () => 
 	expect(result.stderr).not.toContain('cannot list changed files');
 });
 
-test('pre-push runs every push tool, trivy included', () => {
+test('pre-push runs trivy and every tool that applies to the file', () => {
 	const repo = fakeHook.makeHookRepo('pre-push');
 	fakeHook.stageFile(repo.dir, 'src/a.ts');
 	const head = fakeHook.commitAll(repo.dir);
@@ -65,7 +64,7 @@ test('pre-push runs every push tool, trivy included', () => {
 	const result = fakeHook.runHook(repo.dir, 'pre-push', { ...repo, stdin: input });
 	expect(result.status).toBe(0);
 	const tools = new Set(fakeHook.readCalls(repo.callLog).map((call) => call.tool));
-	expect(tools).toEqual(new Set(HOOK_TOOLS['pre-push']));
+	expect(tools).toEqual(new Set(['trivy', 'semgrep', 'biome']));
 });
 
 test('a file that differs from the pushed commit blocks the push and is named', () => {

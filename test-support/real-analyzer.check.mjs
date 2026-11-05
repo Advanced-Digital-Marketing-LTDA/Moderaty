@@ -78,6 +78,17 @@ describe('biome config loads for clean TypeScript, CSS and JSON', () => {
 	}
 });
 
+describe('today\'s runner output parses', () => {
+	test('a real gate run over a shell script, a Dockerfile and a module passes', () => {
+		const env = { ...process.env };
+		delete env.CODACY_MCP_SERVER;
+		const files = ['install.sh', 'Dockerfile', 'scripts/codacy/pre-push-gate.mjs'];
+		const result = spawnSync(process.execPath, ['scripts/codacy/pre-push-gate.mjs', '--hook=pre-commit', root, ...files], { cwd: root, encoding: 'utf8', env });
+		assert.equal(result.status, 0, result.stdout + result.stderr);
+		assert.match(result.stderr, /OK: no error-level Codacy findings/);
+	});
+});
+
 describe('real analyzer blocks a known-bad line in a real commit', () => {
 	test('a ShellCheck SC2115 line in a staged hook script blocks the commit', () => {
 		const indexFile = privateIndex();

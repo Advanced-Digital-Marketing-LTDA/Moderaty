@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFakeServer } from '../scripts/codacy/fake-mcp-server.mjs';
+import { writeCodacyConfig } from './codacy-config.mjs';
 
 // Test support for hook tests: a scratch git repo with a hook, the shared scope
 // helper and the Codacy gate copied in, and a fake MCP server whose calls are
@@ -18,10 +19,11 @@ export function makeHookRepo(hook) {
 	const dir = mkdtempSync(join(tmpdir(), `hook-repo-${hook}-`));
 	scratchDirs.push(dir);
 	execFileSync('git', ['init', '-q'], { cwd: dir });
-	for (const rel of [`scripts/hooks/${hook}`, 'scripts/hooks/analysis-scope.sh', 'scripts/codacy/pre-push-gate.mjs']) {
+	for (const rel of [`scripts/hooks/${hook}`, 'scripts/hooks/analysis-scope.sh', 'scripts/codacy/pre-push-gate.mjs', 'scripts/codacy/runner-contract.mjs']) {
 		mkdirSync(dirname(join(dir, rel)), { recursive: true });
 		copyFileSync(join(repoRoot, rel), join(dir, rel));
 	}
+	writeCodacyConfig(dir);
 	const fakeServer = writeFakeServer(dir);
 	return { dir, fakeServer, callLog: join(dir, 'calls.jsonl') };
 }
