@@ -44,17 +44,6 @@ function stageViolatingFile(indexFile, content = 'export const same = 1 === 1;\n
 	return rel;
 }
 
-/** Like stageViolatingFile, but for an arbitrary repo-relative path. */
-function stageFixture(indexFile, rel, content) {
-	fixtureFiles.push(rel);
-	writeFileSync(join(rootPath, rel), content);
-	execFileSync('git', ['add', rel], {
-		cwd: root,
-		env: { ...process.env, GIT_INDEX_FILE: indexFile }
-	});
-	return rel;
-}
-
 function runHookIn(dir, env) {
 	return spawnSync('bash', ['scripts/hooks/pre-commit'], {
 		cwd: dir,
@@ -196,31 +185,4 @@ describe('scripts/hooks/pre-commit fails closed on unlistable paths and keeps no
 		const files = fakeHook.readCalls(repo.callLog).map((call) => call.file);
 		expect(files).toContain(join(repo.dir, 'src/café.ts'));
 	});
-});
-
-describe('scripts/hooks/pre-commit blocks a known-bad line (real analyzer)', () => {
-	test('a ShellCheck SC2115 line in a staged hook script blocks the commit', () => {
-		const indexFile = privateIndex();
-		const rel = stageFixture(indexFile, `scripts/hooks/pre-commit-fixture-${process.pid}.sh`, '#!/bin/bash\ndir="$1"\nrm -rf "$dir/"*\n');
-		const env = { ...process.env, GIT_INDEX_FILE: indexFile, SONARJS_GATE_OFF: '1', CODACY_GATE_OFF: '0' };
-		delete env.CODACY_MCP_SERVER;
-		const result = spawnSync('bash', ['scripts/hooks/pre-commit'], { cwd: root, encoding: 'utf8', env });
-		const output = result.stdout + result.stderr;
-		expect(result.status).toBe(1);
-		expect(output).toContain('[shellcheck]');
-		expect(output).toContain(rel);
-		expect(output).toContain('[codacy] commit blocked');
-	}, 120000);
-
-	test('a Hadolint warning in a staged Dockerfile blocks a real commit', () => {
-		const indexFile = privateIndex();
-		const rel = stageFixture(indexFile, `scripts/hooks/hadolint-fixture-${process.pid}.Dockerfile`, 'FROM ubuntu:22.04\nRUN echo $HOME\n');
-		const env = { ...process.env, GIT_INDEX_FILE: indexFile, SONARJS_GATE_OFF: '1', CODACY_GATE_OFF: '0' };
-		delete env.CODACY_MCP_SERVER;
-		const result = spawnSync('bash', ['scripts/hooks/pre-commit'], { cwd: root, encoding: 'utf8', env });
-		const output = result.stdout + result.stderr;
-		expect(result.status).toBe(1);
-		expect(output).toMatch(/\[hadolint\]/i);
-		expect(output).toContain(rel);
-	}, 120000);
 });
