@@ -13,6 +13,7 @@ import ModerationGuide from './guides/youtube-comment-moderation/+page.svelte';
 import SettingsGuide from './guides/youtube-comment-moderation-settings/+page.svelte';
 import Terms from '$lib/components/landing/legal/Terms.svelte';
 import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
+import { PRICING_FAQ_ENTRIES } from '$lib/landing/pricing-faq';
 import { HATE_COMMENTS, HATE_COMMENTS_EDITION } from '$lib/blogs/hate-comments';
 import { SPAM_COMMENTS, SPAM_COMMENTS_EDITION } from '$lib/blogs/spam-comments';
 import { COMMENT_REVIEW_ROUTINE, COMMENT_REVIEW_ROUTINE_EDITION } from '$lib/blogs/comment-review-routine';
@@ -25,8 +26,9 @@ import { COMMENT_SETTINGS_GUIDE, COMMENT_SETTINGS_GUIDE_EDITION } from '$lib/blo
 const ORIGIN = 'https://moderaty.example';
 const PRICING_CANONICAL = `${ORIGIN}/pricing`;
 
+const mocks = vi.hoisted(() => ({ canonical: 'https://moderaty.example/pricing' as string | null }));
 vi.mock('$app/state', () => ({
-	page: { data: { locale: 'en', canonical: 'https://moderaty.example/pricing' }, url: new URL('https://moderaty.example/') }
+	page: { get data() { return { locale: 'en', canonical: mocks.canonical }; }, url: new URL('https://moderaty.example/') }
 }));
 vi.mock('$env/dynamic/private', () => ({ env: { APP_URL: 'https://moderaty.example' } }));
 
@@ -65,11 +67,18 @@ const PAGES = [
 // These pages leave the canonical tag to the root layout (see how-it-works
 // /page.test history); their social URL must still match the address they serve.
 const LAYOUT_CANONICAL = new Set<string>(['/how-it-works/', '/pricing']);
+// Pages that must contain at least one link of the given kind, so an empty
+// loop cannot pass silently.
+const EXTERNAL_LINK_PATHS = new Set<string>(['/', '/how-it-works/', '/pricing', HATE_COMMENTS.path, SPAM_COMMENTS.path, COMMENT_REVIEW_ROUTINE.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path]);
+const IN_PAGE_ANCHOR_PATHS = new Set<string>(['/how-it-works/', HATE_COMMENTS.path, SPAM_COMMENTS.path, COMMENT_REVIEW_ROUTINE.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path]);
 
 test.each(PAGES)('$name declares its canonical address and matching social URL', ({ path, render: renderPage }) => {
 	const { head } = renderPage();
 	const expected = path === '/pricing' ? PRICING_CANONICAL : new URL(path, ORIGIN).href;
-	if (!LAYOUT_CANONICAL.has(path)) {
+	if (LAYOUT_CANONICAL.has(path)) {
+		// The root layout owns this tag; a page-level canonical would duplicate it.
+		expect(attribute(head, 'rel', 'canonical', 'href')).toBeUndefined();
+	} else {
 		expect(attribute(head, 'rel', 'canonical', 'href')).toBe(expected);
 	}
 	expect(attribute(head, 'property', 'og:url', 'content')).toBe(expected);
@@ -82,18 +91,22 @@ test.each(PAGES)('$name ships only parseable JSON-LD blocks', ({ render: renderP
 	}
 });
 
-test.each(PAGES)('$name opens every external link in a new tab with noopener', ({ render: renderPage }) => {
+test.each(PAGES)('$name opens every external link in a new tab with noopener', ({ path, render: renderPage }) => {
 	const { body } = renderPage();
-	for (const attributes of externalAnchors(body)) {
+	const anchors = externalAnchors(body);
+	if (EXTERNAL_LINK_PATHS.has(path)) expect(anchors.length).toBeGreaterThan(0);
+	for (const attributes of anchors) {
 		expect(attributes).toMatch(/\btarget="_blank"/);
 		expect(attributes).toMatch(/\brel="[^"]*\bnoopener\b[^"]*"/);
 	}
 });
 
-test.each(PAGES)('$name anchors resolve within the page', ({ render: renderPage }) => {
+test.each(PAGES)('$name anchors resolve within the page', ({ path, render: renderPage }) => {
 	const { body } = renderPage();
 	const ids = idsIn(body);
-	for (const [, fragment] of body.matchAll(/<a\b[^>]*href="#([^"]+)"/g)) {
+	const fragments = [...body.matchAll(/<a\b[^>]*href="#([^"]+)"/g)];
+		if (IN_PAGE_ANCHOR_PATHS.has(path)) expect(fragments.length).toBeGreaterThan(0);
+		for (const [, fragment] of fragments) {
 		expect(ids.has(fragment)).toBe(true);
 	}
 });
@@ -112,7 +125,7 @@ test.each(PAGES)('$name never links to a hard-coded production host', ({ render:
 	expect(hrefs.filter((href) => href.includes('moderaty.com'))).toEqual([]);
 });
 
-test('the homepage FAQ structured data mirrors the visible FAQ entries exactly', () => {
+test('the homepage FAQ structured data mirrors the homepage FAQ constant', () => {
 	const { head } = render(Homepage, { props: { data: pageData('/') } });
 	const faq = [...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
 		.map(([, json]) => JSON.parse(json) as { '@type': string; mainEntity?: unknown })
@@ -142,9 +155,32 @@ test.each(['https://selfhost.example', 'http://localhost:5173'])('homepage addre
 test('pricing links to terms sections that exist on the terms page', () => {
 	const { body } = render(Pricing);
 	const terms = idsIn(render(Terms).body);
-	for (const [, id] of body.matchAll(/href="\/terms#([^"]+)"/g)) {
+	const termsLinks = [...body.matchAll(/href="\/terms#([^"]+)"/g)];
+	expect(termsLinks.length).toBeGreaterThan(0);
+	for (const [, id] of termsLinks) {
 		expect(terms.has(id)).toBe(true);
 	}
+});
+
+test('pricing refuses to render without the layout canonical', () => {
+	mocks.canonical = null;
+	try {
+		expect(() => render(Pricing).head).toThrow(/canonical/i);
+	} finally {
+		mocks.canonical = 'https://moderaty.example/pricing';
+	}
+});
+
+test('pricing FAQ structured data mirrors the pricing FAQ constant', () => {
+	const { head } = render(Pricing);
+	const faq = [...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+		.map(([, json]) => JSON.parse(json) as { '@type': string; mainEntity?: unknown })
+		.find((entry) => entry['@type'] === 'FAQPage');
+	expect(faq?.mainEntity).toEqual(PRICING_FAQ_ENTRIES.map(({ q, a }) => ({
+		'@type': 'Question',
+		name: q,
+		acceptedAnswer: { '@type': 'Answer', text: a }
+	})));
 });
 
 const ARTICLES = [
