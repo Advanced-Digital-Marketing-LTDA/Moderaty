@@ -84,8 +84,8 @@
 
 	<Reveal delay={0.1}>
 		<p class="closing">
-			Your rules can select hold, reject, delete, or ban for scanned top-level comments.
-			Uncertain AI decisions still need your review; a hold is effective when YouTube confirms it.
+			The AI scores the comments your rules leave, and it can hold, delete, or ban the worst of them.
+			Uncertain cases still wait for your review. A hold takes effect when YouTube confirms it.
 		</p>
 	</Reveal>
 </section>

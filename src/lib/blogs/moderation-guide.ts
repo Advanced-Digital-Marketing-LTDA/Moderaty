@@ -4,7 +4,7 @@ export const MODERATION_GUIDE = {
 	description: 'Learn how to moderate YouTube comments, choose Basic or Strict filters, review held comments, add moderators and test automation for your channel.'
 } as const;
 
-export const MODERATION_GUIDE_EDITION = { updated: '2026-10-24', readingMinutes: 8 } as const;
+export const MODERATION_GUIDE_EDITION = { updated: '2026-11-06', readingMinutes: 8 } as const;
 
 export const MODERATION_GUIDE_SECTIONS = [
 	{ id: 'native-settings', title: 'Set up comment moderation' },

@@ -26,6 +26,6 @@
 		Source-available under <a class="inline-link" href={POLYFORM_URL} target="_blank" rel="noopener noreferrer">PolyForm Shield 1.0.0</a>. You run Moderaty on your own infrastructure and provide your OpenAI key. Provider and API charges vary by setup and use.
 	{/snippet}
 	{#snippet cta()}
-		<a href={GITHUB_URL} data-moderaty-event="source_click" data-moderaty-placement="plan_self_hosted" target="_blank" rel="noreferrer" class="btn-press ghost-btn">Self-host on GitHub</a>
+		<a href={GITHUB_URL} data-moderaty-event="source_click" data-moderaty-placement="plan_self_hosted" target="_blank" rel="noopener noreferrer" class="btn-press ghost-btn">Self-host on GitHub</a>
 	{/snippet}
 </PlanCard>
