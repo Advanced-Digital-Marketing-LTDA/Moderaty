@@ -18,7 +18,12 @@
 			outcome: 'Leave published'
 		},
 		{
-			comment: 'See my special offer at [link removed].',
+			comment: 'You clearly have never made a video in your life.',
+				setup: 'No matching rule; AI score in the review range',
+				outcome: 'Hold for review'
+			},
+			{
+				comment: 'See my special offer at [link removed].',
 			setup: 'Creator-defined URL pattern rule',
 			outcome: 'Hold for review'
 		}
@@ -27,46 +32,43 @@
 
 <section id="how-it-works" class="section" aria-labelledby="how-title">
 	<div class="intro">
-		<p class="eyebrow">Moderation that follows your rules</p>
+		<p class="eyebrow">AI moderation, with optional rules</p>
 		<h2 id="how-title" class="section-title">Your rules swing first. The AI mops up. You get the final say.</h2>
 		<p class="lede">
-			YouTube Studio's built-in moderation settings can hold potentially inappropriate
-			comments, but they may not match every rule you want for your community. Moderaty
-			adds a configurable rules-first workflow, AI scoring, a human review queue, and
-			an audit log for your connected channels.
+			YouTube Studio's built-in settings can hold potentially inappropriate
+			comments, and that's a start. Moderaty
+			adds AI scoring, a human review queue, and
+			an audit log for your connected channels. Custom rules are an optional extra, for the trolls you see every week.
 		</p>
 		<p class="lede">
 			Keep the corrections and the genuine criticism (yes, even the Ackchyually Guy is
 			sometimes right). Set boundaries for abuse, crypto bots, and the same self-promo
-			pasted under every video. You decide what your rules should do.
+			pasted under every video. If you add rules, you decide what they do.
 		</p>
 	</div>
 	<div class="steps">
 		<article class="panel">
 			<span class="number" aria-hidden="true">01</span>
-			<h3>Your rules fire first.</h3>
+			<h3>The AI scores what your rules leave.</h3>
 			<p>
-				Create keyword, pattern (regex), or user rules. A matching rule can select
-				hold, reject, delete, or ban. Protected handles bypass Moderaty's rules and
-				AI scoring.
-			</p>
+				Moderaty scores each published top-level comment that no rule or protected handle decides, across 13 moderation categories, and
+				screens for prompt-injection attempts. Protected handles skip both rules and AI scoring. High scores delete the comment, and the very highest also ban the author on YouTube. Deletions are permanent, and Moderaty cannot lift a ban inside the app.			</p>
 		</article>
 		<article class="panel">
 			<span class="number" aria-hidden="true">02</span>
-			<h3>The AI scores what your rules miss.</h3>
+			<h3>Doubt is still yours to decide.</h3>
 			<p>
-				For the remaining eligible comments, Moderaty screens for prompt-injection
-				attempts and scores toxicity across 13 categories. A model score is a
-				moderation signal, not proof that a viewer violated your policy.
+				Middle scores, scoring failures, and comments that trip the prompt-injection screen are held on YouTube until you decide. A model score is a moderation signal, not proof that a viewer violated your
+				policy.
 			</p>
 			<p>
-				When scoring fails or a case needs closer review, Moderaty sends it to your
-				queue rather than silently approving or rejecting it.
+				Low scores pass untouched, unless your channel runs the optional tone pass. Scoring failures go to your queue, never approved or
+				rejected silently.
 			</p>
 		</article>
 		<article class="panel">
 			<span class="number" aria-hidden="true">03</span>
-			<h3>Doubt is always yours to decide.</h3>
+			<h3>Every bonk leaves a receipt.</h3>
 			<p>
 				Use your review queue to decide what happens next. The audit log shows
 				recorded decisions and completed actions. A requested hold may not take
@@ -133,7 +135,7 @@
 			<p class="lede">
 				Use those themes to decide what to clarify or cover next. The digest
 				does not reply to viewers, post comments, or change moderation decisions.
-				It can run weekly, after 100 new comments, or when you request it.
+				It can run weekly, after 100 new comments, or when you request it. Abusive wording stays hidden in the digest unless you choose to reveal it.
 			</p>
 			<a href={LOGIN_URL} class="inline-link">Preview your feedback digest <span aria-hidden="true">→</span></a>
 		</div>
@@ -197,14 +199,14 @@
 		windows, subject to the plan's usage requirements.
 	</p>
 	<p class="lede">
-		It does <strong>not</strong> moderate live chat, and it does
+		Live chat moderation is <strong>coming soon</strong>. Until it ships, Moderaty does <strong>not</strong> moderate live chat, and it does
 		<strong>not</strong> run a separate sweep of comments already held by YouTube for
 		review or marked as spam. It never writes a reply under your name.
 	</p>
 	<p class="lede">
 		YouTube Studio may be all you need if its native controls fit your channel.
-		Moderaty is for creators who want explicit moderation rules, a separate review
-		workflow, and visibility into recorded decisions.
+		Moderaty is for creators who want AI scoring, a separate review queue, and
+		a record of each decision. Custom rules are there when you want them.
 	</p>
 	<div class="access">
 		<h3>Your channel access, explained</h3>

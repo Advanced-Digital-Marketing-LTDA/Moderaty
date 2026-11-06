@@ -6,7 +6,7 @@
 <section class="final-cta">
 	<div class="inner">
 		<Reveal>
-			<h2 class="title">Go touch grass. <span class="marker">Your rules have the comments.</span></h2>
+			<h2 class="title">Go touch grass. <span class="marker">Moderaty has the comments.</span></h2>
 		</Reveal>
 		<Reveal delay={0.08}>
 			<p class="intro">Set your boundaries, dry-run the bonks, and decide what deserves your attention.</p>

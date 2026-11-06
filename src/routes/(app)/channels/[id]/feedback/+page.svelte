@@ -170,7 +170,7 @@
 			<p class="card-title">Feedback digest is off for this channel.</p>
 			<p class="muted">
 				Turn it on below and Moderaty will group your comments into recurring questions, criticism, corrections,
-				and requests — without ever showing you the abusive wording.
+				and requests. Abusive wording stays hidden unless you choose to reveal it.
 			</p>
 		</div>
 	{/if}

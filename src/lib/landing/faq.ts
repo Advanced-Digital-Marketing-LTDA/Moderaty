@@ -7,7 +7,7 @@ export type FaqEntry = { q: string; a: string };
 const FAQ_COPY: [question: string, answer: string][] = [
 	[
 		'What is Moderaty?',
-		"Moderaty checks published top-level comments on connected, active YouTube channels in background batches. Protected handles skip rules and AI. Your rules run before AI screening and scoring; uncertain results and scoring failures go to your review queue. If a check runs out of time, unfinished comments retry on a later check instead. Replies and a separate sweep of YouTube's held-for-review or spam queues are outside the current scanning scope. Live chat is also outside this scope. It's source-available and costs $0 from Moderaty to self-host under PolyForm Shield License 1.0.0, subject to its commercial restrictions."
+		"Moderaty checks published top-level comments on connected, active YouTube channels in background batches. Protected handles skip rules and AI. AI screening and scoring check what your rules leave, and custom rules are optional; uncertain results and scoring failures go to your review queue. If a check runs out of time, unfinished comments retry on a later check instead. Replies and a separate sweep of YouTube's held-for-review or spam queues are outside the current scanning scope. Live chat moderation is coming soon, and until then it is outside this scope. It's source-available and costs $0 from Moderaty to self-host under PolyForm Shield License 1.0.0, subject to its commercial restrictions."
 	],
 	[
 		'Will Moderaty ban my real fans?',
@@ -43,7 +43,7 @@ const FAQ_COPY: [question: string, answer: string][] = [
 	],
 	[
 		'How is Moderaty different from CommentShark or YouTube Studio?',
-		'YouTube Studio flags comments but leaves you to read and act on them. CommentShark automates engagement, including AI replies. Moderaty focuses on protection: your rules and AI scoring help moderate published top-level comments, with uncertain decisions left for your review.'
+		'YouTube Studio flags comments but leaves you to read and act on them. CommentShark automates engagement, including AI replies. Moderaty focuses on protection: AI scoring, optional rules, and a review queue help moderate published top-level comments, with uncertain decisions left for your review.'
 	],
 	[
 		'Can I test Moderaty without changing anything on my channel?',
@@ -64,7 +64,7 @@ export const FAQ_ENTRIES: FaqEntry[] = FAQ_COPY.map(([q, a]) => ({ q, a }));
 export const HOMEPAGE_FAQ_ENTRIES: FaqEntry[] = [
 	{
 		q: 'Does Moderaty replace YouTube Studio?',
-		a: 'No. YouTube Studio already offers AI-based Basic and Strict filters, blocked words, and Hold all. Moderaty adds configurable rules, automated decisions for eligible published top-level comments, its own review queue, and an audit trail.'
+		a: 'No. YouTube Studio already offers AI-based Basic and Strict filters, blocked words, and Hold all. Moderaty adds AI scoring, automated decisions for eligible published top-level comments, its own review queue, and an audit trail. Custom rules are optional.'
 	},
 	{
 		q: 'Can Moderaty remove old comments?',

@@ -1,12 +1,12 @@
 export const SPAM_COMMENTS = {
 	path: '/blogs/how-to-stop-spam-and-scam-comments-on-youtube/',
 	title: 'How to stop spam and scam comments on your YouTube channel',
-	description: 'Use YouTube’s native controls, review suspicious comments, and test narrow rules for impersonation, repeated messages, links, and phone-number patterns.'
+	description: 'Start with YouTube’s native controls, add narrow rules for scam patterns, and let Moderaty’s AI scoring check published top-level comments for toxicity.'
 } as const;
 
 // readingMinutes is the rendered article's word count at 200 words per minute,
 // rounded up; article-standards.test.ts recomputes it from the final text.
-export const SPAM_COMMENTS_EDITION = { updated: '2026-10-20', readingMinutes: 12 } as const;
+export const SPAM_COMMENTS_EDITION = { updated: '2026-11-06', readingMinutes: 12 } as const;
 
 export const SPAM_COMMENT_SECTIONS = [
 	{ id: 'native-controls', title: 'Which YouTube comment controls stop spam?' },

@@ -20,7 +20,18 @@
 	<ArticleByline authorHref="#about-the-author" {...COMMENT_REVIEW_ROUTINE_EDITION} />
 
 	<p>You open your channel's comments to check one reply. Forty minutes later you are still scrolling, and the held queue has grown again. If that sounds like your evenings, run one fixed session in the same order each time, 15 minutes or whatever length fits your channel, and stop when the timer rings.</p>
-	<ArticleContents headings={COMMENT_REVIEW_ROUTINE_SECTIONS} />
+			<h2 id="summary" tabindex="-1">Summary</h2>
+		<p>Reading comments all day is how you end up debating the Ackchyually Guy at midnight. A 15-minute comment review routine works best on a timer, in a fixed order. Set the comment filters once, then leave them alone until your rules change. If the repeat work outgrows the timer, Moderaty’s AI scoring can check published top-level comments. Uncertain cases go to a review queue you check.</p>
+
+		<h2 id="key-takeaways" tabindex="-1">Key takeaways</h2>
+		<ul aria-label="Key takeaways">
+			<li>Set the blocked words, hold comments with links, and limit who can comment once, then review them when your rules change.</li>
+			<li>Clear the Held for review tab first, because held comments stay off the public page until you act.</li>
+			<li>Skim the published comments and answer, fix, leave or remove each one.</li>
+			<li>Turn a phrase that keeps repeating into a blocked word only after you test it against real comments.</li>
+			<li>Stop the timer for a threat, a private detail or a self-harm comment, and handle it on its own.</li>
+		</ul>
+		<ArticleContents headings={COMMENT_REVIEW_ROUTINE_SECTIONS} />
 
 	<h2 id="why-a-timer" tabindex="-1">Why a timer beats scrolling comments all day</h2>
 	<p>Checking whenever you have a spare minute feels harmless. Each visit reopens the same small decisions: answer or ignore, approve or leave, report or wait. Nothing tells you when you're done, so the review spreads into the rest of your evening.</p>
@@ -60,13 +71,24 @@
 	<p>I'd say it plainly: no filter catches everything. Spam gets through, and real comments get held. Plan for both by keeping time in every session for held comments and the published list.</p>
 
 	<h2 id="hand-part-to-a-tool" tabindex="-1">When to hand part of the routine to a tool</h2>
-	<p>If you want a tool for the repeat work, start with <a href="/how-it-works/">how Moderaty fits your routine</a>. Moderaty covers published top-level comments on connected, active YouTube channels, and those comments are eligible for screening and automatic moderation actions. Protected handles bypass rules and AI.</p>
+	<p>If you want a tool for the repeat work, start with <a href="/how-it-works/">how Moderaty fits your routine</a>. Its AI scoring covers published top-level comments on connected, active YouTube channels. Any rules you add run before that scoring, and protected handles bypass both rules and AI scoring.</p>
 	<p>Picture a busy Sunday with the same crypto offer under every upload. Uncertain results and scoring failures go to a review queue, and you make the call on those.</p>
-	<p>Replies, live chat and YouTube's own Held or spam queues are <a href="/how-it-works/">outside its scope</a>, so the Held for review step stays with you. Requested holds wait for YouTube's confirmation. Deletions are permanent, and a ban can't be lifted inside Moderaty.</p>
+		<p>If you also want recurring questions and criticism grouped, Moderaty’s optional feedback digest does that. It is opt-in per channel, read-only, and never changes a moderation decision.</p>
+	<p>Live chat moderation is coming soon. Until it ships, live chat, replies, and YouTube's own Held or spam queues are <a href="/how-it-works/">outside its scope</a>, so the Held for review step stays with you. Requested holds wait for YouTube's confirmation. Deletions are permanent, and a ban can't be lifted inside Moderaty.</p>
 	<p><a href="/pricing">Moderaty's pricing page</a> lists the hosted plan at $5 a month, and the monthly allowance is 100 AI classifications shared across moderation and enabled digests. That means $5 does not buy unlimited AI. Extra credits cost $20.40 for 500 or $64.65 for 2,000, and automatic top-up is off by default. Lifetime hosting costs $49 once, limited to 1,000 places, and you bring and pay for your own OpenAI key separately. Self-hosting costs nothing from Moderaty under PolyForm Shield 1.0.0, but infrastructure and OpenAI usage cost extra.</p>
 	<p>Access uses the youtube.force-ssl permission, and you can revoke it in your Google account settings.</p>
 	<p>Your next session starts with the Held for review tab. Set a timer, work the three blocks in order, and end when the time is up.</p>
 
-	<h2 id="about-the-author" tabindex="-1">About the author</h2>
+	<h2 id="frequently-asked-questions" tabindex="-1">Frequently asked questions</h2>
+		<h3>How long should a comment review session take?</h3>
+		<p>Fifteen minutes is the example in this routine, and you can change it. A quiet week can fit in ten minutes, and a launch week can take thirty.</p>
+		<h3>Does the routine catch every spam comment?</h3>
+		<p>No. Some spam slips past, and some real comments land in the held queue, so keep time for the published list as well as the held one.</p>
+		<h3>Does Moderaty replace the routine?</h3>
+		<p>No. If you use Moderaty, its AI scoring checks published top-level comments. Uncertain cases and scoring failures go to a review queue you check. Live chat moderation is coming soon. Until it ships, live chat, replies, and YouTube’s own Held and spam queues stay outside its scope.</p>
+		<h3>Do I need a tool to run this routine?</h3>
+		<p>No. The routine works in YouTube Studio alone. Look at a tool only if the repeat work outgrows your timer.</p>
+
+		<h2 id="about-the-author" tabindex="-1">About the author</h2>
 	<p>{BLOG_AUTHOR.bio}</p>
 </article>

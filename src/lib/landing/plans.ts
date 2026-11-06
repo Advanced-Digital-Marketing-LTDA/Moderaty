@@ -19,7 +19,7 @@ export const TICKS_SELF_HOSTED = [
 ];
 
 export const TICKS_SELF_HOSTED_DETAILED = [
-	'Full rules engine: KEYWORD, REGEX, and USER rules fire before the AI',
+	'Optional rules (keyword, regex, user) that run before AI scoring',
 	'13-category AI scoring with your thresholds',
 	'Feedback digest: recurring questions, criticism, corrections, and requests, grouped',
 	'Review queue for the borderline, with team roles for whoever helps',
