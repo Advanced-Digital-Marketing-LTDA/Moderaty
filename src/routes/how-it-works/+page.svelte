@@ -149,7 +149,7 @@
 				<p>
 					When no rule decides the outcome, Moderaty screens for prompt-injection attempts and sends eligible
 					comments to OpenAI moderation. The model scores toxicity across 13 categories, and the score helps
-					decide what happens next. Low scores stay published unless the optional tone pass flags them, middle scores go to review, and high scores
+					decide what happens next. Low scores stay published unless the optional tone pass flags them, middle scores go to review, and high scores from the main AI check
 					delete the comment. The very highest scores also ban the author on YouTube. A score is a moderation signal,
 					not proof that a viewer broke your policy.
 				</p>

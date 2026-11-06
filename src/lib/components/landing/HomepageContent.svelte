@@ -52,7 +52,7 @@
 			<h3>The AI scores what your rules leave.</h3>
 			<p>
 				Moderaty scores each published top-level comment that no rule or protected handle decides, across 13 moderation categories, and
-				screens for prompt-injection attempts. Protected handles skip both rules and AI scoring. High scores delete the comment, and the very highest also ban the author on YouTube. Deletions are permanent, and Moderaty cannot lift a ban inside the app.			</p>
+				screens for prompt-injection attempts. Protected handles skip both rules and AI scoring. High scores from the main AI check delete the comment, and the very highest also ban the author on YouTube. Deletions are permanent, and Moderaty cannot lift a ban inside the app.			</p>
 		</article>
 		<article class="panel">
 			<span class="number" aria-hidden="true">02</span>
