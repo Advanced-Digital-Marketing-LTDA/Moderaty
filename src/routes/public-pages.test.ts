@@ -1,6 +1,6 @@
 import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
-import { readingText } from './blogs/article-text';
+import { readingText, visibleText } from './blogs/article-text';
 import Homepage from './+page.svelte';
 import HowItWorks from './how-it-works/+page.svelte';
 import Pricing from './pricing/+page.svelte';
@@ -19,6 +19,11 @@ import { SPAM_COMMENTS, SPAM_COMMENTS_EDITION } from '$lib/blogs/spam-comments';
 import { COMMENT_REVIEW_ROUTINE, COMMENT_REVIEW_ROUTINE_EDITION } from '$lib/blogs/comment-review-routine';
 import { MODERATION_GUIDE, MODERATION_GUIDE_EDITION } from '$lib/blogs/moderation-guide';
 import { COMMENT_SETTINGS_GUIDE, COMMENT_SETTINGS_GUIDE_EDITION } from '$lib/blogs/comment-settings-guide';
+import { GUIDES_INDEX } from '$lib/blogs/guides-index';
+import { BLOG_AUTHOR } from '$lib/blogs/author';
+import { PUBLIC_BLOG_ROUTE_IDS, llmsTxt, sitemapXml } from '$lib/server/siteIndex';
+import { createRawSnippet } from 'svelte';
+import Layout from './+layout.svelte';
 
 // Structure only: canonical and social-preview addresses, link attributes,
 // anchors, reading-time arithmetic, and JSON-LD shape. No assertion here reads
@@ -190,6 +195,129 @@ const ARTICLES = [
 	{ name: 'moderation guide', body: () => render(ModerationGuide, { props: { data: articleData } }).body, path: MODERATION_GUIDE.path, edition: MODERATION_GUIDE_EDITION },
 	{ name: 'comment settings guide', body: () => render(SettingsGuide, { props: { data: articleData } }).body, path: COMMENT_SETTINGS_GUIDE.path, edition: COMMENT_SETTINGS_GUIDE_EDITION }
 ] as const;
+
+const ARTICLE_RENDERS = [
+	{ title: HATE_COMMENTS.title, path: HATE_COMMENTS.path, render: () => render(HateArticle, { props: { data: articleData } }) },
+	{ title: SPAM_COMMENTS.title, path: SPAM_COMMENTS.path, render: () => render(SpamArticle, { props: { data: articleData } }) },
+	{ title: COMMENT_REVIEW_ROUTINE.title, path: COMMENT_REVIEW_ROUTINE.path, render: () => render(RoutineGuide, { props: { data: articleData } }) },
+	{ title: MODERATION_GUIDE.title, path: MODERATION_GUIDE.path, render: () => render(ModerationGuide, { props: { data: articleData } }) },
+	{ title: COMMENT_SETTINGS_GUIDE.title, path: COMMENT_SETTINGS_GUIDE.path, render: () => render(SettingsGuide, { props: { data: articleData } }) }
+] as const;
+
+const jsonLdBlocks = (head: string) =>
+	[...head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(([, json]) => JSON.parse(json) as Record<string, unknown>);
+
+const countWords = (text: string) => text.split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
+
+test.each([...ARTICLE_RENDERS.map((item) => item.path), GUIDES_INDEX.path])('%s is listed in the sitemap and llms index and registered as a public route', (path) => {
+	expect(sitemapXml()).toContain(`<loc>${ORIGIN}${path}</loc>`);
+	expect(llmsTxt()).toContain(`${ORIGIN}${path}`);
+	expect(PUBLIC_BLOG_ROUTE_IDS).toContain(path.slice(0, -1));
+});
+
+test('how it works refuses to render without the layout canonical', () => {
+	expect(() => render(HowItWorks, { props: { data: { canonical: null, locale: 'en' as const } } }).head).toThrow(/canonical/i);
+});
+
+test('the root layout publishes the canonical that pages without their own tag rely on', () => {
+	const children = createRawSnippet(() => ({ render: () => '<main></main>', setup: () => {} }));
+	const data = { locale: 'en' as const, canonical: `${ORIGIN}/pricing`, siteOrigin: ORIGIN };
+	expect(attribute(render(Layout, { props: { data, children } }).head, 'rel', 'canonical', 'href')).toBe(`${ORIGIN}/pricing`);
+	expect(attribute(render(Layout, { props: { data: { ...data, canonical: null }, children } }).head, 'rel', 'canonical', 'href')).toBeUndefined();
+});
+
+test.each(PAGES)('$name has a title, a meta description, and at least one structured-data block', ({ render: renderPage }) => {
+	const { head } = renderPage();
+	expect(head).toMatch(/<title>[^<]+<\/title>/);
+	expect(attribute(head, 'name', 'description', 'content')).toBeTruthy();
+	expect(jsonLdBlocks(head).length).toBeGreaterThan(0);
+});
+
+test.each(PAGES)('$name has exactly one top-level heading', ({ render: renderPage }) => {
+	expect(renderPage().body.match(/<h1\b/g)?.length ?? 0).toBe(1);
+});
+
+test.each(PAGES)('$name labels each landmark with an element that exists on the page', ({ render: renderPage }) => {
+	const { body } = renderPage();
+	const ids = idsIn(body);
+	for (const [, labels] of body.matchAll(/aria-labelledby="([^"]+)"/g)) {
+		for (const id of labels.split(/\s+/)) expect(ids.has(id)).toBe(true);
+	}
+});
+
+test.each(PAGES)('$name tables have captions and scoped header cells', ({ render: renderPage }) => {
+	for (const [table] of renderPage().body.matchAll(/<table\b[\s\S]*?<\/table>/g)) {
+		expect(table).toMatch(/<caption\b/);
+		for (const [header] of table.matchAll(/<th\b[^>]*>/g)) expect(header).toMatch(/\bscope="/);
+	}
+});
+
+test('the homepage opens with the hero, then the regulars, then the explainer', () => {
+	const hero = homepageBody.indexOf('id="top"');
+	const regulars = homepageBody.indexOf('id="regulars"');
+	const explainer = homepageBody.indexOf('id="how-it-works"');
+	expect(hero).toBeGreaterThan(-1);
+	expect(regulars).toBeGreaterThan(hero);
+	expect(explainer).toBeGreaterThan(regulars);
+});
+
+test('the homepage hero links to sign-in and pricing', () => {
+	const hero = homepageBody.split('id="top"')[1]?.split('</section>')[0] ?? '';
+	expect(hero).toContain('href="/login"');
+	expect(hero).toContain('href="/pricing"');
+});
+
+test('how it works FAQ schema has one question per visible FAQ item', () => {
+	const { body, head } = render(HowItWorks, { props: { data: pageData('/how-it-works/') } });
+	const section = body.split('id="faq"')[1]?.split('</section>')[0] ?? '';
+	const items = section.match(/<details\b/g)?.length ?? 0;
+	const faq = jsonLdBlocks(head).find((entry) => entry['@type'] === 'FAQPage');
+	expect(items).toBeGreaterThan(0);
+	expect(faq?.mainEntity).toHaveLength(items);
+});
+
+test('every FAQ entry has a question and an answer', () => {
+	for (const entry of [...HOMEPAGE_FAQ_ENTRIES, ...PRICING_FAQ_ENTRIES]) {
+		expect(entry.q.trim().length).toBeGreaterThan(0);
+		expect(entry.a.trim().length).toBeGreaterThan(0);
+	}
+});
+
+test.each(ARTICLE_RENDERS)('$title is described by a BlogPosting with its own address and the byline author', ({ title, path, render: renderArticle }) => {
+	const posting = jsonLdBlocks(renderArticle().head).find((entry) => entry['@type'] === 'BlogPosting');
+	expect(posting?.headline).toBe(title);
+	expect(posting?.url).toBe(new URL(path, ORIGIN).href);
+	expect(posting?.author).toEqual({ '@type': 'Person', name: BLOG_AUTHOR.name });
+	for (const field of ['datePublished', 'dateModified', 'reviewedBy', 'lastReviewed']) expect(posting).not.toHaveProperty(field);
+});
+
+test.each(ARTICLE_RENDERS)('$title reading text leaves out the contents navigation', ({ render: renderArticle }) => {
+	const body = renderArticle().body;
+	expect(countWords(readingText(body))).toBeLessThan(countWords(visibleText(body)));
+});
+
+test('the two long-form articles link to each other', () => {
+	expect(render(HateArticle, { props: { data: articleData } }).body).toContain(`href="${SPAM_COMMENTS.path}"`);
+	expect(render(SpamArticle, { props: { data: articleData } }).body).toContain(`href="${HATE_COMMENTS.path}"`);
+});
+
+test.each(['https://selfhost.example', 'http://localhost:5173'])('article and index addresses follow the configured origin %s', (siteOrigin) => {
+	const data = { locale: 'en' as const, canonical: null, siteOrigin };
+	const renders: Array<{ path: string; head: () => string }> = [
+		{ path: HATE_COMMENTS.path, head: () => render(HateArticle, { props: { data } }).head },
+		{ path: SPAM_COMMENTS.path, head: () => render(SpamArticle, { props: { data } }).head },
+		{ path: COMMENT_REVIEW_ROUTINE.path, head: () => render(RoutineGuide, { props: { data } }).head },
+		{ path: MODERATION_GUIDE.path, head: () => render(ModerationGuide, { props: { data } }).head },
+		{ path: COMMENT_SETTINGS_GUIDE.path, head: () => render(SettingsGuide, { props: { data } }).head },
+		{ path: GUIDES_INDEX.path, head: () => render(GuidesIndex, { props: { data } }).head },
+		{ path: '/blogs/', head: () => render(BlogsIndex, { props: { data } }).head }
+	];
+	for (const { path, head: renderHead } of renders) {
+		const head = renderHead();
+		expect(attribute(head, 'rel', 'canonical', 'href')).toBe(new URL(path, siteOrigin).href);
+		expect(head).not.toContain('https://moderaty.com');
+	}
+});
 
 test.each(ARTICLES)('$name reports the reading time its text supports and a machine-readable update date', ({ body: renderBody, edition }) => {
 	const body = renderBody().split('<article')[1].split('</article>')[0];
