@@ -22,19 +22,36 @@ export interface NewComment {
 	authorHandle?: string | null;
 	text: string;
 	publishedAt: string;
+	/** Top-level comment id for a reply; absent on top-level comments. */
+	parentId?: string | null;
 }
 
 export interface FetchCommentsOptions {
 	maxPages?: number;
 	pageToken?: string | null;
 	deadline?: number;
+	/** Also return replies to the included top-level comments (embedded replies plus bounded lookups). */
+	includeReplies?: boolean;
+	/** Maximum comments.list lookups for this whole call; used only when includeReplies is true. */
+	replyLookupBudget?: number;
 }
 
 export interface CommentPage {
 	comments: NewComment[];
 	nextPageToken: string | null;
 	reachedCursor: boolean;
+	/** Replies that exist but were not returned: malformed or wrong-typed data, or threads the lookup budget left unfetched. */
+	replyShortfall?: number;
+	/** Replies by the channel's own account, which are never returned. */
+	ownRepliesSkipped?: number;
+	/** Threads whose embedded replies fell short of totalReplyCount, and the comments.list calls made for them. */
+	overflow?: { threads: number; lookups: number };
 }
+
+/** Maximum comments.list pages followed for one thread within one call. */
+export const MAX_REPLY_PAGES_PER_THREAD = 5;
+/** Default comments.list lookup budget for one fetchNewComments call. */
+export const MAX_REPLY_LOOKUPS_PER_TICK = 10;
 
 export type CommentModerationStatus = 'heldForReview' | 'rejected' | 'published' | 'likelySpam';
 
@@ -64,11 +81,15 @@ function writeFailure(status: number, message: string): Error {
 	return [400, 401, 403, 405, 422, 429].includes(status) ? new YoutubeWriteRefusedError(message) : new Error(message);
 }
 
+function isJsonObject(value: unknown): value is JsonObject {
+	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 function object(value: unknown, context: string): JsonObject {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+	if (!isJsonObject(value)) {
 		throw new Error(`${context} is missing or invalid`);
 	}
-	return value as JsonObject;
+	return value;
 }
 
 function requiredString(value: unknown, context: string): string {
@@ -76,9 +97,9 @@ function requiredString(value: unknown, context: string): string {
 	return value;
 }
 
-function optionalPageToken(value: unknown): string | null {
+function optionalPageToken(value: unknown, operation: string): string | null {
 	if (value === undefined || value === null) return null;
-	return requiredString(value, 'commentThreads.list response nextPageToken');
+	return requiredString(value, `${operation} response nextPageToken`);
 }
 
 async function jsonResponse(response: Response, operation: string): Promise<unknown> {
@@ -105,25 +126,40 @@ function optionalString(value: unknown): string | null {
 	return typeof value === 'string' && value ? value : null;
 }
 
-function parseComment(item: unknown, index: number): NewComment | null {
-	const context = `commentThreads.list response item ${index}`;
+/** Parses a top-level item. Structural faults throw (I1); the leaf faults that parseCommentResource reports skip the item. */
+function parseComment(item: unknown, context: string): NewComment | null {
 	const thread = object(item, context);
 	const topLevelComment = object(object(thread.snippet, `${context}.snippet`).topLevelComment, `${context}.topLevelComment`);
 	const snippet = object(topLevelComment.snippet, `${context}.topLevelComment.snippet`);
-	const id = optionalString(topLevelComment.id);
-	const threadId = optionalString(thread.id);
-	const publishedAt = optionalString(snippet.publishedAt);
-	const text = optionalString(snippet.textDisplay);
 	// Stryker disable next-line StringLiteral: equivalent — object() already validated thread.snippet above, so this context string belongs to an unreachable throw
 	const videoId = optionalString(snippet.videoId) ?? optionalString(object(thread.snippet, `${context}.snippet`).videoId);
+	return parseCommentResource(topLevelComment, snippet, { label: context, threadId: optionalString(thread.id), videoId });
+}
+
+/** Where a comments resource sits: names it in warnings, and carries its thread's id and video. */
+interface CommentSite {
+	label: string;
+	threadId: string | null;
+	videoId: string | null;
+}
+
+/**
+ * Parses the comment-level fields of a comments resource (a top-level comment or a reply).
+ * The caller has validated the object shapes; leaf faults warn and return null.
+ */
+function parseCommentResource(resource: JsonObject, snippet: JsonObject, site: CommentSite): NewComment | null {
+	const { label, threadId, videoId } = site;
+	const id = optionalString(resource.id);
+	const publishedAt = optionalString(snippet.publishedAt);
+	const text = optionalString(snippet.textDisplay);
 	if (!id || !threadId || !text || !publishedAt || Number.isNaN(Date.parse(publishedAt))) {
-		console.warn(`${context} is malformed (missing id, text, or a valid publishedAt); skipping it`);
+		console.warn(`${label} is malformed (missing id, text, or a valid publishedAt); skipping it`);
 		return null;
 	}
 	if (!videoId) {
 		// Omni moderation and rule matching do not need a videoId — keep the
 		// comment and let tone scoring degrade to empty context (best-effort).
-		console.warn(`${context} (comment ${id}) has no videoId; tone context will be empty`);
+		console.warn(`${label} (comment ${id}) has no videoId; tone context will be empty`);
 	}
 	const channelIdObject = snippet.authorChannelId;
 	const authorChannelId =
@@ -132,11 +168,11 @@ function parseComment(item: unknown, index: number): NewComment | null {
 			? optionalString((channelIdObject as JsonObject).value)
 			: null;
 	if (authorChannelId === null) {
-		console.warn(`${context} (comment ${id}) has no authorChannelId; the author channel may be deleted`);
+		console.warn(`${label} (comment ${id}) has no authorChannelId; the author channel may be deleted`);
 	}
 	const authorName = optionalString(snippet.authorDisplayName);
 	if (authorName === null) {
-		console.warn(`${context} (comment ${id}) has no authorDisplayName; the author channel may be deleted`);
+		console.warn(`${label} (comment ${id}) has no authorDisplayName; the author channel may be deleted`);
 	}
 	return {
 		id,
@@ -147,6 +183,16 @@ function parseComment(item: unknown, index: number): NewComment | null {
 		text,
 		publishedAt
 	};
+}
+
+/** Parses one reply. A reply that is not an object with a snippet warns and returns null instead of throwing. */
+function parseReply(raw: unknown, site: CommentSite): NewComment | null {
+	const snippet = isJsonObject(raw) ? raw.snippet : undefined;
+	if (!isJsonObject(raw) || !isJsonObject(snippet)) {
+		console.warn(`${site.label} is malformed (not a comment resource with a snippet); skipping it`);
+		return null;
+	}
+	return parseCommentResource(raw, snippet, site);
 }
 
 const MAX_VIDEO_DESCRIPTION_LENGTH = 500;
@@ -269,13 +315,22 @@ function callerHeaders(init?: RequestInit): Record<string, string> {
  * @param maxPages - Maximum number of API pages to fetch.
  * @param pageToken - Token for the initial API page.
  * @param deadline - Optional request deadline.
+ * @param includeReplies - Also return replies to top-level comments inside the cursor window (embedded replies, plus bounded comments.list lookups).
+ * @param replyLookupBudget - Maximum comments.list lookups for this whole call; used only when includeReplies is true.
  * @returns The fetched comments, a token for the next page when applicable, and whether the cursor boundary was reached.
+ * With includeReplies, also the reply accounting that is non-zero (replyShortfall, ownRepliesSkipped, overflow).
  */
 export async function fetchNewComments(
 	channelId: string,
 	accessToken: string,
 	cursor: string | null,
-	{ maxPages = 3, pageToken: initialPageToken = null, deadline }: FetchCommentsOptions = {}
+	{
+		maxPages = 3,
+		pageToken: initialPageToken = null,
+		deadline,
+		includeReplies = false,
+		replyLookupBudget = MAX_REPLY_LOOKUPS_PER_TICK
+	}: FetchCommentsOptions = {}
 ): Promise<CommentPage> {
 	const out: NewComment[] = [];
 	let pageToken = initialPageToken;
@@ -284,15 +339,55 @@ export async function fetchNewComments(
 	if (cursorMs !== null && Number.isNaN(cursorMs)) {
 		throw new Error(`fetchNewComments cursor is invalid: ${cursor}`);
 	}
+	const replies = includeReplies ? newReplyTally(channelId, accessToken, deadline, replyLookupBudget) : null;
 	for (let page = 0; page < maxPages; page++) {
-		const { items, nextPageToken } = await fetchCommentPage(channelId, accessToken, pageToken, deadline);
-		const reachedCursor = collectUntilCursor(items, cursorMs, out);
+		const { items, nextPageToken } = await fetchCommentPage(channelId, accessToken, pageToken, deadline, includeReplies);
+		const reachedCursor = await collectUntilCursor(items, cursorMs, out, replies);
 		if (reachedCursor || !nextPageToken) {
-			return { comments: out, nextPageToken: null, reachedCursor };
+			return withReplyAccounting({ comments: out, nextPageToken: null, reachedCursor }, replies);
 		}
 		pageToken = nextPageToken;
 	}
-	return { comments: out, nextPageToken: pageToken, reachedCursor: false };
+	return withReplyAccounting({ comments: out, nextPageToken: pageToken, reachedCursor: false }, replies);
+}
+
+/** Page-wide reply state for one fetchNewComments call. Threads are handled in order, so the budget is spent deterministically. */
+interface ReplyTally {
+	readonly channelId: string;
+	readonly accessToken: string;
+	readonly deadline: number | undefined;
+	lookupsRemaining: number;
+	lookups: number;
+	overflowThreads: number;
+	replyShortfall: number;
+	ownRepliesSkipped: number;
+}
+
+function newReplyTally(channelId: string, accessToken: string, deadline: number | undefined, replyLookupBudget: number): ReplyTally {
+	if (!Number.isSafeInteger(replyLookupBudget) || replyLookupBudget < 0) {
+		throw new Error(`fetchNewComments replyLookupBudget is invalid: ${replyLookupBudget}`);
+	}
+	return {
+		channelId,
+		accessToken,
+		deadline,
+		lookupsRemaining: replyLookupBudget,
+		lookups: 0,
+		overflowThreads: 0,
+		replyShortfall: 0,
+		ownRepliesSkipped: 0
+	};
+}
+
+/** Adds the reply accounting to a page; each key appears only when it has something to report. */
+function withReplyAccounting(page: CommentPage, replies: ReplyTally | null): CommentPage {
+	if (!replies) return page;
+	return {
+		...page,
+		...(replies.replyShortfall > 0 ? { replyShortfall: replies.replyShortfall } : {}),
+		...(replies.ownRepliesSkipped > 0 ? { ownRepliesSkipped: replies.ownRepliesSkipped } : {}),
+		...(replies.overflowThreads > 0 ? { overflow: { threads: replies.overflowThreads, lookups: replies.lookups } } : {})
+	};
 }
 
 /** Fetches one page of comment threads for the channel (≤100 comments, I10). */
@@ -300,31 +395,159 @@ async function fetchCommentPage(
 	channelId: string,
 	accessToken: string,
 	pageToken: string | null,
-	deadline: number | undefined
+	deadline: number | undefined,
+	includeReplies: boolean
 ): Promise<{ items: unknown[]; nextPageToken: string | null }> {
 	const params = new URLSearchParams({
-		part: 'snippet',
+		part: includeReplies ? 'snippet,replies' : 'snippet',
 		allThreadsRelatedToChannelId: channelId,
 		order: 'time',
 		maxResults: '100',
 		textFormat: 'plainText'
 	});
 	if (pageToken) params.set('pageToken', pageToken);
-	const res = await ytFetch(`/commentThreads?${params}`, accessToken, undefined, deadline);
-	const data = object(await jsonResponse(res, 'commentThreads.list'), 'commentThreads.list response');
-	if (!Array.isArray(data.items)) throw new Error('commentThreads.list response items is missing or invalid');
-	return { items: data.items as unknown[], nextPageToken: optionalPageToken(data.nextPageToken) };
+	return fetchCommentListPage('commentThreads', params, accessToken, deadline);
 }
 
-/** Pushes parsed comments into out until the cursor boundary, returning whether it was reached. */
-function collectUntilCursor(items: unknown[], cursorMs: number | null, out: NewComment[]): boolean {
+/** Sends one list request. The page's items must be an array and its token a string or absent (I1, I2). */
+async function fetchCommentListPage(
+	resource: 'commentThreads' | 'comments',
+	params: URLSearchParams,
+	accessToken: string,
+	deadline: number | undefined
+): Promise<{ items: unknown[]; nextPageToken: string | null }> {
+	const operation = `${resource}.list`;
+	const res = await ytFetch(`/${resource}?${params}`, accessToken, undefined, deadline);
+	const data = object(await jsonResponse(res, operation), `${operation} response`);
+	if (!Array.isArray(data.items)) throw new Error(`${operation} response items is missing or invalid`);
+	return { items: data.items as unknown[], nextPageToken: optionalPageToken(data.nextPageToken, operation) };
+}
+
+/**
+ * Pushes parsed comments into out until the cursor boundary, returning whether it was reached.
+ * A thread's replies are gathered only after its top-level comment passes the cursor check,
+ * so the walk that stops at an older comment starts no reply work for it.
+ */
+async function collectUntilCursor(
+	items: unknown[],
+	cursorMs: number | null,
+	out: NewComment[],
+	replies: ReplyTally | null
+): Promise<boolean> {
 	for (const [index, item] of items.entries()) {
-		const comment = parseComment(item, index);
+		const context = `commentThreads.list response item ${index}`;
+		const comment = parseComment(item, context);
 		if (!comment) continue;
 		if (cursorMs !== null && Date.parse(comment.publishedAt) < cursorMs) return true;
 		out.push(comment);
+		if (replies) out.push(...(await collectThreadReplies(object(item, context), comment, context, replies)));
 	}
 	return false;
+}
+
+/** Replies gathered for one thread so far, keyed by reply id so embedded and lookup copies collapse. */
+interface ThreadReplies {
+	kept: Map<string, NewComment>;
+	own: Set<string>;
+	malformed: number;
+}
+
+/**
+ * Returns one included thread's kept replies in received order. Embedded replies come first; comments.list
+ * lookups follow only when totalReplyCount says the embedded list is short, within the page-wide budget.
+ */
+async function collectThreadReplies(
+	thread: JsonObject,
+	parent: NewComment,
+	context: string,
+	tally: ReplyTally
+): Promise<NewComment[]> {
+	const threadSnippet = object(thread.snippet, `${context}.snippet`);
+	const total = replyTotal(threadSnippet, context);
+	const embedded = embeddedReplyItems(thread.replies, context);
+	if (embedded === null) {
+		// An untrusted container gets no lookup: its shortfall is the reported total, or one when the total is unknown.
+		tally.replyShortfall += total ?? 1;
+		return [];
+	}
+	const threadVideoId = optionalString(threadSnippet.videoId);
+	const found: ThreadReplies = { kept: new Map(), own: new Set(), malformed: 0 };
+	const receive = (raw: unknown, label: string) =>
+		fileReply(found, raw, { label, threadId: parent.threadId, videoId: threadVideoId }, parent, tally.channelId);
+	for (const [index, raw] of embedded.entries()) receive(raw, `${context} reply ${index}`);
+	if (total === null) {
+		tally.replyShortfall += found.malformed;
+	} else {
+		const needsLookup = total > found.kept.size + found.own.size + found.malformed;
+		if (needsLookup) {
+			tally.overflowThreads += 1;
+			await lookUpReplies(parent.id, receive, tally, context);
+		}
+		const uncovered = Math.max(0, total - found.kept.size - found.own.size);
+		if (needsLookup && uncovered > 0) {
+			console.warn(`${context} has ${uncovered} replies still unfetched after lookups (budget or page limit reached); reported as replyShortfall`);
+		}
+		tally.replyShortfall += uncovered;
+	}
+	tally.ownRepliesSkipped += found.own.size;
+	return [...found.kept.values()];
+}
+
+/** Follows comments.list pages for one thread, up to MAX_REPLY_PAGES_PER_THREAD pages and the page-wide budget. */
+async function lookUpReplies(
+	parentId: string,
+	receive: (raw: unknown, label: string) => void,
+	tally: ReplyTally,
+	context: string
+): Promise<void> {
+	let pageToken: string | null = null;
+	for (let page = 0; page < MAX_REPLY_PAGES_PER_THREAD && tally.lookupsRemaining > 0; page++) {
+		tally.lookupsRemaining -= 1;
+		tally.lookups += 1;
+		const { items, nextPageToken } = await fetchReplyPage(parentId, tally.accessToken, pageToken, tally.deadline);
+		for (const [index, raw] of items.entries()) receive(raw, `${context} reply lookup item ${index}`);
+		if (!nextPageToken) return;
+		pageToken = nextPageToken;
+	}
+}
+
+/** Fetches one page of a thread's complete reply list (comments.list with parentId, ≤100 replies). */
+function fetchReplyPage(parentId: string, accessToken: string, pageToken: string | null, deadline: number | undefined) {
+	const params = new URLSearchParams({ part: 'snippet', parentId, maxResults: '100', textFormat: 'plainText' });
+	if (pageToken) params.set('pageToken', pageToken);
+	return fetchCommentListPage('comments', params, accessToken, deadline);
+}
+
+/** snippet.totalReplyCount when it is a non-negative integer. Otherwise null, and a present value is warned about. */
+function replyTotal(snippet: JsonObject, context: string): number | null {
+	const raw = snippet.totalReplyCount;
+	if (raw === undefined) return null;
+	if (typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0) return raw;
+	console.warn(`${context} totalReplyCount ${JSON.stringify(raw)} is not a non-negative integer; the reply count is unknown`);
+	return null;
+}
+
+/** Embedded reply items: [] when the replies key is absent, null when present but not an object with a comments array. */
+function embeddedReplyItems(replies: unknown, context: string): unknown[] | null {
+	if (replies === undefined) return [];
+	const comments = isJsonObject(replies) ? replies.comments : undefined;
+	if (Array.isArray(comments)) return comments;
+	console.warn(`${context}.replies is not an object with a comments array; dropping its embedded replies`);
+	return null;
+}
+
+/** Files one parsed reply: kept by id, skipped when it is the channel's own, counted when malformed. */
+function fileReply(found: ThreadReplies, raw: unknown, site: CommentSite, parent: NewComment, channelId: string): void {
+	const reply = parseReply(raw, site);
+	if (!reply) {
+		found.malformed += 1;
+		return;
+	}
+	if (reply.authorChannelId === channelId) {
+		found.own.add(reply.id);
+		return;
+	}
+	if (!found.kept.has(reply.id)) found.kept.set(reply.id, { ...reply, parentId: parent.id });
 }
 
 /**
