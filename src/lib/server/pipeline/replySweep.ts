@@ -8,7 +8,7 @@ import { channels } from '$lib/server/db/schema';
 import { DeadlineExceededError } from '$lib/server/http';
 import { fetchNewComments, MAX_REPLY_LOOKUPS_PER_TICK, type CommentPage, type NewComment } from '$lib/server/youtube';
 import { isQuotaFailure, markQuotaExhausted, readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday } from '$lib/server/quota';
-import { assertChannelActive, runEnforcement } from './enforcement';
+import { assertChannelActive, ChannelDeactivatedError, runEnforcement } from './enforcement';
 import { decideAndStage } from './run';
 import { storedCommentIds } from './scoring';
 import type { Decision } from './types';
@@ -264,12 +264,14 @@ async function stageReplies(pass: Pass, processed: NewComment[], page: CommentPa
 /**
  * Applies what this tick staged. A failure is logged and recorded; its action rows stay outstanding for the next run.
  * A quota refusal is the exception: it is stamped for today and rethrown, so the pass stays in flight for the cron to report.
+ * A deadline or a deactivated channel is rethrown too: the pass stops where it is, with no checkpoint beyond its start.
  */
 async function enforceStaged(pass: Pass, protection: ProtectedIdentities, deadline: number): Promise<{ acted: number; enforcementError?: string }> {
 	try {
 		const { acted } = await runEnforcement(pass.channel.id, pass.accessToken, deadline, pass.channel.orgId, 0, pass.channel, protection);
 		return { acted };
 	} catch (error) {
+		if (error instanceof DeadlineExceededError || error instanceof ChannelDeactivatedError) throw error;
 		if (isQuotaFailure(error)) {
 			await stampQuotaExhausted(pass, '; its actions stay dispatched for a later run');
 			throw error;

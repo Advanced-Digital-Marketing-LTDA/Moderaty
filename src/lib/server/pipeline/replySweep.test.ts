@@ -68,7 +68,7 @@ type Body = Record<string, unknown>;
 const youtube = {
 	threads: (_url: URL): Body | Response | Promise<Body | Response> => listPage([]),
 	replies: (_parentId: string, _url: URL): Body | Response => listPage([]),
-	moderation: (): Response => new Response(null, { status: 204 }),
+	moderation: (): Response | Promise<Response> => new Response(null, { status: 204 }),
 	calls: [] as Array<{ route: string; url: URL }>,
 	moderated: [] as Array<{ ids: string[]; status: string | null }>,
 	deleted: [] as string[],
@@ -88,7 +88,7 @@ async function youtubeRouter(input: RequestInfo | URL, init?: RequestInit): Prom
 			return answer(youtube.replies(url.searchParams.get('parentId') ?? '', url));
 		case 'POST /comments/setModerationStatus':
 			youtube.moderated.push({ ids: (url.searchParams.get('id') ?? '').split(','), status: url.searchParams.get('moderationStatus') });
-			return youtube.moderation();
+			return answer(await youtube.moderation());
 		case 'DELETE /comments':
 			youtube.deleted.push(url.searchParams.get('id') ?? '');
 			return new Response(null, { status: 204 });
@@ -172,8 +172,8 @@ async function seedSpentPeriod() {
 	});
 }
 
-async function addRule(action: 'hold' | 'delete'): Promise<number> {
-	const inserted = await testDb().db.insert(rules).values({ channelId: 'UC1', type: 'keyword', pattern: 'spam-word', action }).returning({ id: rules.id }).get();
+async function addRule(action: 'hold' | 'delete', pattern = 'spam-word'): Promise<number> {
+	const inserted = await testDb().db.insert(rules).values({ channelId: 'UC1', type: 'keyword', pattern, action }).returning({ id: rules.id }).get();
 	return inserted.id;
 }
 
@@ -860,5 +860,46 @@ describe('quota guard', () => {
 		expect(lookupCalls()).toBe(1);
 		expect(youtube.calls.map((call) => call.route)).toContain('GET /comments');
 		expect(recorded).toBe(youtube.calls.reduce((sum, call) => sum + COST_BY_ROUTE[call.route], 0));
+	});
+});
+
+describe('enforcement inside a tick', () => {
+	test('an enforcement deadline ends the pass as partial and writes only the pass start', async () => {
+		const holdId = await addRule('hold');
+		const deleteId = await addRule('delete', 'bad-word');
+		await seed();
+		youtube.threads = () =>
+			listPage([thread('top-1', THREAD_AT, { totalReplyCount: 2, replies: [resource('reply-h', REPLY_AT, 'viewer-b', 'spam-word reply'), resource('reply-d', REPLY_AT, 'viewer-c', 'bad-word reply')] })]);
+		// The hold's write lands past the sub-deadline, so the delete that follows has no time left to start.
+		youtube.moderation = () => {
+			setClock(NOW_MS + 11 * 1000);
+			return new Response(null, { status: 204 });
+		};
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		const result = await tick();
+
+		expect(result).toMatchObject({ status: 'partial', reason: 'deadline' });
+		expect(await replyColumns()).toEqual({ since: SINCE, boundary: SINCE, token: null, lastAt: NOW, shortfall: 0 });
+		expect(await actionRows()).toEqual([
+			{ commentId: 'reply-d', action: 'delete', state: 'dispatched', reason: `rule #${deleteId} (keyword: bad-word)` },
+			{ commentId: 'reply-h', action: 'hold', state: 'completed', reason: `rule #${holdId} (keyword: spam-word)` }
+		]);
+		expect(youtube.deleted).toEqual([]);
+		expect(error).not.toHaveBeenCalled();
+	});
+
+	test('a channel deactivated during enforcement propagates ChannelDeactivatedError and is not logged as an enforcement failure', async () => {
+		await addRule('hold');
+		await seed();
+		youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 1, replies: [resource('reply-h', REPLY_AT, 'viewer-b', 'spam-word reply')] })]);
+		youtube.moderation = async () => {
+			await testDb().db.update(channels).set({ active: 0 }).where(eq(channels.id, 'UC1'));
+			return new Response(null, { status: 204 });
+		};
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		await expect(tick()).rejects.toBeInstanceOf(ChannelDeactivatedError);
+		expect(error).not.toHaveBeenCalled();
 	});
 });
