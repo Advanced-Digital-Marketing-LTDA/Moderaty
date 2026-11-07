@@ -228,6 +228,19 @@ describe('reply pause', () => {
 
 		expect(data.replyPause).toBe(pause);
 	});
+
+	test.each([
+		{ label: 'at the ceiling', units: 1000, pause: 'paused-quota-today' },
+		{ label: 'one unit under the ceiling', units: 999, pause: null }
+	])('with the ceiling at 1000 and $units units used today, the reply pause is $pause ($label)', async ({ units, pause }) => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000';
+		await seedChannel('UC1');
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: '2026-11-07', units, exhaustedAt: null });
+
+		const data = (await loadLayout('UC1')) as LayoutData;
+
+		expect(data.replyPause).toBe(pause);
+	});
 });
 
 test('a database outage returns the maintenance payload without requiring a user', async () => {

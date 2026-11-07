@@ -4,7 +4,7 @@ import { env } from '$env/dynamic/private';
 import type { ReplyPause } from '$lib/replyCheckStatus';
 import { banCountsByChannel, commentCountsByChannel } from '$lib/server/channelStats';
 import { db } from '$lib/server/db';
-import { readQuotaExhaustedToday, readReplyCeiling } from '$lib/server/quota';
+import { readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday } from '$lib/server/quota';
 import { ownedChannel } from '$lib/server/ownership';
 import { requireUser } from '$lib/server/session';
 
@@ -20,12 +20,16 @@ function tabFromPath(pathname: string): ChannelTab {
 }
 
 /**
- * The reply recheck's pause for this load: a disabled quota ceiling pauses reply checks by the server, and a day a
- * quota refusal stamped pauses them until the Pacific day rolls over. Reads only.
+ * The reply recheck's pause for this load: a disabled quota ceiling pauses reply checks by the server. A day a quota
+ * refusal stamped, or a day whose units have reached the ceiling, pauses them until the Pacific day rolls over. Reads only.
  */
 async function replyPauseNow(): Promise<ReplyPause | null> {
-	if (readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING).kind === 'disabled') return 'paused-by-server';
-	if (await readQuotaExhaustedToday(db, Date.now())) return 'paused-quota-today';
+	const ceiling = readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING);
+	if (ceiling.kind === 'disabled') return 'paused-by-server';
+	const now = Date.now();
+	if (await readQuotaExhaustedToday(db, now)) return 'paused-quota-today';
+	// The same comparison the recheck's own quota gate makes, so the owner's status matches what the recheck does.
+	if ((await readYoutubeUnitsToday(db, now)) >= ceiling.units) return 'paused-quota-today';
 	return null;
 }
 
