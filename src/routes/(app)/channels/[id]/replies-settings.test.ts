@@ -86,6 +86,17 @@ describe('setModerateReplies: who may change it', () => {
 		expect(await rowOf()).toEqual(before);
 	});
 
+	test.each([
+		{ role: 'member', user: MEMBER },
+		{ role: 'admin', user: ADMIN }
+	])('a team $role cannot turn reply moderation off: 403 and the row is unchanged', async ({ user }) => {
+		await seedChannel('UC1', CHECKPOINT);
+		const before = await rowOf();
+
+		await expect(saveReplies('UC1', UNTICKED, user)).rejects.toMatchObject({ status: 403 });
+		expect(await rowOf()).toEqual(before);
+	});
+
 	test('a signed-out request is refused with 401 and changes nothing', async () => {
 		await seedChannel('UC1');
 		const before = await rowOf();
