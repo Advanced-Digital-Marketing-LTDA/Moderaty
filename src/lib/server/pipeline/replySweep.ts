@@ -292,9 +292,17 @@ async function enforceStaged(
 	}
 }
 
-/** Stamps today as exhausted for the owner's status line and logs it. The caller rethrows the quota failure. */
+/**
+ * Stamps today as exhausted for the owner's status line and logs it. A stamp that fails is logged with its own error and
+ * does not replace the quota refusal: the caller rethrows that refusal.
+ */
 async function stampQuotaExhausted(pass: Pass, detail: string): Promise<void> {
-	await markQuotaExhausted(db, pass.now());
+	try {
+		await markQuotaExhausted(db, pass.now());
+	} catch (stampError) {
+		console.error(`reply recheck could not stamp quota exhaustion for channel ${pass.channel.id}${detail}; the quota refusal is rethrown`, stampError);
+		return;
+	}
 	console.error(`reply recheck stopped: quota exhausted for channel ${pass.channel.id}${detail}`);
 }
 

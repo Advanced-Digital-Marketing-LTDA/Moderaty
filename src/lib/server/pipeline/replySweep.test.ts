@@ -847,6 +847,36 @@ describe('quota guard', () => {
 		expect(error).toHaveBeenCalledWith('reply recheck stopped: quota exhausted for channel UC1; its actions stay dispatched for a later run');
 	});
 
+	test('a quota stamp that cannot be written is logged, and the sweep still rejects with the quota refusal itself', async () => {
+		await seed(IN_FLIGHT);
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const refusalBody = JSON.stringify({ error: { code: 403, errors: [{ reason: 'quotaExceeded' }] } });
+		youtube.threads = () => new Response(refusalBody, { status: 403 });
+		// Only the quota stamp's insert fails; every other statement runs as usual.
+		const client = testDb().client;
+		const execute = client.execute.bind(client);
+		client.execute = ((statement: { sql: string } | string, ...rest: unknown[]) => {
+			const sql = typeof statement === 'string' ? statement : statement.sql;
+			if (/insert into\s+[`"]?youtube_quota_usage/i.test(sql)) return Promise.reject(new Error('database is locked'));
+			return (execute as (...args: unknown[]) => Promise<unknown>)(statement, ...rest);
+		}) as never;
+		let failure: unknown;
+		try {
+			await tick().catch((error: unknown) => {
+				failure = error;
+			});
+		} finally {
+			client.execute = execute;
+		}
+
+		expect(failure).toEqual(new Error(`commentThreads.list failed: 403 ${refusalBody}`));
+		expect(errors).toHaveBeenCalledWith(
+			'reply recheck could not stamp quota exhaustion for channel UC1; the quota refusal is rethrown',
+			expect.objectContaining({ message: expect.stringContaining('insert into "youtube_quota_usage"'), cause: expect.objectContaining({ message: 'database is locked' }) })
+		);
+		expect(await replyColumns()).toEqual({ since: SINCE, boundary: SINCE, token: 'page-2', lastAt: iso(NOW_MS - 5 * MINUTE), shortfall: 0 });
+	});
+
 	test('the units recorded for one check equal the documented cost of every YouTube call the check made', async () => {
 		await seed();
 		youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 2, replies: [resource('reply-1', REPLY_AT, 'viewer-b', 'a reply')] })]);
