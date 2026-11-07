@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { error, json, type RequestEvent } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import { and, asc, eq, gte, inArray, isNull, lt, notInArray, or } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from '$lib/server/db';
@@ -540,11 +540,10 @@ const runAndRecord = async (
 	return { body, status };
 };
 
-const runCronTick = async ({ url, request }: Pick<RequestEvent, 'url' | 'request'>, diagnostics: CronDiagnostics, flushQuota: () => Promise<string | null>) => {
+const runCronTick = async (diagnostics: CronDiagnostics, flushQuota: () => Promise<string | null>) => {
 	// Captured at handler start so the DB prelude consumes the same budget.
 	const startedAt = Date.now();
 	const deadline = startedAt + RUN_BUDGET_MS;
-	authorizeCron(url, request);
 	// Validate BEFORE any sweep or claim: an invalid value must fail loudly
 	// at the entry, not silently run the sweeps live (runChannel re-checks,
 	// but by then retention writes would already have landed).
@@ -666,10 +665,12 @@ async function flushQuotaUnits(diagnostics: CronDiagnostics): Promise<string | n
 }
 
 export const GET: RequestHandler = async (event) => {
+	// Before the try: a rejected request must not reach the quota flush in finally.
+	authorizeCron(event.url, event.request);
 	const diagnostics = new CronDiagnostics();
 	const flushQuota = quotaFlusher(diagnostics);
 	try {
-		return await runCronTick(event, diagnostics, flushQuota);
+		return await runCronTick(diagnostics, flushQuota);
 	} finally {
 		await flushQuota();
 	}

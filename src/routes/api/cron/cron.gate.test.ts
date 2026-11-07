@@ -1,7 +1,8 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { organizations, channels } from '$lib/server/db/schema';
+import { organizations, channels, youtubeQuotaUsage } from '$lib/server/db/schema';
 import { encrypt } from '$lib/server/crypto';
-import { setupTestDb, testDb } from '$lib/server/testdb';
+import { flushYoutubeUnits, recordYoutubeUnits } from '$lib/server/quota';
+import { setupTestDb, testDb, wipeTables } from '$lib/server/testdb';
 
 // The real claim, billing gate and response builder run. Only the outbound
 // channel run and the e-mail, digest and payment boundaries are mocked.
@@ -31,7 +32,7 @@ vi.mock('$lib/server/feedbackDigest', async (importOriginal) => {
 
 import { GET } from './+server';
 
-setupTestDb(['cron_workload_state', 'channels', 'organizations', 'feedback_digests']);
+setupTestDb(['cron_workload_state', 'channels', 'organizations', 'feedback_digests', 'youtube_quota_usage']);
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -47,6 +48,18 @@ function call() {
 	const url = new URL('http://localhost/api/cron');
 	return GET({ url, request: new Request(url, { headers: { authorization: 'Bearer test-secret' } }) } as never);
 }
+
+test('a request with a bad secret writes no quota row, even with units already pending in this process', async () => {
+	recordYoutubeUnits('comments.list', Date.now());
+	const url = new URL('http://localhost/api/cron');
+	try {
+		await expect(GET({ url, request: new Request(url, { headers: { authorization: 'Bearer wrong-secret' } }) } as never)).rejects.toMatchObject({ status: 401 });
+		expect(await testDb().db.select().from(youtubeQuotaUsage).all()).toEqual([]);
+	} finally {
+		await flushYoutubeUnits(testDb().db);
+		await wipeTables(['youtube_quota_usage']);
+	}
+});
 
 test('a malformed complimentary list turns the tick red, reports the list, and still runs the funded channel', async () => {
 	await testDb().db.insert(organizations).values([
