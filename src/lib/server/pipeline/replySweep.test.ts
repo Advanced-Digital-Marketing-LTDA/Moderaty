@@ -18,12 +18,18 @@ const mocks = vi.hoisted(() => ({
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
 vi.mock('$lib/server/moderation', () => ({ scoreComment: mocks.scoreComment, serializeScores: () => '{}' }));
 vi.mock('$lib/server/jailbreak', () => ({ detectJailbreak: mocks.detectJailbreak }));
+// A pass-through spy: the real staging runs, and one test overrides a single return to break the count.
+vi.mock('./run', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('./run')>();
+	return { ...actual, decideAndStage: vi.fn(actual.decideAndStage) };
+});
 
 import { channels, comments, creditTransactions, moderationActions, organizations, rules, stripeSubscriptionPeriods, youtubeQuotaUsage } from '$lib/server/db/schema';
 import { flushYoutubeUnits, readYoutubeUnitsToday, recordYoutubeUnits, YOUTUBE_UNIT_COST } from '$lib/server/quota';
 import { setupTestDb, testDb, wipeTables } from '$lib/server/testdb';
 import { ChannelDeactivatedError, runEnforcement } from './enforcement';
 import { capReplyDeletes, runReplySweep } from './replySweep';
+import { decideAndStage } from './run';
 import type { Decision } from './types';
 
 setupTestDb([
@@ -396,6 +402,30 @@ test('control: the same spent-period org with one purchased credit stores and ch
 	expect(result).toMatchObject({ status: 'finished', staged: 1, deferred: 0 });
 	expect(await creditRows()).toEqual([{ refType: 'comment', refId: 'reply-1', delta: -1 }]);
 	expect(await orgCredits()).toBe(0);
+});
+
+test('two fresh replies with one credit: one is staged and charged, the other is deferred, and the pass is abandoned for lack of credits', async () => {
+	await seed({}, 1);
+	youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 2, replies: [resource('reply-1', REPLY_AT), resource('reply-2', REPLY_AT)] })]);
+
+	const result = await tick();
+
+	expect(result).toMatchObject({ status: 'abandoned', fresh: 2, staged: 1, deferred: 1, reason: 'out of credits: 1 reply(ies) deferred' });
+	expect(await storedComments()).toEqual([{ id: 'reply-1', parentId: 'top-1', status: 'approved', decidedBy: 'ai', matchedRuleId: null }]);
+	expect(await creditRows()).toEqual([{ refType: 'comment', refId: 'reply-1', delta: -1 }]);
+	expect(await orgCredits()).toBe(0);
+	expect(await replyColumns()).toEqual({ since: SINCE, boundary: null, token: null, lastAt: NOW, shortfall: 0 });
+});
+
+test('a staged count that, with the deferred count, does not add up to the processed replies throws and does not advance', async () => {
+	const actual = await vi.importActual<typeof import('./run')>('./run');
+	vi.mocked(decideAndStage).mockImplementationOnce(async (...args) => ({ ...(await actual.decideAndStage(...args)), stagedCount: 0 }));
+	await seed();
+	youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 1, replies: [resource('reply-1', REPLY_AT)] })]);
+
+	await expect(tick()).rejects.toThrow('reply recheck staged 0 of 1 fresh replies for channel UC1; not advancing');
+
+	expect(await replyColumns()).toEqual({ since: SINCE, boundary: SINCE, token: null, lastAt: NOW, shortfall: 0 });
 });
 
 test('an enable-time change made during the fetch aborts the checkpoint and leaves the changed value in place', async () => {
