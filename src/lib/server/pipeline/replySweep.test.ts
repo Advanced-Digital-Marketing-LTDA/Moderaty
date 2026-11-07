@@ -441,6 +441,25 @@ test('an enable-time change made during the fetch aborts the checkpoint and leav
 	expect(await replyColumns()).toEqual({ since: CHANGED, boundary: SINCE, token: null, lastAt: NOW, shortfall: 0 });
 });
 
+test.each([
+	{ label: 'reply_sweep_page_token', change: { replySweepPageToken: 'concurrent-token' }, columns: { boundary: SINCE, token: 'concurrent-token' } },
+	{ label: 'reply_sweep_boundary', change: { replySweepBoundary: '2026-11-01T00:00:00.000Z' }, columns: { boundary: '2026-11-01T00:00:00.000Z', token: null } },
+	{ label: 'lease_expires_at', change: { leaseExpiresAt: '2026-11-07T12:05:00.000Z' }, columns: { boundary: SINCE, token: null } },
+	{ label: 'history_boundary', change: { historyBoundary: '2026-11-07T11:00:00.000Z' }, columns: { boundary: SINCE, token: null } }
+])('a concurrent change to $label during the fetch aborts the checkpoint and leaves that change in place', async ({ change, columns }) => {
+	await seed();
+	youtube.threads = async () => {
+		await testDb().db.update(channels).set(change).where(eq(channels.id, 'UC1'));
+		return listPage([thread('top-1', THREAD_AT)], 'page-2');
+	};
+
+	await expect(tick()).rejects.toThrow('reply recheck checkpoint changed for channel UC1 — aborting');
+
+	expect(await loadRow()).toMatchObject(change);
+	// The pass start is what landed; the page-2 token and the advance from this tick did not.
+	expect(await replyColumns()).toEqual({ since: SINCE, ...columns, lastAt: NOW, shortfall: 0 });
+});
+
 test('a pass in flight for more than six hours restarts from the lookback, with no page token', async () => {
 	await seed({
 		moderateRepliesSince: iso(NOW_MS - 10 * DAY),
