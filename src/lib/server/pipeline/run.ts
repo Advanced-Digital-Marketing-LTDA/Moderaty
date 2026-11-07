@@ -14,7 +14,7 @@ import { fetchNewComments, refreshAccessToken, type CommentPage } from '$lib/ser
 import { assertChannelActive, ChannelDeactivatedError, runEnforcement } from './enforcement';
 import { decideNewComments } from './scoring';
 import { stageOrAuditDecisions } from './staging';
-import type { ChannelRunResult, RunChannelOptions } from './types';
+import type { ChannelRunResult, Decision, RunChannelOptions } from './types';
 
 /**
  * Creates an empty channel run result with no processed comments or actions.
@@ -162,7 +162,7 @@ async function loadChannelForRun(
  * decisions are staged and BEFORE the cursor advances, so the next run
  * retries just the failed comments.
  */
-const decideAndStage = async (
+export const decideAndStage = async (
 	channelId: string,
 	page: CommentPage,
 	fetched: number,
@@ -173,10 +173,12 @@ const decideAndStage = async (
 		dryRun: boolean;
 		window: RunChannelOptions['window'];
 		rescan: { chargeScope: string | null; scanStamp: string } | undefined;
+		/** Reply recheck: reshapes the scored decisions before staging. It must keep the count (staged + deferred = scored). */
+		adjust?: (decisions: Decision[]) => Decision[];
 	}
 ): Promise<{ acted: number; queued: number; skipped: number; deferred: number; stagedCount: number; handleLookupError: boolean; protection: ProtectedIdentities }> => {
-	const { channel, accessToken, deadline, dryRun, window, rescan } = ctx;
-	const { decisions, failures, deferred, protectedIds, protection, handleLookupError } = await decideNewComments(channelId, page, {
+	const { channel, accessToken, deadline, dryRun, window, rescan, adjust } = ctx;
+	const { decisions: scoredDecisions, failures, deferred, protectedIds, protection, handleLookupError } = await decideNewComments(channelId, page, {
 		accessToken,
 		toneLevel: channel.toneLevel ?? TONE_LEVEL_OMNI_ONLY,
 		protections: {
@@ -203,6 +205,7 @@ const decideAndStage = async (
 		// Live runs consume credits (and gate AI on them); dry runs never do.
 		consumeCredits: !dryRun
 	});
+	const decisions = adjust ? adjust(scoredDecisions) : scoredDecisions;
 
 	// Deletion may have committed during the YouTube/AI calls above: re-check
 	// before any durable write (I3) so a deleted account gets no new rows.
