@@ -20,7 +20,7 @@ vi.mock('$lib/server/moderation', () => ({ scoreComment: mocks.scoreComment, ser
 vi.mock('$lib/server/jailbreak', () => ({ detectJailbreak: mocks.detectJailbreak }));
 
 import { channels, comments, creditTransactions, moderationActions, organizations, rules, stripeSubscriptionPeriods, youtubeQuotaUsage } from '$lib/server/db/schema';
-import { flushYoutubeUnits, readYoutubeUnitsToday, YOUTUBE_UNIT_COST } from '$lib/server/quota';
+import { flushYoutubeUnits, readYoutubeUnitsToday, recordYoutubeUnits, YOUTUBE_UNIT_COST } from '$lib/server/quota';
 import { setupTestDb, testDb, wipeTables } from '$lib/server/testdb';
 import { ChannelDeactivatedError, runEnforcement } from './enforcement';
 import { capReplyDeletes, runReplySweep } from './replySweep';
@@ -789,6 +789,20 @@ describe('quota guard', () => {
 	test('a day total at the ceiling skips the check: no YouTube call and no channel write', async () => {
 		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '100';
 		await storeUnits(100);
+		await seed();
+		const before = await loadRow();
+
+		const result = await tick();
+
+		expect(result).toMatchObject({ status: 'skipped', reason: 'quota-ceiling-reached' });
+		expect(youtube.calls).toEqual([]);
+		expect(await loadRow()).toEqual(before);
+	});
+
+	test('units recorded in this invocation but not yet flushed count toward the ceiling', async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '100';
+		await storeUnits(90);
+		for (let call = 0; call < 20; call += 1) recordYoutubeUnits('commentThreads.list');
 		await seed();
 		const before = await loadRow();
 
