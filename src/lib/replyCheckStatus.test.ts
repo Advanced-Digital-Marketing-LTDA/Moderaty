@@ -29,7 +29,7 @@ describe('replyCheckStatus', () => {
 		expect(replyCheckStatus(row, ENABLED_AT)).toBe('first-check-pending');
 	});
 
-	test('the first check stays pending at one hour minus a millisecond, at exactly one hour, and at one hour plus a millisecond', () => {
+	test('first-check-pending holds at one hour minus a millisecond, at exactly one hour and at one hour plus a millisecond, and no completed check exists', () => {
 		const row = channel({ moderateRepliesSince: ENABLED_AT, replySweepLastAt: ENABLED_AT });
 		expect(replyCheckStatus(row, '2026-11-07T10:59:59.999Z')).toBe('first-check-pending');
 		expect(replyCheckStatus(row, '2026-11-07T11:00:00.000Z')).toBe('first-check-pending');
@@ -71,7 +71,7 @@ describe('replyCheckStatus', () => {
 		expect(replyCheckStatus(row, '2026-11-08T12:00:00.000Z')).toBe('last-check');
 	});
 
-	test('a finished check exactly one hour old is still the last check', () => {
+	test('a finished check exactly one hour old is shown as the last check', () => {
 		const row = channel({ moderateRepliesSince: ENABLED_AT, replySweepLastAt: '2026-11-07T11:00:00.000Z' });
 		expect(replyCheckStatus(row, '2026-11-07T12:00:00.000Z')).toBe('last-check');
 	});
