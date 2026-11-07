@@ -385,3 +385,45 @@ describe('an unresolvable protected identity on a reply', () => {
 		expect(writesFor('moderation', 'top-k')).toEqual([]);
 	});
 });
+
+describe('a human claim that lands during a refused reply write', () => {
+	async function claimOf(id: string) {
+		return db()
+			.select({ token: comments.humanDispatchToken, state: comments.humanDispatchState })
+			.from(comments)
+			.where(eq(comments.id, id))
+			.get();
+	}
+
+	test.each([
+		{ claim: 'the restoring status', status: 'restoring', token: null, state: null },
+		{ claim: 'a dispatch token', status: 'approved', token: 'claim-token', state: null },
+		{ claim: 'an in-flight dispatch state', status: 'approved', token: null, state: 'in_flight' }
+	] as const)('the refused reply is parked, and $claim is kept', async ({ status, token, state }) => {
+		await seedChannel();
+		await seedComment('reply-c', 'pending', 'top-1', 'rule');
+		await seedAction('reply-c', 'hold', 'pending');
+		youtube.handlers.moderation = async () => {
+			// The claim commits after the run read the comment, while the hold write is in flight.
+			await db().update(comments).set({ status, humanDispatchToken: token, humanDispatchState: state }).where(eq(comments.id, 'reply-c'));
+			return refusal(400, 'operationNotSupported');
+		};
+
+		await expect(ENFORCE()).resolves.toMatchObject({ acted: 0, replyActionFailures: 1 });
+
+		expect(await statusOf('reply-c')).toEqual({ status, decidedBy: 'rule' });
+		expect(await claimOf('reply-c')).toEqual({ token, state });
+		// The action row is parked by design: finalizeHumanIntent supersedes a failed reply row when the human decision lands.
+		expect(await actionOf('reply-c')).toMatchObject({ action: 'hold', state: 'failed' });
+		expect(await auditRows()).toEqual([
+			{
+				commentId: 'reply-c',
+				action: 'failed',
+				reason: 'reply hold refused by YouTube: 400 operationNotSupported',
+				actor: 'system',
+				authorHandle: null,
+				text: null
+			}
+		]);
+	});
+});
