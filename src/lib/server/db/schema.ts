@@ -816,3 +816,11 @@ export const contactSubmissions = sqliteTable('contact_submissions', {
 	// frees the slot for a fresh submission.
 	uniqueIndex('contact_submissions_pending_email_unique').on(table.email).where(sql`${table.status} = 'pending'`)
 ]);
+
+// Global YouTube Data API units per Pacific day (one row per day, shared by every channel).
+// Units are flushed by the cron tick; exhausted_at records the day a quota refusal stopped reply checks.
+export const youtubeQuotaUsage = sqliteTable('youtube_quota_usage', {
+	day: text('day').primaryKey(), // YYYY-MM-DD in America/Los_Angeles
+	units: integer('units').notNull().default(0),
+	exhaustedAt: text('exhausted_at') // ISO instant of the first quota refusal that day; null = none
+});

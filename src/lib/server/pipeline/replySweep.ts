@@ -7,6 +7,7 @@ import { db } from '$lib/server/db';
 import { channels } from '$lib/server/db/schema';
 import { DeadlineExceededError } from '$lib/server/http';
 import { fetchNewComments, MAX_REPLY_LOOKUPS_PER_TICK, type CommentPage, type NewComment } from '$lib/server/youtube';
+import { isQuotaFailure, markQuotaExhausted, readReplyCeiling, readYoutubeUnitsToday } from '$lib/server/quota';
 import { assertChannelActive, runEnforcement } from './enforcement';
 import { decideAndStage } from './run';
 import { storedCommentIds } from './scoring';
@@ -102,6 +103,8 @@ export async function runReplySweep(
 	if (since === null) return outcome('skipped', loadedShortfall, { reason: 'off' });
 	const refusal = await refusedBy(channel, deadline, nowMs);
 	if (refusal !== null) return outcome('skipped', loadedShortfall, { reason: refusal });
+	const quotaRefusal = await refusedByQuota(nowMs);
+	if (quotaRefusal !== null) return outcome('skipped', loadedShortfall, { reason: quotaRefusal });
 
 	const checkpoint = checkpointWriter(channel);
 	const position = await openPass(channel, since, nowMs, checkpoint);
@@ -125,6 +128,32 @@ async function refusedBy(channel: Channel, deadline: number, nowMs: number): Pro
 	if (env.DRY_RUN === 'true') return 'dry-run';
 	if (deadline - nowMs < REPLY_SWEEP_MIN_REMAINING_MS) return 'no-time';
 	return null;
+}
+
+/**
+ * The quota gate, after the channel gates. A missing, zero or invalid ceiling disables reply checks only, loudly and
+ * without a throw, so top-level moderation keeps running. A day at or past the ceiling skips this tick. Reads only.
+ */
+async function refusedByQuota(nowMs: number): Promise<string | null> {
+	const ceiling = readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING);
+	if (ceiling.kind === 'disabled') {
+		logDisabledCeiling(ceiling.reason);
+		return ceiling.reason;
+	}
+	const used = await readYoutubeUnitsToday(db, nowMs);
+	if (used < ceiling.units) return null;
+	console.warn(`reply recheck skipped for today: ${used} YouTube units reached REPLY_SWEEP_QUOTA_CEILING (${ceiling.units})`);
+	return 'quota-ceiling-reached';
+}
+
+/** A zero ceiling is a deliberate off switch; a missing or invalid one is a configuration error and says so. */
+function logDisabledCeiling(reason: 'ceiling-not-set' | 'kill-switch' | 'ceiling-invalid'): void {
+	if (reason === 'kill-switch') {
+		console.warn('reply recheck off: REPLY_SWEEP_QUOTA_CEILING is 0 (kill switch)');
+		return;
+	}
+	const problem = reason === 'ceiling-not-set' ? 'is not set' : 'is invalid';
+	console.error(`reply recheck off: REPLY_SWEEP_QUOTA_CEILING ${problem}; set a positive whole number of units, or 0 to disable`);
 }
 
 /**
@@ -197,9 +226,7 @@ async function fetchPage(pass: Pass, deadline: number): Promise<CommentPage> {
 			replyLookupBudget: MAX_REPLY_LOOKUPS_PER_TICK
 		});
 	} catch (error) {
-		if (error instanceof Error && error.message.includes('quotaExceeded')) {
-			console.error(`reply recheck stopped: quota exhausted for channel ${pass.channel.id}`);
-		}
+		if (isQuotaFailure(error)) await stampQuotaExhausted(pass, '');
 		throw error;
 	}
 }
@@ -227,15 +254,28 @@ async function stageReplies(pass: Pass, processed: NewComment[], page: CommentPa
 	return staging;
 }
 
-/** Applies what this tick staged. A failure is logged and recorded; its action rows stay outstanding for the next run. */
+/**
+ * Applies what this tick staged. A failure is logged and recorded; its action rows stay outstanding for the next run.
+ * A quota refusal is the exception: it is stamped for today and rethrown, so the pass stays in flight for the cron to report.
+ */
 async function enforceStaged(pass: Pass, protection: ProtectedIdentities, deadline: number): Promise<{ acted: number; enforcementError?: string }> {
 	try {
 		const { acted } = await runEnforcement(pass.channel.id, pass.accessToken, deadline, pass.channel.orgId, 0, pass.channel, protection);
 		return { acted };
 	} catch (error) {
+		if (isQuotaFailure(error)) {
+			await stampQuotaExhausted(pass, '; its actions stay dispatched for a later run');
+			throw error;
+		}
 		console.error(`reply recheck enforcement failed for channel ${pass.channel.id}; its actions stay outstanding for the next run`, error);
 		return { acted: 0, enforcementError: error instanceof Error ? error.message : String(error) };
 	}
+}
+
+/** Stamps today as exhausted for the owner's status line and logs it. The caller rethrows the quota failure. */
+async function stampQuotaExhausted(pass: Pass, detail: string): Promise<void> {
+	await markQuotaExhausted(db, pass.now());
+	console.error(`reply recheck stopped: quota exhausted for channel ${pass.channel.id}${detail}`);
 }
 
 /** Records this page's shortfall, then either finishes the pass (no further page) or advances it to the next page. */

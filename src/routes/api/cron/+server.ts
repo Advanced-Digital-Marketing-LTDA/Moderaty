@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { error, json } from '@sveltejs/kit';
+import { error, json, type RequestEvent } from '@sveltejs/kit';
 import { and, asc, eq, gte, inArray, isNull, lt, notInArray, or } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from '$lib/server/db';
@@ -19,6 +19,7 @@ import { ChannelDeactivatedError } from '$lib/server/pipeline/enforcement';
 import { REPLY_SWEEP_MIN_REMAINING_MS, runReplySweep, type ReplySweepResult } from '$lib/server/pipeline/replySweep';
 import { decrypt } from '$lib/server/crypto';
 import { refreshAccessToken } from '$lib/server/youtube';
+import { flushYoutubeUnits } from '$lib/server/quota';
 import type { RequestHandler } from './$types';
 
 const CONTACT_NOTIFICATION_BUDGET_MS = 5 * 1000;
@@ -535,7 +536,7 @@ const runAndRecord = async (
 	return { body, status };
 };
 
-export const GET: RequestHandler = async ({ url, request }) => {
+const runCronTick = async ({ url, request }: Pick<RequestEvent, 'url' | 'request'>, diagnostics: CronDiagnostics, flushQuota: () => Promise<string | null>) => {
 	// Captured at handler start so the DB prelude consumes the same budget.
 	const startedAt = Date.now();
 	const deadline = startedAt + RUN_BUDGET_MS;
@@ -547,16 +548,20 @@ export const GET: RequestHandler = async ({ url, request }) => {
 		throw error(500, 'DRY_RUN must be true or false');
 	}
 	const dryRun = env.DRY_RUN === 'true';
-	const diagnostics = new CronDiagnostics();
 	// Snapshot at serialization: failures can arrive after the sweeps finish.
 	// Set when the complimentary list could not be read. Unpaid orgs are excluded
 	// from the pick, so the tick must say so: ok:false, like a failed sweep.
 	let complimentaryListFailed = false;
-	const respond = (body: Record<string, unknown>, status = 200) => json({
-		...body,
-		...(complimentaryListFailed ? { ok: false, complimentaryAccessError: true } : {}),
-		cronRunId: diagnostics.cronRunId, failureDiagnostics: diagnostics.failures
-	}, { status });
+	const respond = async (body: Record<string, unknown>, status = 200) => {
+		// Flushed before the snapshot below, so a failed flush appears in both quotaFlushError and failureDiagnostics.
+		const quotaFlushError = await flushQuota();
+		return json({
+			...body,
+			...(complimentaryListFailed ? { ok: false, complimentaryAccessError: true } : {}),
+			...(quotaFlushError ? { quotaFlushError } : {}),
+			cronRunId: diagnostics.cronRunId, failureDiagnostics: diagnostics.failures
+		}, { status });
+	};
 	console.info(`cron: tick start (dryRun=${dryRun}, run=${diagnostics.cronRunId})`);
 	const base = await runCronSweeps(dryRun, deadline, startedAt, diagnostics);
 	const nowIso = new Date().toISOString();
@@ -631,4 +636,37 @@ export const GET: RequestHandler = async ({ url, request }) => {
 	);
 	const { body, status } = await runAndRecord(workload, deadline, withPreview, diagnostics);
 	return respond(body, status);
+};
+
+/**
+ * Flushes this invocation's YouTube units at most once. The response path flushes before it serializes, so a failure
+ * reaches the payload; GET's finally covers a tick that throws first. A dry run writes nothing durable (I8), so its
+ * units are dropped with the invocation. A failed write is logged and never changes a channel's run health.
+ */
+function quotaFlusher(diagnostics: CronDiagnostics): () => Promise<string | null> {
+	let flushed: Promise<string | null> | null = null;
+	return () => {
+		flushed ??= flushQuotaUnits(diagnostics);
+		return flushed;
+	};
+}
+
+async function flushQuotaUnits(diagnostics: CronDiagnostics): Promise<string | null> {
+	if (env.DRY_RUN === 'true') return null;
+	try {
+		await flushYoutubeUnits(db, Date.now());
+		return null;
+	} catch (cause) {
+		return diagnostics.report('youtube quota flush', cause);
+	}
+}
+
+export const GET: RequestHandler = async (event) => {
+	const diagnostics = new CronDiagnostics();
+	const flushQuota = quotaFlusher(diagnostics);
+	try {
+		return await runCronTick(event, diagnostics, flushQuota);
+	} finally {
+		await flushQuota();
+	}
 };

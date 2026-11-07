@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 const mocks = vi.hoisted(() => ({
@@ -6,7 +6,8 @@ const mocks = vi.hoisted(() => ({
 		DRY_RUN: 'false',
 		MODERATY_DEPLOYMENT: 'official-hosted',
 		UNLIMITED_ACCESS_EMAILS: '',
-		OPENAI_API_KEY: 'test-openai-key'
+		OPENAI_API_KEY: 'test-openai-key',
+		REPLY_SWEEP_QUOTA_CEILING: '1000000'
 	} as Record<string, string | undefined>,
 	scoreComment: vi.fn(),
 	detectJailbreak: vi.fn()
@@ -18,8 +19,9 @@ vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
 vi.mock('$lib/server/moderation', () => ({ scoreComment: mocks.scoreComment, serializeScores: () => '{}' }));
 vi.mock('$lib/server/jailbreak', () => ({ detectJailbreak: mocks.detectJailbreak }));
 
-import { channels, comments, creditTransactions, moderationActions, organizations, rules, stripeSubscriptionPeriods } from '$lib/server/db/schema';
-import { setupTestDb, testDb } from '$lib/server/testdb';
+import { channels, comments, creditTransactions, moderationActions, organizations, rules, stripeSubscriptionPeriods, youtubeQuotaUsage } from '$lib/server/db/schema';
+import { flushYoutubeUnits, readYoutubeUnitsToday, YOUTUBE_UNIT_COST } from '$lib/server/quota';
+import { setupTestDb, testDb, wipeTables } from '$lib/server/testdb';
 import { ChannelDeactivatedError, runEnforcement } from './enforcement';
 import { capReplyDeletes, runReplySweep } from './replySweep';
 import type { Decision } from './types';
@@ -623,4 +625,135 @@ test('capReplyDeletes keeps the first ten reply deletes, hides the rest as rejec
 
 	expect(output).toEqual([topLevel, ...deletes.slice(0, 10), hidden(deletes[10] as Decision), hidden(deletes[11] as Decision), hold]);
 	expect(deletes.every((item) => item.youtubeAction === 'delete')).toBe(true);
+});
+
+/** Documented unit cost of each recorded YouTube route, keyed as the stub records it. */
+const COST_BY_ROUTE: Record<string, number> = {
+	'GET /commentThreads': YOUTUBE_UNIT_COST['commentThreads.list'],
+	'GET /comments': YOUTUBE_UNIT_COST['comments.list'],
+	'GET /channels': YOUTUBE_UNIT_COST['channels.list'],
+	'GET /videos': YOUTUBE_UNIT_COST['videos.list'],
+	'POST /comments/setModerationStatus': YOUTUBE_UNIT_COST['comments.setModerationStatus'],
+	'DELETE /comments': YOUTUBE_UNIT_COST['comments.delete']
+};
+
+describe('quota guard', () => {
+	const TODAY = '2026-11-07';
+
+	beforeEach(async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000000';
+		// Drain units left pending by earlier tests in this file, then start today's meter empty.
+		await flushYoutubeUnits(testDb().db, NOW_MS);
+		await wipeTables(['youtube_quota_usage']);
+	});
+
+	afterEach(() => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000000';
+	});
+
+	async function storeUnits(units: number) {
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: TODAY, units });
+	}
+
+	async function todayRow() {
+		return testDb().db.select().from(youtubeQuotaUsage).where(eq(youtubeQuotaUsage.day, TODAY)).get();
+	}
+
+	const IN_FLIGHT = { replySweepBoundary: SINCE, replySweepPageToken: 'page-2', replySweepLastAt: iso(NOW_MS - 5 * MINUTE), replySweepShortfall: 0 };
+
+	test('a day total at the ceiling skips the check: no YouTube call and no channel write', async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '100';
+		await storeUnits(100);
+		await seed();
+		const before = await loadRow();
+
+		const result = await tick();
+
+		expect(result).toMatchObject({ status: 'skipped', reason: 'quota-ceiling-reached' });
+		expect(youtube.calls).toEqual([]);
+		expect(await loadRow()).toEqual(before);
+	});
+
+	test('a day total one unit below the ceiling runs the check', async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '100';
+		await storeUnits(99);
+		await seed();
+
+		const result = await tick();
+
+		expect(result.status).toBe('finished');
+		expect(youtube.calls.map((call) => call.route)).toEqual(['GET /commentThreads']);
+	});
+
+	test.each([
+		{ setting: undefined, reason: 'ceiling-not-set' },
+		{ setting: '0', reason: 'kill-switch' },
+		{ setting: 'abc', reason: 'ceiling-invalid' }
+	])('the ceiling setting $setting disables reply checks only: no YouTube call, no channel write, reason $reason', async ({ setting, reason }) => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = setting;
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await seed();
+		const before = await loadRow();
+
+		const result = await tick();
+
+		expect(result).toMatchObject({ status: 'skipped', reason });
+		expect(youtube.calls).toEqual([]);
+		expect(await loadRow()).toEqual(before);
+	});
+
+	test('an unset ceiling is logged loudly, naming the variable', async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = undefined;
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		await seed();
+
+		await tick();
+
+		expect(error).toHaveBeenCalledWith(expect.stringContaining('REPLY_SWEEP_QUOTA_CEILING'));
+	});
+
+	test('a quota refusal on the fetch is stamped for today, logged, and rethrown; the checkpoint does not move', async () => {
+		await seed(IN_FLIGHT);
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		youtube.threads = () => new Response(JSON.stringify({ error: { code: 403, errors: [{ reason: 'quotaExceeded' }] } }), { status: 403 });
+		const before = await replyColumns();
+
+		await expect(tick()).rejects.toThrow('quotaExceeded');
+
+		expect(await replyColumns()).toEqual(before);
+		expect(await todayRow()).toEqual({ day: TODAY, units: 0, exhaustedAt: NOW });
+		expect(error).toHaveBeenCalledWith('reply recheck stopped: quota exhausted for channel UC1');
+	});
+
+	test('a quota refusal on a reply hold rejects the check: the action stays dispatched, the checkpoint stays, the day is stamped', async () => {
+		const ruleId = await addRule('hold');
+		await seed(IN_FLIGHT);
+		youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 1, replies: [resource('reply-1', REPLY_AT, 'viewer-b', 'spam-word reply')] })]);
+		youtube.moderation = () => new Response(JSON.stringify({ error: { code: 403, errors: [{ reason: 'quotaExceeded' }] } }), { status: 403 });
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const before = await replyColumns();
+
+		await expect(tick()).rejects.toThrow('quotaExceeded');
+
+		expect(await actionRows()).toEqual([{ commentId: 'reply-1', action: 'hold', state: 'dispatched', reason: `rule #${ruleId} (keyword: spam-word)` }]);
+		expect(await replyColumns()).toEqual(before);
+		expect(await todayRow()).toEqual({ day: TODAY, units: 0, exhaustedAt: NOW });
+		expect(error).toHaveBeenCalledWith('reply recheck stopped: quota exhausted for channel UC1; its actions stay dispatched for a later run');
+	});
+
+	test('the units recorded for one check equal the documented cost of every YouTube call the check made', async () => {
+		await seed();
+		youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 2, replies: [resource('reply-1', REPLY_AT, 'viewer-b', 'a reply')] })]);
+		youtube.replies = () => listPage([resource('reply-1', REPLY_AT, 'viewer-b', 'a reply'), resource('reply-2', REPLY_AT, 'viewer-c', 'another reply')]);
+		const before = await readYoutubeUnitsToday(testDb().db, NOW_MS);
+
+		const result = await tick();
+
+		const recorded = (await readYoutubeUnitsToday(testDb().db, NOW_MS)) - before;
+		expect(result.status).toBe('finished');
+		expect(lookupCalls()).toBe(1);
+		expect(youtube.calls.map((call) => call.route)).toContain('GET /comments');
+		expect(recorded).toBe(youtube.calls.reduce((sum, call) => sum + COST_BY_ROUTE[call.route], 0));
+	});
 });

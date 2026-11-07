@@ -618,7 +618,12 @@ export async function createTestDb(): Promise<TestDb> {
 			published_at TEXT NOT NULL,
 			scan_id TEXT
 		)`,
-		`CREATE INDEX feedback_history_comments_channel_idx ON feedback_history_comments (channel_id)`
+		`CREATE INDEX feedback_history_comments_channel_idx ON feedback_history_comments (channel_id)`,
+		`CREATE TABLE youtube_quota_usage (
+			day TEXT PRIMARY KEY NOT NULL,
+			units INTEGER NOT NULL DEFAULT 0,
+			exhausted_at TEXT
+		)`
 	]);
 	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0062_hosted_welcome_email.sql', import.meta.url), 'utf8'));
 	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0063_welcome_campaign_pacing.sql', import.meta.url), 'utf8'));

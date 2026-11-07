@@ -22,7 +22,7 @@ const SWEEP_SUB_DEADLINE_MS = 10_000;
 
 const mocks = vi.hoisted(() => ({
 	// A hosted deployment with no complimentary accounts, as in cron.gate.test.ts: unset values fail the billing sweeps loudly.
-	env: { CRON_SECRET: 'test-secret', DRY_RUN: 'false', ENCRYPTION_KEY: 'cron-replies-test-key', MODERATY_DEPLOYMENT: 'official-hosted', UNLIMITED_ACCESS_EMAILS: 'not-an-email' } as Record<string, string | undefined>,
+	env: { CRON_SECRET: 'test-secret', DRY_RUN: 'false', ENCRYPTION_KEY: 'cron-replies-test-key', MODERATY_DEPLOYMENT: 'official-hosted', UNLIMITED_ACCESS_EMAILS: 'not-an-email', REPLY_SWEEP_QUOTA_CEILING: '1000000' } as Record<string, string | undefined>,
 	order: [] as string[],
 	runChannel: vi.fn(),
 	runReplySweep: vi.fn(),
@@ -33,7 +33,8 @@ const mocks = vi.hoisted(() => ({
 	sweepWelcomeEmails: vi.fn(),
 	retryContactNotifications: vi.fn(),
 	sweepAutoTopUp: vi.fn(),
-	sweepStalePendingReversals: vi.fn()
+	sweepStalePendingReversals: vi.fn(),
+	flushYoutubeUnits: vi.fn()
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
@@ -47,6 +48,10 @@ vi.mock('$lib/server/pipeline/replySweep', async (importOriginal) => {
 vi.mock('$lib/server/youtube', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/server/youtube')>();
 	return { ...actual, refreshAccessToken: mocks.refreshAccessToken, fetchNewComments: mocks.fetchNewComments };
+});
+vi.mock('$lib/server/quota', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/server/quota')>();
+	return { ...actual, flushYoutubeUnits: mocks.flushYoutubeUnits };
 });
 vi.mock('$lib/server/feedbackDigest', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/server/feedbackDigest')>();
@@ -303,4 +308,45 @@ test('the real recheck on an empty fetch finishes the pass and writes only its c
 	expect(await channelRow('UC-empty')).toMatchObject({
 		moderateRepliesSince: SINCE, historyBoundary: null, replySweepBoundary: null, replySweepPageToken: null, replySweepLastAt: NOW_ISO, replySweepShortfall: 0
 	});
+});
+
+test('a normal tick flushes the quota units exactly once, and the flush adds no quotaFlushError', async () => {
+	await seedChannel('UC-once');
+
+	const body = await callBody();
+
+	expect(mocks.flushYoutubeUnits).toHaveBeenCalledTimes(1);
+	expect(mocks.flushYoutubeUnits).toHaveBeenCalledWith(expect.anything(), FIXED_NOW);
+	expect(body).not.toHaveProperty('quotaFlushError');
+});
+
+test('a failed quota flush is reported as quotaFlushError and leaves the run health alone', async () => {
+	await seedChannel('UC-flush');
+	mocks.flushYoutubeUnits.mockRejectedValueOnce(new Error('database is locked'));
+	const error = quietErrors();
+
+	const body = await callBody();
+
+	expect(body.quotaFlushError).toEqual(expect.stringContaining('operation=quota_flush'));
+	expectResponseDiagnostic(body, 'quotaFlushError', 'quota_flush');
+	expect(error).toHaveBeenCalledWith('cron failure:', expect.any(String));
+	expect(await channelRow('UC-flush')).toMatchObject({ lastRunStatus: 'success', lastRunError: null });
+});
+
+test('under DRY_RUN=true the quota units are not flushed, so a dry tick writes nothing durable', async () => {
+	mocks.env.DRY_RUN = 'true';
+	await seedChannel('UC-dry-flush');
+
+	const body = await callBody();
+
+	expect(mocks.flushYoutubeUnits).not.toHaveBeenCalled();
+	expect(body).not.toHaveProperty('quotaFlushError');
+});
+
+test('a tick that throws before responding still attempts its quota flush', async () => {
+	mocks.env.DRY_RUN = 'yes';
+
+	await expect(call()).rejects.toMatchObject({ status: 500, body: { message: 'DRY_RUN must be true or false' } });
+
+	expect(mocks.flushYoutubeUnits).toHaveBeenCalledTimes(1);
 });

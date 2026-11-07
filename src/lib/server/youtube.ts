@@ -1,5 +1,6 @@
 import { env } from '$env/dynamic/private';
 import { fetchSingleAttempt, fetchWithRetry } from '$lib/server/http';
+import { recordYoutubeUnits, type YoutubeEndpoint } from '$lib/server/quota';
 
 const YT = 'https://www.googleapis.com/youtube/v3';
 
@@ -270,7 +271,32 @@ export async function refreshAccessToken(refreshToken: string, deadline?: number
 }
 
 /**
- * Sends an authenticated request to the YouTube Data API.
+ * The quota endpoint a Data API request is billed to. An unmapped request throws before it is sent, so a new
+ * call site cannot go uncounted.
+ */
+export function youtubeEndpoint(method: string, path: string): YoutubeEndpoint {
+	const route = `${method.toUpperCase()} ${path.split('?')[0]}`;
+	switch (route) {
+		case 'GET /commentThreads':
+			return 'commentThreads.list';
+		case 'GET /comments':
+			return 'comments.list';
+		case 'POST /comments/setModerationStatus':
+			return 'comments.setModerationStatus';
+		case 'DELETE /comments':
+			return 'comments.delete';
+		case 'GET /channels':
+			return 'channels.list';
+		case 'GET /videos':
+			return 'videos.list';
+		default:
+			throw new Error(`no quota endpoint for YouTube request ${route}`);
+	}
+}
+
+/**
+ * Sends an authenticated request to the YouTube Data API. Each call records its documented unit cost once,
+ * before it is sent (see quota.ts for why the count is a lower bound).
  *
  * @param path - The API path to append to the YouTube API base URL
  * @param accessToken - The OAuth access token used for authorization
@@ -285,6 +311,7 @@ async function ytFetch(
 	deadline?: number,
 	singleAttempt = false
 ): Promise<Response> {
+	recordYoutubeUnits(youtubeEndpoint(init?.method ?? 'GET', path));
 	const request = singleAttempt ? fetchSingleAttempt : fetchWithRetry;
 	const res = await request(`${YT}${path}`, {
 		...init,
