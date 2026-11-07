@@ -45,7 +45,7 @@ When no pass is in flight, a tick is idle unless `now >= reply_sweep_last_at + 1
 - **Start.** The pass boundary is `max(now − 72 h, moderate_replies_since)`. The start is persisted (boundary, token NULL, `reply_sweep_last_at = now`, shortfall 0) before the first YouTube call.
 - **Tick.** One `commentThreads.list` page through `fetchNewComments(..., { maxPages: 1, includeReplies: true, pageToken })`. Replies with a `parentId`, published at or after `moderate_replies_since`, first occurrence per id, and not already stored are the candidates. Top-level comments drop out here.
 - **Caps per tick.** At most 100 fresh replies are processed (`REPLY_FRESH_CAP_PER_TICK`). Reply lookups (`comments.list` with `parentId`, made only when `totalReplyCount` says the embedded replies are short) are limited to 10 calls per tick (`MAX_REPLY_LOOKUPS_PER_TICK`) and 5 pages per thread (`MAX_REPLY_PAGES_PER_THREAD`). Replies the tick cannot cover are counted as shortfall.
-- **Stage and enforce.** Candidates go through `decideAndStage` (exported from `pipeline/run.ts`) with the `adjust` hook set to `capReplyDeletes`, then `runEnforcement`. Enforcement errors are caught, logged and reported; the action rows stay outstanding for a later run.
+- **Stage and enforce.** Candidates go through `decideAndStage` (exported from `pipeline/run.ts`) with the `adjust` hook set to a closure built per tick over the day's remaining allowance, which applies `capReplyDeletes` (see `replySweep.ts`), then `runEnforcement`. Enforcement errors are caught, logged and reported; the action rows stay outstanding for a later run.
 - **Checkpoint.** See [Checkpoint](#checkpoint).
 - **Access token.** Requested lazily through `getAccessToken`, only once the tick is going to call YouTube or write.
 - **Stale pass.** A pass in flight whose start (`reply_sweep_last_at`) is more than 6 hours old restarts from the lookback (`REPLY_PASS_TTL_MS`). This sheds a stale page token. A pass with a boundary but no recorded start also restarts, with a warning.
@@ -83,7 +83,7 @@ Every checkpoint write is a transaction. It asserts the channel is still active,
 `runClaimedChannel` runs, in order: the live run, the reply recheck, the dry-run drain, the digest.
 
 - The recheck takes no claim or lease of its own. It runs under the claim and lease the live run already holds, and shares the tick deadline.
-- It runs only when the live result is not skipped, not dry, not partial, not out of credits and not unpaid, the setting is on, `historyBoundary` is NULL, and at least 8 seconds remain. The channel row is re-read after the live run.
+- It runs whenever the live result is not skipped, not dry, not partial, not out of credits and not unpaid, and the setting is on. The channel row is re-read after the live run. The sweep itself reports history-running and no-time (under 8 seconds left) as skipped reasons, and no access token is fetched for a skipped tick.
 - Its outcome goes into the channel's `results` entry as `replySweep` or `replySweepError`. It never writes `lastRunStatus`, `lastRunError` or `lastSuccessAt`, and a failure never masks the live verdict or stops the digest.
 - Under `DRY_RUN=true`, `forceDryRun`, previews and the dry-run drain, the recheck never runs and never touches its checkpoint columns.
 - "Hourly" is a floor. One channel is claimed per tick, so a pass that spans several pages takes several claims.
@@ -91,7 +91,7 @@ Every checkpoint write is a transaction. It asserts the channel is still active,
 ## Limits
 
 - Per tick: 100 fresh replies, 10 reply lookup calls, 5 pages per thread.
-- Per tick: at most 10 reply deletes (`REPLY_DELETE_CAP_PER_TICK`). Each further reply delete is stored as a reject with the reason `delete budget reached, hidden instead`. Deleting a reply costs 50 units, so this cap is the main brake on delete cost.
+- Per tick: at most 10 reply deletes (`REPLY_DELETE_CAP_PER_TICK`) and no more than the day's remaining quota allows (the floor of the remaining units over 50). Each further reply delete is stored as a reject, with the text `delete budget reached, hidden instead` appended to its reason. Each reply delete is its own 50-unit `comments.delete` call. A reply hidden instead is a reject, and rejects share `comments.setModerationStatus` calls of up to 50 ids, so a hidden reply costs no more than a delete and less when it shares a call. The cap limits how many delete calls a tick makes.
 - Coverage is partial on busy threads. The shortfall shows the owner how many replies the last pass did not cover.
 - Each reply is scored on its own text. The parent comment is not part of the scoring context, so terse replies can be scored without their context.
 - Each AI-scored reply consumes one credit, as a top-level comment does. Rule matches and protected handles are not charged.
@@ -133,7 +133,7 @@ Recorded in `YOUTUBE_UNIT_COST` (`quota.ts`). The costs are Google's documented 
 
 Only the recheck is disabled. The cron keeps moderating top-level comments in every case. A disabled ceiling is logged on every tick that reaches the quota gate (`console.error` for unset and invalid, `console.warn` for the kill switch). The channel page shows "Reply checks are paused by a server setting".
 
-When today's units (stored plus pending) reach the ceiling, the tick is skipped with `quota-ceiling-reached` and a warning. The channel page does not show this state. Its server load only checks whether the ceiling is disabled and whether the day is stamped as exhausted. The owner sees the last-check time and nothing more; the cron response carries `replySweep.reason`, and the server log carries the warning.
+When today's units (stored plus pending) reach the ceiling, the tick is skipped with `quota-ceiling-reached` and a warning. The channel page shows the quota pause for that day (state `paused-quota-today`). The sentence it shows for that pause is "YouTube refused a reply check for quota today, so reply checks wait until midnight Pacific time.", which is inaccurate for the ceiling case. Rewording it is an open copy item awaiting the owner. The server load checks whether the ceiling is disabled, whether the day is stamped as exhausted, and whether today's units have reached the ceiling. Besides the pause, the status line shows the pass state, the last-check time when no pass is in flight, and the shortfall, and it shows no unit counts. The cron response carries `replySweep.reason`, and the server log carries the warning.
 
 ### Quota exhaustion
 
@@ -162,9 +162,9 @@ Open question: `rateLimitExceeded` and `userRateLimitExceeded` are treated the s
 2. **Set the ceiling.** Set `REPLY_SWEEP_QUOTA_CEILING` as a Runtime Variable with Build Variable OFF. The variable is documented in `.env.example` and in [COOLIFY](COOLIFY.md). Leave it unset, or set `0`, to keep reply checks off.
 3. **Read the pause states.**
    - "Reply checks are paused by a server setting": the ceiling is unset, `0` or invalid. Look for `reply recheck off: REPLY_SWEEP_QUOTA_CEILING ...` in the server log.
-   - "YouTube refused a reply check for quota today": a quota-family refusal stamped today. Look for `YouTube quota exhausted` in the server log. Reply checks resume on the next Pacific day.
-   - A day at the ceiling does not show on the page. Look for `reply recheck skipped for today: ... reached REPLY_SWEEP_QUOTA_CEILING` in the server log, and `replySweep.reason = quota-ceiling-reached` in the cron response.
-4. **Read the cron response.** Each channel's entry under `results` carries `replySweep` (`status`, `reason`, `fetched`, `fresh`, `staged`, `deferred`, `acted`, `queued`, `shortfall`, `ownRepliesSkipped`) and, on failure, `replySweepError`. A top-level `quotaFlushError` means the day's units did not reach the database. `failureDiagnostics` carries the classified error for each reported failure.
+   - "YouTube refused a reply check for quota today": a quota-family refusal stamped today, or today's units at the ceiling. The page shows this same wording for both causes, which is inaccurate for the ceiling case; rewording it is an open copy item awaiting the owner (see [the ceiling](#the-ceiling)). For a refusal, look for `YouTube quota exhausted` in the server log on the tick that stamps the day; later ticks that day log `reply recheck skipped for channel <id>: YouTube quota was exhausted today`. Reply checks resume on the next Pacific day.
+   - A day at the ceiling shows as paused-quota-today on the channel page, as does a day YouTube refused. Look for `reply recheck skipped for today: ... reached REPLY_SWEEP_QUOTA_CEILING` in the server log, and `replySweep.reason = quota-ceiling-reached` in the cron response.
+4. **Read the cron response.** Each channel's entry under `results` carries `replySweep` (`status`, `reason`, `fetched`, `fresh`, `staged`, `deferred`, `acted`, `queued`, `shortfall`, `ownRepliesSkipped`, and `replyActionFailures`, present only when greater than zero) and, on failure, `replySweepError`. A top-level `quotaFlushError` means the day's units did not reach the database. `failureDiagnostics` carries the classified error for each reported failure.
 5. **Recover a parked reply.** Parked actions are never retried. Find the comment in the review queue (Reply tag, "(reply)" action labels), or find `failed` rows in the audit log, then approve, reject or delete it. Check the comment on YouTube Studio first: after a network error YouTube may already have applied the change.
 6. **Check the meter against Google.** The meter is a lower bound. Compare it with the Cloud Console quota chart before raising the ceiling.
 7. **Dry-run deployments.** Under `DRY_RUN=true` no reply check runs, and the owner action refuses to change the setting (HTTP 409).

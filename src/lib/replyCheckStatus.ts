@@ -5,7 +5,7 @@
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
-/** A server-side pause the layout reads per load: a disabled quota ceiling, or a day a quota refusal stamped. */
+/** A server-side pause the layout reads per load: a disabled quota ceiling, a day a quota refusal stamped, or a day at the ceiling. */
 export type ReplyPause = 'paused-by-server' | 'paused-quota-today';
 
 export type ReplyCheckState = 'off' | 'first-check-pending' | 'in-progress' | 'stale' | 'last-check' | ReplyPause;
