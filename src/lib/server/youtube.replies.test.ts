@@ -177,6 +177,35 @@ test('a thread with no totalReplyCount warns once that its reply count is unknow
 	expect(warn).toHaveBeenCalledWith('commentThreads.list response item 0 has no totalReplyCount; the reply count is unknown');
 });
 
+test('a malformed top-level comment is skipped, and its thread total is counted in replyShortfall without a lookup', async () => {
+	const warn = vi.mocked(console.warn);
+	const fetch = stubFetch(json({
+		items: [thread('bad', { text: null, totalReplyCount: 3 }), thread('good', { totalReplyCount: 0 })]
+	}));
+
+	const result = await fetchNewComments(CHANNEL, 'token', null, { includeReplies: true });
+
+	expect(result.comments.map((comment) => comment.id)).toEqual(['good']);
+	expect(result.replyShortfall).toBe(3);
+	expect(calledUrls(fetch)).toHaveLength(1);
+	expect(warn).toHaveBeenCalledWith('commentThreads.list response item 0 is malformed; its 3 replies are counted in replyShortfall without a lookup');
+	// One warning for the parse fault (raised by the parser) and one for the reply accounting.
+	expect(warn).toHaveBeenCalledTimes(2);
+});
+
+test('a malformed top-level comment whose thread total is not valid adds nothing to replyShortfall and only warns', async () => {
+	const warn = vi.mocked(console.warn);
+	const fetch = stubFetch(json({ items: [thread('bad', { text: null, totalReplyCount: 'many' })] }));
+
+	const result = await fetchNewComments(CHANNEL, 'token', null, { includeReplies: true });
+
+	expect(result.comments).toEqual([]);
+	expect(result).not.toHaveProperty('replyShortfall');
+	expect(calledUrls(fetch)).toHaveLength(1);
+	expect(warn).toHaveBeenCalledWith('commentThreads.list response item 0 totalReplyCount "many" is not a non-negative integer; the reply count is unknown');
+	expect(warn).toHaveBeenCalledTimes(2);
+});
+
 test.each([
 	['a string', 'garbage'],
 	['an object whose comments is not an array', { comments: 'nope' }]

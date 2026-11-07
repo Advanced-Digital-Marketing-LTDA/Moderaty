@@ -464,12 +464,28 @@ async function collectUntilCursor(
 	for (const [index, item] of items.entries()) {
 		const context = `commentThreads.list response item ${index}`;
 		const comment = parseComment(item, context);
-		if (!comment) continue;
+		if (!comment) {
+			if (replies) countSkippedThreadReplies(item, context, replies);
+			continue;
+		}
 		if (cursorMs !== null && Date.parse(comment.publishedAt) < cursorMs) return true;
 		out.push(comment);
 		if (replies) out.push(...(await collectThreadReplies(object(item, context), comment, context, replies)));
 	}
 	return false;
+}
+
+/**
+ * A malformed top-level comment is skipped before its thread's replies are walked. The thread's reported total still
+ * goes to the shortfall, with no lookup, so the owner's count covers what this page could not check. An invalid or
+ * absent total is warned by replyTotal and adds nothing.
+ */
+function countSkippedThreadReplies(item: unknown, context: string, tally: ReplyTally): void {
+	// parseComment has already validated the thread's shape, so this cannot throw on a malformed item.
+	const total = replyTotal(object(object(item, context).snippet, `${context}.snippet`), context);
+	if (total === null) return;
+	console.warn(`${context} is malformed; its ${total} replies are counted in replyShortfall without a lookup`);
+	tally.replyShortfall += total;
 }
 
 /** Replies gathered for one thread so far, keyed by reply id so embedded and lookup copies collapse. */
