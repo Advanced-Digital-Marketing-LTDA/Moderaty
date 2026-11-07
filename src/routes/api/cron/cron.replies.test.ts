@@ -189,18 +189,88 @@ test.each([
 	expect(mocks.runReplySweep).toHaveBeenCalledTimes(calls);
 });
 
-test('an eligible channel runs one recheck with the fresh row, the tick token and the tick deadline', async () => {
+test('an eligible channel runs one recheck with the fresh row, a token provider and the tick deadline', async () => {
 	await seedChannel('UC-replies', { moderateRepliesSince: SINCE });
 	const body = await callBody();
-	expect(mocks.refreshAccessToken).toHaveBeenCalledWith('refresh-token', FIXED_NOW + RUN_BUDGET_MS);
+	// The mocked sweep never asks for a token, so no refresh has happened when the tick ends.
+	expect(mocks.refreshAccessToken).not.toHaveBeenCalled();
 	expect(mocks.runReplySweep).toHaveBeenCalledTimes(1);
-	const [passed, token, deadline] = mocks.runReplySweep.mock.calls[0];
+	const [passed, getAccessToken, deadline] = mocks.runReplySweep.mock.calls[0];
 	expect(passed).toMatchObject({ id: 'UC-replies', moderateRepliesSince: SINCE });
-	expect(token).toBe('access-token');
+	expect(await getAccessToken()).toBe('access-token');
+	expect(mocks.refreshAccessToken).toHaveBeenCalledWith('refresh-token', FIXED_NOW + RUN_BUDGET_MS);
 	expect(deadline).toBe(FIXED_NOW + RUN_BUDGET_MS);
 	expect(body.results['UC-replies']).toMatchObject({ dryRun: false, replySweep: sweepResult() });
 	expect(body.results['UC-replies'].replySweep.status).toBe('finished');
 	expect(body.results['UC-replies']).not.toHaveProperty('replySweepError');
+});
+
+test('an idle tick, with the channel checked a minute ago, refreshes no token and makes no sweep fetch', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/pipeline/replySweep')>('$lib/server/pipeline/replySweep');
+	mocks.runReplySweep.mockImplementationOnce(actual.runReplySweep);
+	await seedChannel('UC-idle', { moderateRepliesSince: SINCE, replySweepLastAt: new Date(FIXED_NOW - 60_000).toISOString() });
+
+	const body = await callBody();
+
+	expect(mocks.refreshAccessToken).not.toHaveBeenCalled();
+	expect(mocks.fetchNewComments).not.toHaveBeenCalled();
+	expect(body.results['UC-idle'].replySweep).toEqual({ fetched: 0, fresh: 0, staged: 0, deferred: 0, acted: 0, queued: 0, ownRepliesSkipped: 0, status: 'idle', shortfall: 0 });
+});
+
+test('a due, eligible tick refreshes the token exactly once and fetches its first page with it', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/pipeline/replySweep')>('$lib/server/pipeline/replySweep');
+	mocks.runReplySweep.mockImplementationOnce(actual.runReplySweep);
+	await seedChannel('UC-due', { moderateRepliesSince: SINCE });
+
+	await callBody();
+
+	expect(mocks.refreshAccessToken).toHaveBeenCalledTimes(1);
+	expect(mocks.refreshAccessToken).toHaveBeenCalledWith('refresh-token', FIXED_NOW + RUN_BUDGET_MS);
+	expect(mocks.fetchNewComments).toHaveBeenCalledTimes(1);
+	expect(mocks.fetchNewComments).toHaveBeenCalledWith('UC-due', 'access-token', SINCE, expect.anything());
+});
+
+test('with REPLY_SWEEP_QUOTA_CEILING unset, an eligible channel refreshes no token, fetches nothing and reports ceiling-not-set', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/pipeline/replySweep')>('$lib/server/pipeline/replySweep');
+	mocks.runReplySweep.mockImplementationOnce(actual.runReplySweep);
+	mocks.env.REPLY_SWEEP_QUOTA_CEILING = undefined;
+	const error = quietErrors();
+	try {
+		await seedChannel('UC-no-ceiling', { moderateRepliesSince: SINCE });
+
+		const body = await callBody();
+
+		expect(mocks.refreshAccessToken).not.toHaveBeenCalled();
+		expect(mocks.fetchNewComments).not.toHaveBeenCalled();
+		expect(body.results['UC-no-ceiling']).toEqual({
+			...runResult(),
+			replySweep: { fetched: 0, fresh: 0, staged: 0, deferred: 0, acted: 0, queued: 0, ownRepliesSkipped: 0, status: 'skipped', reason: 'ceiling-not-set', shortfall: 0 }
+		});
+		expect(body.digest).toEqual({ status: 'skipped', reason: 'disabled' });
+		expect(mocks.order).toEqual(['runChannel:live', 'digest']);
+		expect(error).toHaveBeenCalledWith(expect.stringContaining('REPLY_SWEEP_QUOTA_CEILING'));
+	} finally {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000000';
+	}
+});
+
+test('a failed token refresh is reported as replySweepError, leaves run health and the digest alone, and fetches nothing', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/pipeline/replySweep')>('$lib/server/pipeline/replySweep');
+	mocks.runReplySweep.mockImplementationOnce(actual.runReplySweep);
+	mocks.refreshAccessToken.mockRejectedValueOnce(new Error('boom'));
+	await seedChannel('UC-refresh', { moderateRepliesSince: SINCE, lastRunStatus: 'failed', lastRunError: 'quota', lastSuccessAt: '2026-11-01T00:00:00.000Z' });
+	const log = quietErrors();
+
+	const body = await callBody();
+
+	expect(body.ok).toBe(true);
+	expect(body.results['UC-refresh']).toEqual({ ...runResult(), replySweepError: `unknown service=youtube operation=reply_recheck run=${body.cronRunId} causes=Error` });
+	expect(mocks.fetchNewComments).not.toHaveBeenCalled();
+	expect(mocks.order).toEqual(['runChannel:live', 'digest']);
+	expect(log).toHaveBeenCalledWith('cron: reply recheck failed for channel UC-refresh');
+	expect(await channelRow('UC-refresh')).toMatchObject({ lastRunStatus: 'success', lastRunError: null, lastSuccessAt: NOW_ISO, lastRunAt: NOW_ISO });
+	// The pass start is written before the token is asked for, so a failed refresh leaves the pass open at its start.
+	expect(await channelRow('UC-refresh')).toMatchObject({ replySweepBoundary: SINCE, replySweepPageToken: null, replySweepLastAt: NOW_ISO, replySweepShortfall: 0 });
 });
 
 test('the recheck receives the setting as it stands after the live run', async () => {

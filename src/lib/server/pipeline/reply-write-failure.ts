@@ -1,4 +1,5 @@
 import { HttpTransportError } from '$lib/server/http';
+import { QUOTA_REASONS } from '$lib/server/quota';
 import { YoutubeWriteRefusedError } from '$lib/server/youtube';
 
 /**
@@ -7,8 +8,6 @@ import { YoutubeWriteRefusedError } from '$lib/server/youtube';
  * throttling and auth failures are run-level: they propagate and the row retries.
  */
 
-/** Reasons that mean the quota or rate budget is spent, not that this comment was refused. */
-const RUN_LEVEL_REASONS = ['quotaExceeded', 'dailyLimitExceeded', 'rateLimitExceeded', 'userRateLimitExceeded'];
 /** HTTP statuses for an expired or throttled credential, which a later run can clear. */
 const RUN_LEVEL_STATUSES = new Set([401, 429]);
 
@@ -30,7 +29,7 @@ export function isParkableWriteFailure(error: unknown): boolean {
 	const status = writeStatus(error.message);
 	if (status === undefined && !(error instanceof YoutubeWriteRefusedError)) return false;
 	if (status !== undefined && RUN_LEVEL_STATUSES.has(status)) return false;
-	return !RUN_LEVEL_REASONS.some((reason) => error.message.includes(reason));
+	return !QUOTA_REASONS.some((reason) => error.message.includes(reason));
 }
 
 /** The audit reason for a parked write: the operation, then the YouTube status and reason code. */

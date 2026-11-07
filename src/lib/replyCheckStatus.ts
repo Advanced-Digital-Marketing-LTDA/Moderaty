@@ -5,7 +5,10 @@
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
-export type ReplyCheckState = 'off' | 'first-check-pending' | 'in-progress' | 'stale' | 'last-check';
+/** A server-side pause the layout reads per load: a disabled quota ceiling, or a day a quota refusal stamped. */
+export type ReplyPause = 'paused-by-server' | 'paused-quota-today';
+
+export type ReplyCheckState = 'off' | 'first-check-pending' | 'in-progress' | 'stale' | 'last-check' | ReplyPause;
 
 /** The channel columns the status reads. Timestamps are ISO strings; null means never set. */
 export interface ReplyCheckChannel {
@@ -25,10 +28,12 @@ function instantMs(iso: string): number {
  * Invariant the recheck writers keep: enabling stamps reply_sweep_last_at with
  * the same instant as moderate_replies_since, and a pass only ever moves
  * last_at later. So last_at after since means a pass has run since enabling.
+ * A pause, when given, wins over every checkpoint state while the setting is on.
  */
-export function replyCheckStatus(channel: ReplyCheckChannel, nowIso: string): ReplyCheckState {
+export function replyCheckStatus(channel: ReplyCheckChannel, nowIso: string, pause?: ReplyPause | null): ReplyCheckState {
 	const since = channel.moderateRepliesSince ?? null;
 	if (since === null) return 'off';
+	if (pause) return pause;
 	const lastAt = channel.replySweepLastAt ?? null;
 	if ((channel.replySweepBoundary ?? null) !== null) {
 		// A pass with no recorded start cannot be shown as progressing.

@@ -299,9 +299,12 @@ async function runReplyRecheck(
 		// A fresh read after the live run: the setting, the history marker and the stored token are as they stand now.
 		const fresh = await db.select().from(channels).where(eq(channels.id, channel.id)).get();
 		if (!fresh || fresh.moderateRepliesSince === null || fresh.historyBoundary !== null) return {};
-		const accessToken = await refreshAccessToken(decrypt(fresh.refreshTokenEnc), deadline);
 		// enforcementError is raw provider text: it is classified here and never returned to the caller.
-		const { enforcementError, ...replySweep } = await runReplySweep(fresh, accessToken, deadline);
+		const { enforcementError, ...replySweep } = await runReplySweep(
+			fresh,
+			() => refreshAccessToken(decrypt(fresh.refreshTokenEnc), deadline),
+			deadline
+		);
 		if (enforcementError === undefined) return { replySweep };
 		console.error(`cron: reply recheck enforcement failed for channel ${channel.id}`);
 		return { replySweep, replySweepError: diagnostics.report('reply recheck', new Error(enforcementError)) };

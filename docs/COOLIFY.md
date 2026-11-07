@@ -101,6 +101,7 @@ One-time setup (human, in the Coolify dashboard):
    | `ANALYTICS_ALLOWED_HOSTNAMES` | exact production browser hostnames | exact staging browser hostnames | comma-separated DNS names, at most 100 characters each; Runtime Variable only, **Build Variable OFF** |
    | `UNLIMITED_ACCESS_EMAILS` | comma-separated owner e-mails with complimentary access | comma-separated dev test-owner e-mails | never metered or charged, history unlocked, deployment OpenAI key; empty grants nobody; unset makes the billing checks fail loudly on the hosted app |
    | `MODERATY_DEPLOYMENT` | `official-hosted` | `official-hosted` | Runtime Variable only, **Build Variable OFF**. Required on every hosted app: unset or invalid makes the billing gate throw. Self-hosted installs set `self-hosted` |
+   | `REPLY_SWEEP_QUOTA_CEILING` | your budget: a positive whole number of YouTube units per Pacific day | unset or `0` (reply checks off) | Runtime Variable only, **Build Variable OFF**. Caps the reply recheck's units per Pacific day (reads 1, deletes 50). Unset or `0` turns reply checks off; a value that is not a positive whole number pauses only reply checks, with a server log. Top-level moderation is unaffected |
 
    **Optional audience measurement.** Use a separate Umami service and PostgreSQL
    volume; Moderaty's database is unchanged. Keep production measurement disabled

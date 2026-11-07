@@ -14,7 +14,7 @@
 
 	const ch = $derived(data.ch);
 	// Read at render time from the same row the owner's checkbox mirrors.
-	const replyState = $derived(replyCheckStatus(ch, new Date().toISOString()));
+	const replyState = $derived(replyCheckStatus(ch, new Date().toISOString(), data.replyPause));
 	const replyShortfall = $derived(replyCheckShortfall(ch));
 	const dryRunForm = $derived(form as { scope?: string; attempted?: boolean; dryRunUsed?: boolean } | null | undefined);
 	const moderationPreviewUsed = $derived(
@@ -220,6 +220,10 @@
 			Checking replies now. Busy threads can take several runs.
 		{:else if replyState === 'stale'}
 			The last check stalled before it finished. It restarts on a later run.
+		{:else if replyState === 'paused-by-server'}
+			Reply checks are paused by the server. Top-level comments are still moderated.
+		{:else if replyState === 'paused-quota-today'}
+			YouTube's daily quota ran out today, so reply checks wait until it resets at midnight Pacific time.
 		{:else if replyState === 'last-check' && ch.replySweepLastAt}
 			Last check {relativeTime(ch.replySweepLastAt)}.
 		{:else}

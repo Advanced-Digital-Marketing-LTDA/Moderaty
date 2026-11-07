@@ -7,7 +7,7 @@ import { db } from '$lib/server/db';
 import { channels } from '$lib/server/db/schema';
 import { DeadlineExceededError } from '$lib/server/http';
 import { fetchNewComments, MAX_REPLY_LOOKUPS_PER_TICK, type CommentPage, type NewComment } from '$lib/server/youtube';
-import { isQuotaFailure, markQuotaExhausted, readReplyCeiling, readYoutubeUnitsToday } from '$lib/server/quota';
+import { isQuotaFailure, markQuotaExhausted, readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday } from '$lib/server/quota';
 import { assertChannelActive, runEnforcement } from './enforcement';
 import { decideAndStage } from './run';
 import { storedCommentIds } from './scoring';
@@ -90,10 +90,11 @@ interface Pass extends Position {
  * gate or a channel that is not due makes no YouTube call and no write.
  *
  * @param now - The clock for the pass's own instants (its start and last check). Tests pass a fixed clock.
+ * @param getAccessToken - Asked at most once, and only once the tick is going to call YouTube or write.
  */
 export async function runReplySweep(
 	channel: Channel,
-	accessToken: string,
+	getAccessToken: () => Promise<string>,
 	deadline: number,
 	now: () => number = () => Date.now()
 ): Promise<ReplySweepResult> {
@@ -103,12 +104,13 @@ export async function runReplySweep(
 	if (since === null) return outcome('skipped', loadedShortfall, { reason: 'off' });
 	const refusal = await refusedBy(channel, deadline, nowMs);
 	if (refusal !== null) return outcome('skipped', loadedShortfall, { reason: refusal });
-	const quotaRefusal = await refusedByQuota(nowMs);
+	const quotaRefusal = await refusedByQuota(channel.id, nowMs);
 	if (quotaRefusal !== null) return outcome('skipped', loadedShortfall, { reason: quotaRefusal });
 
 	const checkpoint = checkpointWriter(channel);
 	const position = await openPass(channel, since, nowMs, checkpoint);
 	if (position === null) return outcome('idle', loadedShortfall);
+	const accessToken = await getAccessToken();
 	const pass: Pass = { ...position, channel, accessToken, since, deadline, nowMs, now, checkpoint };
 	try {
 		return await sweepPage(pass);
@@ -132,13 +134,18 @@ async function refusedBy(channel: Channel, deadline: number, nowMs: number): Pro
 
 /**
  * The quota gate, after the channel gates. A missing, zero or invalid ceiling disables reply checks only, loudly and
- * without a throw, so top-level moderation keeps running. A day at or past the ceiling skips this tick. Reads only.
+ * without a throw, so top-level moderation keeps running. A day a quota refusal stamped, or a day at or past the
+ * ceiling, skips this tick. Reads only.
  */
-async function refusedByQuota(nowMs: number): Promise<string | null> {
+async function refusedByQuota(channelId: string, nowMs: number): Promise<string | null> {
 	const ceiling = readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING);
 	if (ceiling.kind === 'disabled') {
 		logDisabledCeiling(ceiling.reason);
 		return ceiling.reason;
+	}
+	if (await readQuotaExhaustedToday(db, nowMs)) {
+		console.warn(`reply recheck skipped for channel ${channelId}: YouTube quota was exhausted today`);
+		return 'quota-exhausted-today';
 	}
 	const used = await readYoutubeUnitsToday(db, nowMs);
 	if (used < ceiling.units) return null;

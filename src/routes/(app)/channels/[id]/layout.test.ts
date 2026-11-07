@@ -1,10 +1,15 @@
-import { expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { error } from '@sveltejs/kit';
-import { TEST_OWNER, setupTestDb, testDb } from '$lib/server/testdb';
+import { TEST_OWNER, setupTestDb, testDb, wipeTables } from '$lib/server/testdb';
 import { eq } from 'drizzle-orm';
-import { auditLog, channels, comments } from '$lib/server/db/schema';
+import { auditLog, channels, comments, youtubeQuotaUsage } from '$lib/server/db/schema';
 
 import { load } from './+layout.server';
+
+const mocks = vi.hoisted(() => ({
+	env: { ...process.env, REPLY_SWEEP_QUOTA_CEILING: '1000000' } as Record<string, string | undefined>
+}));
+vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
 
 /** The layout load's resolved payload — pins the test data instead of `Record<string, any>`. */
 type LayoutData = Awaited<ReturnType<typeof load>>;
@@ -190,6 +195,39 @@ test.each([
 	const data = (await loadLayout('UC1', OWNER, path)) as LayoutData;
 
 	expect(data.tab).toBe(tab);
+});
+
+describe('reply pause', () => {
+	const NOON = '2026-11-07T12:00:00.000Z';
+
+	beforeEach(async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(NOON));
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000000';
+		await wipeTables(['youtube_quota_usage']);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	test.each([
+		{ label: 'unset', ceiling: undefined, stamp: null, pause: 'paused-by-server' },
+		{ label: 'zero', ceiling: '0', stamp: null, pause: 'paused-by-server' },
+		{ label: 'malformed', ceiling: 'abc', stamp: null, pause: 'paused-by-server' },
+		{ label: 'unset, with today stamped', ceiling: undefined, stamp: { day: '2026-11-07', exhaustedAt: NOON }, pause: 'paused-by-server' },
+		{ label: 'set, with today stamped', ceiling: '1000000', stamp: { day: '2026-11-07', exhaustedAt: NOON }, pause: 'paused-quota-today' },
+		{ label: 'set, with yesterday stamped', ceiling: '1000000', stamp: { day: '2026-11-06', exhaustedAt: '2026-11-06T12:00:00.000Z' }, pause: null },
+		{ label: 'set, nothing stamped', ceiling: '1000000', stamp: null, pause: null }
+	])('the reply pause with the ceiling $label reads $pause', async ({ ceiling, stamp, pause }) => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = ceiling;
+		await seedChannel('UC1');
+		if (stamp !== null) await testDb().db.insert(youtubeQuotaUsage).values({ day: stamp.day, units: 0, exhaustedAt: stamp.exhaustedAt });
+
+		const data = (await loadLayout('UC1')) as LayoutData;
+
+		expect(data.replyPause).toBe(pause);
+	});
 });
 
 test('a database outage returns the maintenance payload without requiring a user', async () => {

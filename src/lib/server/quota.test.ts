@@ -8,6 +8,7 @@ import {
 	isQuotaFailure,
 	markQuotaExhausted,
 	pacificDay,
+	readQuotaExhaustedToday,
 	readReplyCeiling,
 	readYoutubeUnitsToday,
 	recordYoutubeUnits,
@@ -168,6 +169,37 @@ describe('the day meter', () => {
 		await testDb().db.insert(youtubeQuotaUsage).values({ day: '2026-11-06', units: 900 });
 
 		expect(await readYoutubeUnitsToday(testDb().db, NOON_UTC_MS)).toBe(0);
+	});
+});
+
+describe('readQuotaExhaustedToday', () => {
+	test('is false when today has no row', async () => {
+		expect(await readQuotaExhaustedToday(testDb().db, NOON_UTC_MS)).toBe(false);
+	});
+
+	test('is false for today when units were recorded but no quota refusal stamped the day', async () => {
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: TODAY, units: 900 });
+
+		expect(await readQuotaExhaustedToday(testDb().db, NOON_UTC_MS)).toBe(false);
+	});
+
+	test("is false when only yesterday's Pacific day was stamped", async () => {
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: '2026-11-06', units: 0, exhaustedAt: '2026-11-06T12:00:00.000Z' });
+
+		expect(await readQuotaExhaustedToday(testDb().db, NOON_UTC_MS)).toBe(false);
+	});
+
+	test('is true once a quota refusal has stamped today', async () => {
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: TODAY, units: 0, exhaustedAt: '2026-11-07T12:00:00.000Z' });
+
+		expect(await readQuotaExhaustedToday(testDb().db, NOON_UTC_MS)).toBe(true);
+	});
+
+	test('the stamp holds until the Pacific day rolls over at 08:00 UTC in winter', async () => {
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: TODAY, units: 0, exhaustedAt: '2026-11-07T12:00:00.000Z' });
+
+		expect(await readQuotaExhaustedToday(testDb().db, Date.parse('2026-11-08T07:59:59.000Z'))).toBe(true);
+		expect(await readQuotaExhaustedToday(testDb().db, Date.parse('2026-11-08T08:00:00.000Z'))).toBe(false);
 	});
 });
 

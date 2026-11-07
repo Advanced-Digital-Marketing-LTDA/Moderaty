@@ -156,6 +156,7 @@ export function demoChannelLayoutData(now: number, tab: DemoTab) {
 		},
 		pending: countOf('pending'),
 		banned: banCount(),
+			replyPause: null,
 		tab,
 		maintenance: false,
 		orgRole: DEMO_USER.orgRole

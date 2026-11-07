@@ -46,14 +46,15 @@ const CHANNEL: ChannelRow = {
 
 type ChannelOverrides = Partial<ChannelRow>;
 
-function renderOverview(options: { role?: string; ch?: ChannelOverrides; form?: unknown } = {}) {
+function renderOverview(options: { role?: string; ch?: ChannelOverrides; form?: unknown; replyPause?: 'paused-by-server' | 'paused-quota-today' | null } = {}) {
 	const data = {
 		ch: { ...CHANNEL, ...options.ch },
 		pending: 0,
 		banned: 0,
 		tab: 'overview',
 		maintenance: false,
-		orgRole: options.role ?? 'owner'
+		orgRole: options.role ?? 'owner',
+		replyPause: options.replyPause ?? null
 	};
 	return render(Page, { props: { data, form: options.form ?? null } as never }).body;
 }
@@ -169,6 +170,23 @@ test.each([{ shortfall: null }, { shortfall: 0 }])('no shortfall attribute is re
 	});
 
 	expect(statusTag(body)).not.toContain('data-shortfall');
+});
+
+test.each(['paused-by-server', 'paused-quota-today'] as const)('a %s pause shows as its own status state, not as the checkpoint it hides', (replyPause) => {
+	const body = renderOverview({
+		replyPause,
+		ch: { moderateRepliesSince: isoBefore(2 * DAY), replySweepBoundary: isoBefore(3 * DAY), replySweepLastAt: isoBefore(HOUR) }
+	});
+
+	expect(statusTag(body)).toContain(`data-state="${replyPause}"`);
+	expect(isChecked(checkboxTag(body))).toBe(true);
+});
+
+test('a pause does not show while reply moderation is off', () => {
+	const body = renderOverview({ replyPause: 'paused-quota-today' });
+
+	expect(statusTag(body)).toContain('data-state="off"');
+	expect(isChecked(checkboxTag(body))).toBe(false);
 });
 
 test('a failed save renders its error in the page alert box', () => {

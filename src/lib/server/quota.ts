@@ -78,6 +78,17 @@ export async function markQuotaExhausted(database: QuotaDb, nowMs: number): Prom
 	console.error('YouTube quota exhausted; reply checks stop until the Pacific day rolls over');
 }
 
+/** True when a quota refusal has stamped today. Reads only. */
+export async function readQuotaExhaustedToday(database: QuotaDb, nowMs: number): Promise<boolean> {
+	const row = await database
+		.select({ exhaustedAt: youtubeQuotaUsage.exhaustedAt })
+		.from(youtubeQuotaUsage)
+		.where(eq(youtubeQuotaUsage.day, pacificDay(nowMs)))
+		.get();
+	if (!row) return false;
+	return row.exhaustedAt !== null;
+}
+
 export type ReplyCeiling =
 	| { kind: 'cap'; units: number }
 	| { kind: 'disabled'; reason: 'ceiling-not-set' | 'kill-switch' | 'ceiling-invalid' };
@@ -96,7 +107,7 @@ export function readReplyCeiling(raw: string | undefined): ReplyCeiling {
 }
 
 /** The reasons YouTube gives for a quota or rate budget that is spent (the text youtube.ts puts in the error). */
-const QUOTA_REASONS = ['quotaExceeded', 'dailyLimitExceeded', 'rateLimitExceeded', 'userRateLimitExceeded'];
+export const QUOTA_REASONS = ['quotaExceeded', 'dailyLimitExceeded', 'rateLimitExceeded', 'userRateLimitExceeded'];
 
 export function isQuotaFailure(error: unknown): boolean {
 	return error instanceof Error && QUOTA_REASONS.some((reason) => error.message.includes(reason));

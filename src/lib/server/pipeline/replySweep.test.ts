@@ -35,7 +35,8 @@ setupTestDb([
 	'audit_log',
 	'moderation_actions',
 	'rules',
-	'channel_allowed_handles'
+	'channel_allowed_handles',
+	'youtube_quota_usage'
 ]);
 
 const MINUTE = 60_000;
@@ -183,7 +184,7 @@ async function loadRow(): Promise<typeof channels.$inferSelect> {
 }
 
 async function tick(deadline = clockMs + HOUR) {
-	return runReplySweep(await loadRow(), 'access-token', deadline, now);
+	return runReplySweep(await loadRow(), async () => 'access-token', deadline, now);
 }
 
 async function replyColumns() {
@@ -636,6 +637,110 @@ const COST_BY_ROUTE: Record<string, number> = {
 	'POST /comments/setModerationStatus': YOUTUBE_UNIT_COST['comments.setModerationStatus'],
 	'DELETE /comments': YOUTUBE_UNIT_COST['comments.delete']
 };
+
+describe('lazy access token and quota-day skip', () => {
+	afterEach(() => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000000';
+	});
+
+	test('an idle tick, one not yet due, never asks for a token and makes no YouTube call', async () => {
+		await seed({ replySweepLastAt: iso(NOW_MS - HOUR + 1) });
+		const getAccessToken = vi.fn(async () => 'access-token');
+
+		const result = await runReplySweep(await loadRow(), getAccessToken, clockMs + HOUR, now);
+
+		expect(result).toMatchObject({ status: 'idle', fetched: 0 });
+		expect(getAccessToken).toHaveBeenCalledTimes(0);
+		expect(youtube.calls).toEqual([]);
+	});
+
+	test('a due tick asks for the token exactly once, and before its first YouTube call', async () => {
+		await seed();
+		const callsWhenAsked: number[] = [];
+		const getAccessToken = vi.fn(async () => {
+			callsWhenAsked.push(youtube.calls.length);
+			return 'access-token';
+		});
+
+		const result = await runReplySweep(await loadRow(), getAccessToken, clockMs + HOUR, now);
+
+		expect(result.status).toBe('finished');
+		expect(getAccessToken).toHaveBeenCalledTimes(1);
+		expect(callsWhenAsked).toEqual([0]);
+	});
+
+	test('a ceiling that disables reply checks never asks for a token', async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = undefined;
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await seed();
+		const getAccessToken = vi.fn(async () => 'access-token');
+
+		const result = await runReplySweep(await loadRow(), getAccessToken, clockMs + HOUR, now);
+
+		expect(result).toMatchObject({ status: 'skipped', reason: 'ceiling-not-set' });
+		expect(getAccessToken).toHaveBeenCalledTimes(0);
+		expect(youtube.calls).toEqual([]);
+	});
+
+	test('a day already stamped as quota-exhausted skips with no token, no YouTube call and no write, and one warning naming the channel', async () => {
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: '2026-11-07', units: 0, exhaustedAt: iso(NOW_MS - HOUR) });
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await seed();
+		const before = await loadRow();
+		const getAccessToken = vi.fn(async () => 'access-token');
+
+		const result = await runReplySweep(await loadRow(), getAccessToken, clockMs + HOUR, now);
+
+		expect(result).toMatchObject({ status: 'skipped', reason: 'quota-exhausted-today', fetched: 0 });
+		expect(getAccessToken).toHaveBeenCalledTimes(0);
+		expect(youtube.calls).toEqual([]);
+		expect(await loadRow()).toEqual(before);
+		expect(await storedComments()).toEqual([]);
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn).toHaveBeenCalledWith('reply recheck skipped for channel UC1: YouTube quota was exhausted today');
+	});
+
+	test('a stamped day with the ceiling unset reports the ceiling reason: the ceiling is checked before the stamp', async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = undefined;
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: '2026-11-07', units: 0, exhaustedAt: iso(NOW_MS - HOUR) });
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await seed();
+		const getAccessToken = vi.fn(async () => 'access-token');
+
+		const result = await runReplySweep(await loadRow(), getAccessToken, clockMs + HOUR, now);
+
+		expect(result).toMatchObject({ status: 'skipped', reason: 'ceiling-not-set' });
+		expect(getAccessToken).toHaveBeenCalledTimes(0);
+		expect(warn).not.toHaveBeenCalled();
+	});
+
+	test('a stamped day at the unit cap reports quota-exhausted-today: the stamp is checked before the cap', async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '100';
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: '2026-11-07', units: 100, exhaustedAt: iso(NOW_MS - HOUR) });
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await seed();
+		const getAccessToken = vi.fn(async () => 'access-token');
+
+		const result = await runReplySweep(await loadRow(), getAccessToken, clockMs + HOUR, now);
+
+		expect(result).toMatchObject({ status: 'skipped', reason: 'quota-exhausted-today' });
+		expect(getAccessToken).toHaveBeenCalledTimes(0);
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn).toHaveBeenCalledWith('reply recheck skipped for channel UC1: YouTube quota was exhausted today');
+	});
+
+	test("a stamp from an earlier Pacific day does not skip today's check", async () => {
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: '2026-11-06', units: 0, exhaustedAt: '2026-11-06T12:00:00.000Z' });
+		await seed();
+		const getAccessToken = vi.fn(async () => 'access-token');
+
+		const result = await runReplySweep(await loadRow(), getAccessToken, clockMs + HOUR, now);
+
+		expect(result.status).toBe('finished');
+		expect(getAccessToken).toHaveBeenCalledTimes(1);
+	});
+});
 
 describe('quota guard', () => {
 	const TODAY = '2026-11-07';
