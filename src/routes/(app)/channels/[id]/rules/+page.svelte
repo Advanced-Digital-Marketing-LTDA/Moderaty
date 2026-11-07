@@ -46,7 +46,7 @@
 {:else}
 	<EmptyState
 		title="No rules yet"
-		hint="AI moderation still applies to every comment, and to replies when reply moderation is on for the channel — rules add your own keywords, patterns, and blocked users."
+		hint="AI moderation applies to every comment except those from protected handles, and to replies when reply moderation is on for the channel. Rules add your own keywords, patterns, and blocked users."
 	/>
 {/each}
 
