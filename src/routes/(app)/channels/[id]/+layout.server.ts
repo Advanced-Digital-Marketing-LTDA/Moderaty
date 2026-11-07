@@ -31,7 +31,12 @@ function maintenancePayload(channelId: string, tab: ChannelTab) {
 			active: 1,
 			scanning: false,
 			dryRunScanning: false,
-			moderationDryRunUsed: false
+			moderationDryRunUsed: false,
+			// Same shape as the loaded channel, so the overview's reply status type-checks on both arms.
+			moderateRepliesSince: null,
+			replySweepBoundary: null,
+			replySweepLastAt: null,
+			replySweepShortfall: null
 		},
 		pending: 0,
 		banned: 0,
@@ -78,7 +83,13 @@ export async function load({ params, locals, url }) {
 			active: row.active,
 			scanning: row.nextPageToken !== null,
 			dryRunScanning: row.dryRunBoundary !== null,
-			moderationDryRunUsed: row.moderationDryRunUsedAt !== null
+			moderationDryRunUsed: row.moderationDryRunUsedAt !== null,
+			// The reply recheck's status line: enable time, pass start, last check, shortfall.
+			// The continuation token stays server-side, as the drain tokens above do.
+			moderateRepliesSince: row.moderateRepliesSince,
+			replySweepBoundary: row.replySweepBoundary,
+			replySweepLastAt: row.replySweepLastAt,
+			replySweepShortfall: row.replySweepShortfall
 		};
 		return { ch, pending, banned, tab, maintenance: false, orgRole: user.orgRole };
 	} catch (e) {

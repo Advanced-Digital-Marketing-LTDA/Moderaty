@@ -147,7 +147,12 @@ export function demoChannelLayoutData(now: number, tab: DemoTab) {
 			active: 1,
 			scanning: false,
 			dryRunScanning: false,
-			moderationDryRunUsed: false
+			moderationDryRunUsed: false,
+			moderateRepliesSince: null,
+			replySweepBoundary: null,
+			replySweepPageToken: null,
+			replySweepLastAt: null,
+			replySweepShortfall: null
 		},
 		pending: countOf('pending'),
 		banned: banCount(),

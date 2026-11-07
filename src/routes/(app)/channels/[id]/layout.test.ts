@@ -108,6 +108,32 @@ test('projects the tone and protection flags the overview page renders', async (
 	expect(data.ch).toMatchObject({ toneLevel: 2, protectLgbtqia: 1, protectWomen: 0, lastRunAt: '2026-07-30T00:00:00Z' });
 });
 
+test('projects the reply-check state the overview renders and never the reply page token', async () => {
+	await testDb().db.insert(channels).values({
+		id: 'UC1',
+		userId: OWNER.id,
+		orgId: 'org-1',
+		title: 'Mine',
+		refreshTokenEnc: 'enc',
+		moderateRepliesSince: '2026-11-01T00:00:00.000Z',
+		replySweepBoundary: '2026-10-29T00:00:00.000Z',
+		replySweepPageToken: 'secret-reply-token',
+		replySweepLastAt: '2026-11-07T09:00:00.000Z',
+		replySweepShortfall: 3
+	});
+
+	const data = (await loadLayout('UC1')) as LayoutData;
+
+	expect(data.ch).toMatchObject({
+		moderateRepliesSince: '2026-11-01T00:00:00.000Z',
+		replySweepBoundary: '2026-10-29T00:00:00.000Z',
+		replySweepLastAt: '2026-11-07T09:00:00.000Z',
+		replySweepShortfall: 3
+	});
+	expect(data.ch).not.toHaveProperty('replySweepPageToken');
+	expect(JSON.stringify(data)).not.toContain('secret-reply-token');
+});
+
 test('projects the active flag the paused banner and header read (cubic, PR #142)', async () => {
 	await seedChannel('UC1');
 	// Default seed is active; the paused payload must carry 0 explicitly —
