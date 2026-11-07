@@ -436,7 +436,7 @@ export const moderationActions = sqliteTable('moderation_actions', {
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
 	reason: text('reason').notNull(),
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
-	state: text('state').notNull(), // 'pending' | 'dispatched' | 'cancelling' | 'completed' | 'superseded' ('manual_review' legacy)
+	state: text('state').notNull(), // 'pending' | 'dispatched' | 'cancelling' | 'completed' | 'superseded' | 'failed' (reply write refused or never sent; parked, not retried) ('manual_review' legacy)
 	lastAttemptAt: text('last_attempt_at'),
 	lastManualRetryAt: text('last_manual_retry_at'),
 	// Normalized commenter handle, 30-day TTL (same retention as audit_log):

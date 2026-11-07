@@ -537,15 +537,30 @@ test('an enforcement failure is logged and recorded, its action stays outstandin
 	const ruleId = await addRule('hold');
 	await seed();
 	youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 1, replies: [resource('reply-1', REPLY_AT, 'viewer-b', 'spam-word reply')] })]);
-	youtube.moderation = () => new Response('bad request', { status: 400 });
+	youtube.moderation = () => new Response('unauthorized', { status: 401 });
 	const error = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 	const result = await tick();
 
 	expect(result.status).toBe('finished');
-	expect(result.enforcementError).toContain('setModerationStatus failed: 400');
+	expect(result.enforcementError).toContain('setModerationStatus failed: 401');
 	expect(error).toHaveBeenCalledWith('reply recheck enforcement failed for channel UC1; its actions stay outstanding for the next run', expect.any(Error));
 	expect(await actionRows()).toEqual([{ commentId: 'reply-1', action: 'hold', state: 'dispatched', reason: `rule #${ruleId} (keyword: spam-word)` }]);
+	expect(await replyColumns()).toEqual({ since: SINCE, boundary: null, token: null, lastAt: NOW, shortfall: 0 });
+});
+
+test('a refused reply hold is parked for the owner, not reported as an enforcement failure', async () => {
+	const ruleId = await addRule('hold');
+	await seed();
+	youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 1, replies: [resource('reply-1', REPLY_AT, 'viewer-b', 'spam-word reply')] })]);
+	youtube.moderation = () => new Response('bad request', { status: 400 });
+
+	const result = await tick();
+
+	expect(ruleId).toBeGreaterThan(0);
+	expect(result.status).toBe('finished');
+	expect(result.enforcementError).toBeUndefined();
+	expect(await actionRows()).toEqual([expect.objectContaining({ commentId: 'reply-1', action: 'hold', state: 'failed' })]);
 	expect(await replyColumns()).toEqual({ since: SINCE, boundary: null, token: null, lastAt: NOW, shortfall: 0 });
 });
 

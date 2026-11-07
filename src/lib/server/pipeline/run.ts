@@ -25,6 +25,11 @@ function emptyResult(): ChannelRunResult {
 	return { fetched: 0, acted: 0, queued: 0, partial: false, skipped: true, dryRun: false };
 }
 
+/** The live result's reply-failure count: present only when a reply write was parked in this run. */
+function replyActionFailuresField(count: number): { replyActionFailures?: number } {
+	return count > 0 ? { replyActionFailures: count } : {};
+}
+
 /**
  * Persists moderation decisions and their associated comments, actions, and audit records.
  *
@@ -280,17 +285,18 @@ export async function runChannel(
 
 		const enforcement = await runEnforcement(channelId, accessToken, deadline, channel.orgId, deferred, channel, staged.protection);
 		acted = enforcement.acted;
+		const replyFailures = replyActionFailuresField(enforcement.replyActionFailures);
 		if (enforcement.outOfCredits) {
 			console.warn(
 				`run ${channelId}: out of credits — ${deferred} comment(s) deferred, cursor parked; fetched=${fetched} skippedAlreadySeen=${skipped} rescan=${rescan !== undefined}`
 			);
-			return { fetched, acted, queued, partial: false, skipped: false, dryRun, outOfCredits: true, ...warning };
+			return { fetched, acted, queued, partial: false, skipped: false, dryRun, outOfCredits: true, ...warning, ...replyFailures };
 		}
 		const { complete, cursor: newCursor } = await persistResults(channelId, channel, page);
 		console.info(
 			`run ${channelId}: fetched=${fetched} skippedAlreadySeen=${skipped} staged=${staged.stagedCount} deferred=${deferred} acted=${acted} queued=${queued} rescan=${rescan !== undefined}; scan ${complete ? `complete — cursor now ${newCursor}` : `continues next run (boundary ${channel.cursor})`}`
 		);
-		return { fetched, acted, queued, partial: false, skipped: false, dryRun, ...warning };
+		return { fetched, acted, queued, partial: false, skipped: false, dryRun, ...warning, ...replyFailures };
 	} catch (error) {
 		if (error instanceof DeadlineExceededError) {
 			console.warn(`run ${channelId}: deadline reached — partial (fetched=${fetched})`);
