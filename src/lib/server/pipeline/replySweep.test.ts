@@ -520,6 +520,27 @@ test.each([
 	expect(await loadRow()).toEqual(before);
 });
 
+test('with 7999 ms left before the deadline the check is skipped as no-time, before any YouTube call', async () => {
+	await seed();
+	const before = await loadRow();
+
+	const result = await tick(clockMs + 7_999);
+
+	expect(result).toMatchObject({ status: 'skipped', reason: 'no-time' });
+	expect(youtube.calls).toEqual([]);
+	expect(await loadRow()).toEqual(before);
+});
+
+test('with exactly 8000 ms left before the deadline the no-time gate does not refuse the check', async () => {
+	await seed();
+
+	const result = await tick(clockMs + 8_000);
+
+	expect(result.status).toBe('finished');
+	expect(result).not.toHaveProperty('reason');
+	expect(youtube.calls.map((call) => call.route)).toEqual(['GET /commentThreads']);
+});
+
 test('when several gates apply, the first one in order is the reason reported', async () => {
 	await seed({ historyBoundary: iso(NOW_MS - DAY), active: 0 }, null);
 	mocks.env.DRY_RUN = 'true';
