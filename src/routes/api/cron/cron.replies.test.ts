@@ -314,8 +314,11 @@ test('a setting turned off during the live run makes no reply recheck call', asy
 
 test('the recheck runs after the live run and before the dry-run drain and the digest', async () => {
 	await seedChannel('UC-order', { moderateRepliesSince: SINCE, dryRunBoundary: '2026-05-01T00:00:00.000Z' });
+	mocks.flushYoutubeUnits.mockImplementationOnce(async () => {
+		mocks.order.push('flush');
+	});
 	await callBody();
-	expect(mocks.order).toEqual(['runChannel:live', 'runReplySweep', 'runChannel:drain', 'digest']);
+	expect(mocks.order).toEqual(['runChannel:live', 'runReplySweep', 'runChannel:drain', 'digest', 'flush']);
 });
 
 test('a recheck error is reported in its own field, leaves run health as the live run wrote it, and the digest still runs', async () => {
