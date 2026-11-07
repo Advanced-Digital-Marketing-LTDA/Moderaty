@@ -838,7 +838,7 @@ describe('quota guard', () => {
 	beforeEach(async () => {
 		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000000';
 		// Drain units left pending by earlier tests in this file, then start today's meter empty.
-		await flushYoutubeUnits(testDb().db, NOW_MS);
+		await flushYoutubeUnits(testDb().db);
 		await wipeTables(['youtube_quota_usage']);
 	});
 
@@ -872,7 +872,7 @@ describe('quota guard', () => {
 	test('units recorded in this invocation but not yet flushed count toward the ceiling', async () => {
 		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '100';
 		await storeUnits(90);
-		for (let call = 0; call < 20; call += 1) recordYoutubeUnits('commentThreads.list');
+		for (let call = 0; call < 20; call += 1) recordYoutubeUnits('commentThreads.list', NOW_MS);
 		await seed();
 		const before = await loadRow();
 

@@ -311,7 +311,7 @@ async function ytFetch(
 	deadline?: number,
 	singleAttempt = false
 ): Promise<Response> {
-	recordYoutubeUnits(youtubeEndpoint(init?.method ?? 'GET', path));
+	recordYoutubeUnits(youtubeEndpoint(init?.method ?? 'GET', path), Date.now());
 	const request = singleAttempt ? fetchSingleAttempt : fetchWithRetry;
 	const res = await request(`${YT}${path}`, {
 		...init,

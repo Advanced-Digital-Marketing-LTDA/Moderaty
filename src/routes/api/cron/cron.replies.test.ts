@@ -405,7 +405,7 @@ test('a normal tick flushes the quota units exactly once, and the flush adds no 
 	const body = await callBody();
 
 	expect(mocks.flushYoutubeUnits).toHaveBeenCalledTimes(1);
-	expect(mocks.flushYoutubeUnits).toHaveBeenCalledWith(expect.anything(), FIXED_NOW);
+	expect(mocks.flushYoutubeUnits).toHaveBeenCalledWith(expect.anything());
 	expect(body).not.toHaveProperty('quotaFlushError');
 });
 

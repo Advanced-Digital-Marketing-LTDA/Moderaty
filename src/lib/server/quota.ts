@@ -28,11 +28,12 @@ export const YOUTUBE_UNIT_COST: Record<YoutubeEndpoint, number> = {
 	'comments.delete': 50
 };
 
-/** Units recorded since the last successful flush. Lives in memory, so a flush is what makes it durable. */
-let pendingUnits = 0;
+/** Units recorded since the last successful flush, keyed by the Pacific day they were recorded on. Lives in memory, so a flush is what makes it durable. */
+const pendingByDay = new Map<string, number>();
 
-export function recordYoutubeUnits(endpoint: YoutubeEndpoint): void {
-	pendingUnits += YOUTUBE_UNIT_COST[endpoint];
+export function recordYoutubeUnits(endpoint: YoutubeEndpoint, nowMs: number): void {
+	const day = pacificDay(nowMs);
+	pendingByDay.set(day, (pendingByDay.get(day) ?? 0) + YOUTUBE_UNIT_COST[endpoint]);
 }
 
 const PACIFIC_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -45,17 +46,19 @@ export function pacificDay(nowMs: number): string {
 export type QuotaDb = LibSQLDatabase<typeof schema>;
 
 /**
- * Adds the pending units to today's row in one upsert. Pending units are released only after the write succeeds,
- * so a failed write propagates and the units wait for the next flush. Writes nothing when nothing is pending.
+ * Adds each Pacific day's pending units to that day's row, one upsert per day. A day's units are released only after its
+ * write succeeds, so a failed write propagates and the rest wait for the next flush. Writes nothing when nothing is pending.
  */
-export async function flushYoutubeUnits(database: QuotaDb, nowMs: number): Promise<void> {
-	const units = pendingUnits;
-	if (units === 0) return;
-	await database
-		.insert(youtubeQuotaUsage)
-		.values({ day: pacificDay(nowMs), units })
-		.onConflictDoUpdate({ target: youtubeQuotaUsage.day, set: { units: sql`${youtubeQuotaUsage.units} + excluded.units` } });
-	pendingUnits -= units;
+export async function flushYoutubeUnits(database: QuotaDb): Promise<void> {
+	for (const [day, units] of [...pendingByDay]) {
+		await database
+			.insert(youtubeQuotaUsage)
+			.values({ day, units })
+			.onConflictDoUpdate({ target: youtubeQuotaUsage.day, set: { units: sql`${youtubeQuotaUsage.units} + excluded.units` } });
+		const left = (pendingByDay.get(day) ?? 0) - units;
+		if (left > 0) pendingByDay.set(day, left);
+		else pendingByDay.delete(day);
+	}
 }
 
 /** Today's stored units plus the units still pending, so a tick's own calls count before its flush. */
@@ -65,7 +68,7 @@ export async function readYoutubeUnitsToday(database: QuotaDb, nowMs: number): P
 		.from(youtubeQuotaUsage)
 		.where(eq(youtubeQuotaUsage.day, pacificDay(nowMs)))
 		.get();
-	return (row?.units ?? 0) + pendingUnits;
+	return (row?.units ?? 0) + (pendingByDay.get(pacificDay(nowMs)) ?? 0);
 }
 
 /** Stamps today with the instant a quota refusal stopped reply checks. Units are left as they are. */

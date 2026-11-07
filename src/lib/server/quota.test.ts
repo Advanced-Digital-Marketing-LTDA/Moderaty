@@ -28,7 +28,7 @@ async function storedUnits(day = TODAY): Promise<number | undefined> {
 
 beforeEach(async () => {
 	// Units recorded by earlier tests in this file are still pending in memory. Drain them, then start from an empty meter.
-	await flushYoutubeUnits(testDb().db, NOON_UTC_MS);
+	await flushYoutubeUnits(testDb().db);
 	await wipeTables(['youtube_quota_usage']);
 });
 
@@ -116,21 +116,21 @@ describe('isQuotaFailure', () => {
 
 describe('the day meter', () => {
 	test('one commentThreads.list call and one setModerationStatus call flush as exactly 51 units for today', async () => {
-		recordYoutubeUnits('commentThreads.list');
-		recordYoutubeUnits('comments.setModerationStatus');
+		recordYoutubeUnits('commentThreads.list', NOON_UTC_MS);
+		recordYoutubeUnits('comments.setModerationStatus', NOON_UTC_MS);
 
-		await flushYoutubeUnits(testDb().db, NOON_UTC_MS);
+		await flushYoutubeUnits(testDb().db);
 
 		expect(await storedUnits()).toBe(51);
 	});
 
 	test('a later flush with one comments.delete adds exactly 50, for a total of 101', async () => {
-		recordYoutubeUnits('commentThreads.list');
-		recordYoutubeUnits('comments.setModerationStatus');
-		await flushYoutubeUnits(testDb().db, NOON_UTC_MS);
+		recordYoutubeUnits('commentThreads.list', NOON_UTC_MS);
+		recordYoutubeUnits('comments.setModerationStatus', NOON_UTC_MS);
+		await flushYoutubeUnits(testDb().db);
 
-		recordYoutubeUnits('comments.delete');
-		await flushYoutubeUnits(testDb().db, NOON_UTC_MS);
+		recordYoutubeUnits('comments.delete', NOON_UTC_MS);
+		await flushYoutubeUnits(testDb().db);
 
 		expect(await storedUnits()).toBe(101);
 	});
@@ -138,31 +138,41 @@ describe('the day meter', () => {
 	test('a flush with nothing pending writes nothing', async () => {
 		const insert = vi.spyOn(testDb().db, 'insert');
 
-		await flushYoutubeUnits(testDb().db, NOON_UTC_MS);
+		await flushYoutubeUnits(testDb().db);
 
 		expect(insert).not.toHaveBeenCalled();
 		expect(await storedUnits()).toBeUndefined();
 	});
 
 	test('a failed flush propagates and keeps the pending units for the next flush', async () => {
-		recordYoutubeUnits('comments.delete');
+		recordYoutubeUnits('comments.delete', NOON_UTC_MS);
 		await testDb().client.execute('DROP TABLE youtube_quota_usage');
 
-		await expect(flushYoutubeUnits(testDb().db, NOON_UTC_MS)).rejects.toThrow(/youtube_quota_usage/);
+		await expect(flushYoutubeUnits(testDb().db)).rejects.toThrow(/youtube_quota_usage/);
 
 		await testDb().client.execute('CREATE TABLE youtube_quota_usage (day TEXT PRIMARY KEY NOT NULL, units INTEGER NOT NULL DEFAULT 0, exhausted_at TEXT)');
-		await flushYoutubeUnits(testDb().db, NOON_UTC_MS);
+		await flushYoutubeUnits(testDb().db);
 		expect(await storedUnits()).toBe(50);
 	});
 
 	test('readYoutubeUnitsToday includes units recorded but not yet flushed', async () => {
 		await testDb().db.insert(youtubeQuotaUsage).values({ day: TODAY, units: 7 });
-		recordYoutubeUnits('comments.delete');
+		recordYoutubeUnits('comments.delete', NOON_UTC_MS);
 
 		expect(await readYoutubeUnitsToday(testDb().db, NOON_UTC_MS)).toBe(57);
 
-		await flushYoutubeUnits(testDb().db, NOON_UTC_MS);
+		await flushYoutubeUnits(testDb().db);
 		expect(await readYoutubeUnitsToday(testDb().db, NOON_UTC_MS)).toBe(57);
+	});
+
+	test('units are dated by the Pacific day they were recorded on, even when flushed after midnight', async () => {
+		recordYoutubeUnits('comments.delete', Date.parse('2026-11-08T07:59:50.000Z'));
+		// Recorded at 23:59:50 Pacific on 2026-11-07. Flushed at 00:00:10 Pacific on 2026-11-08.
+
+		await flushYoutubeUnits(testDb().db);
+
+		expect(await storedUnits('2026-11-07')).toBe(50);
+		expect(await storedUnits('2026-11-08')).toBeUndefined();
 	});
 
 	test("readYoutubeUnitsToday counts only today: yesterday's row is ignored", async () => {

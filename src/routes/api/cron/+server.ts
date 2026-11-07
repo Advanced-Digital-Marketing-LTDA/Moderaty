@@ -658,7 +658,7 @@ function quotaFlusher(diagnostics: CronDiagnostics): () => Promise<string | null
 async function flushQuotaUnits(diagnostics: CronDiagnostics): Promise<string | null> {
 	if (env.DRY_RUN === 'true') return null;
 	try {
-		await flushYoutubeUnits(db, Date.now());
+		await flushYoutubeUnits(db);
 		return null;
 	} catch (cause) {
 		return diagnostics.report('youtube quota flush', cause);
