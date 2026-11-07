@@ -697,11 +697,13 @@ async function applyDeletes(actions: OutstandingAction[], accessToken: string, d
  * REPLY_WRITE_RESERVE_UNITS of them, and reply deletes take what the day has beyond that reserve. With no ceiling, a quota
  * refusal today, or less than a reserve left, no reply row is claimed: it stays pending for a later run. Top-level rows pass through.
  */
-async function admitReplyWrites(pending: OutstandingAction[], replyIds: ReadonlySet<string>): Promise<OutstandingAction[]> {
+async function admitReplyWrites(channelId: string, pending: OutstandingAction[], replyIds: ReadonlySet<string>): Promise<OutstandingAction[]> {
 	if (!pending.some((action) => replyIds.has(action.commentId))) return pending;
 	const now = Date.now();
+	// Staged before the owner turned reply moderation off: those replies stay pending, and no reply is written.
+	const channel = await db.select({ since: channels.moderateRepliesSince }).from(channels).where(eq(channels.id, channelId)).get();
 	const ceiling = readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING);
-	const closed = ceiling.kind === 'disabled' || (await readQuotaExhaustedToday(db, now));
+	const closed = !channel?.since || ceiling.kind === 'disabled' || (await readQuotaExhaustedToday(db, now));
 	const remaining = ceiling.kind === 'cap' && !closed ? ceiling.units - (await readYoutubeUnitsToday(db, now)) : 0;
 	const open = remaining >= REPLY_WRITE_RESERVE_UNITS;
 	let batchRows = REPLY_WRITE_RESERVE_UNITS; // two setModerationStatus calls of up to 50 ids each
@@ -768,7 +770,7 @@ async function processOutstandingActions(channelId: string, accessToken: string,
 		protectionFailure = error;
 		guarded = actions.filter(action => action.action === 'hold' && !restoring.has(action.commentId));
 	}
-	const admitted = await admitReplyWrites(guarded.filter((action) => action.state === 'pending' && !restoring.has(action.commentId)), isolation.replyIds);
+	const admitted = await admitReplyWrites(channelId, guarded.filter((action) => action.state === 'pending' && !restoring.has(action.commentId)), isolation.replyIds);
 	const claimed = await claimPendingActions(admitted, expected);
 	// Stryker disable next-line ArrayDeclaration: equivalent — applyYoutubeActions selects entries by their action field, so a foreign element in the array is never selected
 	const ready: OutstandingAction[] = [];

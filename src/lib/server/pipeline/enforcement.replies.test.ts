@@ -76,6 +76,7 @@ async function seedChannel(values: Partial<typeof channels.$inferInsert> = {}) {
 		title: 'Channel',
 		refreshTokenEnc: 'synthetic-grant',
 		cursor: CURSOR,
+		moderateRepliesSince: CURSOR,
 		...values
 	});
 }
@@ -470,6 +471,17 @@ describe('the reply write budget', () => {
 	test('a reply reject waits when the day cannot pay for a whole batch of reply writes', async () => {
 		await seedChannel({ moderateRepliesSince: CURSOR });
 		await db().insert(youtubeQuotaUsage).values({ day: '2026-11-07', units: 950 });
+		await seedComment('reply-1', 'rejected', 'top-1', 'rule');
+		await seedAction('reply-1', 'reject', 'pending');
+
+		await ENFORCE();
+
+		expect(writesFor('moderation', 'reply-1')).toEqual([]);
+		expect(await actionOf('reply-1')).toMatchObject({ state: 'pending' });
+	});
+
+	test('a pending reply reject is not written once the owner has turned reply moderation off', async () => {
+		await seedChannel({ moderateRepliesSince: null });
 		await seedComment('reply-1', 'rejected', 'top-1', 'rule');
 		await seedAction('reply-1', 'reject', 'pending');
 
