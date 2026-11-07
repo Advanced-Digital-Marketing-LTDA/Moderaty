@@ -349,7 +349,7 @@ async function historyCoveredIds(
 			db
 				.select({ id: comments.id })
 				.from(comments)
-				.where(and(eq(comments.channelId, channelId), inArray(comments.id, ids), isNotNull(comments.feedbackDigestedAt)))
+				.where(and(eq(comments.channelId, channelId), inArray(comments.id, ids), isNotNull(comments.feedbackDigestedAt), isNull(comments.parentId)))
 				.all(),
 			db
 				.select({ id: feedbackHistoryComments.id })

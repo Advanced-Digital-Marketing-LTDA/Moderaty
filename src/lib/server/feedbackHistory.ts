@@ -45,6 +45,9 @@ export function pendingStoredFeedback(channelId: string): SQL {
 	return and(
 		eq(comments.channelId, channelId),
 		isNull(comments.feedbackDigestedAt),
+		// Replies are never digested: the digest batch, its per-100 cadence count and its
+		// remaining-count check all read through this predicate.
+		isNull(comments.parentId),
 		notExists(
 			db
 				.select({ id: feedbackHistoryComments.id })

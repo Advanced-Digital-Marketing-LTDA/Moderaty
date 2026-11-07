@@ -54,7 +54,9 @@ function commentRows(channelId: string, decisions: Decision[]) {
 		decidedBy: decision.decidedBy,
 		matchedRuleId: decision.matchedRuleId,
 		aiScore: decision.aiScore,
-		createdAt: new Date().toISOString()
+		createdAt: new Date().toISOString(),
+		// A reply records its top-level parent. A top-level row has no parentId key, so its column stays NULL.
+		...(decision.comment.parentId ? { parentId: decision.comment.parentId } : {})
 	}));
 }
 
