@@ -28,6 +28,12 @@ export const YOUTUBE_UNIT_COST: Record<YoutubeEndpoint, number> = {
 	'comments.delete': 50
 };
 
+/**
+ * Units one run reserves for reply holds, rejects and bans: two setModerationStatus calls at 50 units each, carrying up to
+ * 50 ids apiece. Reply deletes take only what the day has beyond this reserve, so a run's reply writes never pass the ceiling.
+ */
+export const REPLY_WRITE_RESERVE_UNITS = 2 * YOUTUBE_UNIT_COST['comments.setModerationStatus'];
+
 /** Units recorded since the last successful flush, keyed by the Pacific day they were recorded on. Lives in memory, so a flush is what makes it durable. */
 const pendingByDay = new Map<string, number>();
 

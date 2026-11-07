@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { TEST_OWNER, postForm, setupTestDb, testDb } from '$lib/server/testdb';
-import { auditLog, channelAllowedHandles, channels, comments, moderationActions, organizations } from '$lib/server/db/schema';
+import { TEST_OWNER, postForm, setupTestDb, testDb, wipeTables } from '$lib/server/testdb';
+import { auditLog, channelAllowedHandles, channels, comments, moderationActions, organizations, youtubeQuotaUsage } from '$lib/server/db/schema';
+import { flushYoutubeUnits } from '$lib/server/quota';
 import { DeadlineExceededError } from '$lib/server/http';
 import { YoutubeWriteRefusedError } from '$lib/server/youtube';
 import { actions as queueActions } from '../../../routes/(app)/channels/[id]/queue/+page.server';
@@ -41,7 +42,8 @@ setupTestDb([
 	'audit_log',
 	'moderation_actions',
 	'rules',
-	'channel_allowed_handles'
+	'channel_allowed_handles',
+	'youtube_quota_usage'
 ]);
 
 const CHANNEL = 'UC1';
@@ -124,6 +126,7 @@ beforeEach(() => {
 	youtube.reset();
 	vi.stubGlobal('fetch', youtube.fetch);
 	mocks.env.DRY_RUN = 'false';
+	mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000000';
 	mocks.scoreComment.mockReset();
 	mocks.scoreComment.mockResolvedValue({ score: 0.1, scores: {} });
 	mocks.detectJailbreak.mockReset();
@@ -447,5 +450,47 @@ describe('a human claim that lands during a refused reply write', () => {
 				text: null
 			}
 		]);
+	});
+});
+
+describe('the reply write budget', () => {
+	beforeEach(async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000';
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(Date.parse('2026-11-07T12:00:00.000Z'));
+		// Units recorded by earlier tests in this file are still pending in memory. Drain them, then start the day empty.
+		await flushYoutubeUnits(db());
+		await wipeTables(['youtube_quota_usage']);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	test('a reply reject waits when the day cannot pay for a whole batch of reply writes', async () => {
+		await seedChannel({ moderateRepliesSince: CURSOR });
+		await db().insert(youtubeQuotaUsage).values({ day: '2026-11-07', units: 950 });
+		await seedComment('reply-1', 'rejected', 'top-1', 'rule');
+		await seedAction('reply-1', 'reject', 'pending');
+
+		await ENFORCE();
+
+		expect(writesFor('moderation', 'reply-1')).toEqual([]);
+		expect(await actionOf('reply-1')).toMatchObject({ state: 'pending' });
+	});
+
+	test('pending reply deletes are admitted only up to what the day pays for after one batch is reserved', async () => {
+		await seedChannel({ moderateRepliesSince: CURSOR });
+		// 700 used of 1000 leaves 300. A batch reserves 100, so 200 remain: four deletes at 50 each.
+		await db().insert(youtubeQuotaUsage).values({ day: '2026-11-07', units: 700 });
+		for (let i = 1; i <= 6; i += 1) {
+			await seedComment(`reply-${i}`, 'rejected', 'top-1', 'rule');
+			await seedAction(`reply-${i}`, 'delete', 'pending');
+		}
+
+		await ENFORCE();
+
+		const deleted = [1, 2, 3, 4, 5, 6].filter((i) => writesFor('remove', `reply-${i}`).length > 0);
+		expect(deleted).toHaveLength(4);
 	});
 });

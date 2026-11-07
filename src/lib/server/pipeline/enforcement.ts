@@ -3,8 +3,10 @@ import { and, asc, desc, eq, gt, inArray, isNull, lte, ne, sql } from 'drizzle-o
 import { maybeTriggerAutoTopUp } from '$lib/server/billing/autotopup';
 import { loadProtectedIdentities, loadProtectedAuthors, type ProtectedIdentities } from '$lib/server/allowlist';
 import { hasHumanClaim } from './human-claims';
+import { env } from '$env/dynamic/private';
 import { db } from '$lib/server/db';
 import { auditLog, channels, comments, moderationActions } from '$lib/server/db/schema';
+import { readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday, REPLY_WRITE_RESERVE_UNITS, YOUTUBE_UNIT_COST } from '$lib/server/quota';
 import { assertBeforeDeadline, DeadlineExceededError, RequestNotSentError } from '$lib/server/http';
 import {
 	CommentNotFoundError,
@@ -690,6 +692,37 @@ async function applyDeletes(actions: OutstandingAction[], accessToken: string, d
 	return acted;
 }
 
+/**
+ * The pending rows this run may claim. Reply holds, rejects and bans go out in batches of 50, so a run claims at most
+ * REPLY_WRITE_RESERVE_UNITS of them, and reply deletes take what the day has beyond that reserve. With no ceiling, a quota
+ * refusal today, or less than a reserve left, no reply row is claimed: it stays pending for a later run. Top-level rows pass through.
+ */
+async function admitReplyWrites(pending: OutstandingAction[], replyIds: ReadonlySet<string>): Promise<OutstandingAction[]> {
+	if (!pending.some((action) => replyIds.has(action.commentId))) return pending;
+	const now = Date.now();
+	const ceiling = readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING);
+	const closed = ceiling.kind === 'disabled' || (await readQuotaExhaustedToday(db, now));
+	const remaining = ceiling.kind === 'cap' && !closed ? ceiling.units - (await readYoutubeUnitsToday(db, now)) : 0;
+	const open = remaining >= REPLY_WRITE_RESERVE_UNITS;
+	let batchRows = REPLY_WRITE_RESERVE_UNITS; // two setModerationStatus calls of up to 50 ids each
+	let deleteRows = open ? Math.floor((remaining - REPLY_WRITE_RESERVE_UNITS) / YOUTUBE_UNIT_COST['comments.delete']) : 0;
+	const admitted: OutstandingAction[] = [];
+	for (const action of pending) {
+		if (!replyIds.has(action.commentId)) {
+			admitted.push(action);
+		} else if (action.action === 'delete') {
+			if (deleteRows > 0) {
+				deleteRows -= 1;
+				admitted.push(action);
+			}
+		} else if (open && batchRows > 0) {
+			batchRows -= 1;
+			admitted.push(action);
+		}
+	}
+	return admitted;
+}
+
 async function processOutstandingActions(channelId: string, accessToken: string, deadline?: number, expected?: ChannelIdentity, protection?: ProtectedIdentities): Promise<{ acted: number; replyActionFailures: number }> {
 	const actions = (await db
 		.select()
@@ -735,7 +768,8 @@ async function processOutstandingActions(channelId: string, accessToken: string,
 		protectionFailure = error;
 		guarded = actions.filter(action => action.action === 'hold' && !restoring.has(action.commentId));
 	}
-	const claimed = await claimPendingActions(guarded.filter((action) => action.state === 'pending' && !restoring.has(action.commentId)), expected);
+	const admitted = await admitReplyWrites(guarded.filter((action) => action.state === 'pending' && !restoring.has(action.commentId)), isolation.replyIds);
+	const claimed = await claimPendingActions(admitted, expected);
 	// Stryker disable next-line ArrayDeclaration: equivalent — applyYoutubeActions selects entries by their action field, so a foreign element in the array is never selected
 	const ready: OutstandingAction[] = [];
 	for (const action of guarded) {

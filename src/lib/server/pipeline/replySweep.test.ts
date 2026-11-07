@@ -981,7 +981,7 @@ describe('quota guard', () => {
 		expect(await replyColumns()).toEqual({ since: SINCE, boundary: SINCE, token: 'page-2', lastAt: iso(NOW_MS - 5 * MINUTE), shortfall: 0 });
 	});
 
-	test('with 960 of the 1000 units used today, a reply delete is hidden as a reject and no delete is sent', async () => {
+	test('with 960 of the 1000 units used today, a reply delete is hidden as a reject and neither write is sent until the day has room for a batch', async () => {
 		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000';
 		const ruleId = await addRule('delete');
 		await storeUnits(960);
@@ -990,18 +990,20 @@ describe('quota guard', () => {
 
 		const result = await tick();
 
+		// 961 units used leaves 39, less than the 100-unit batch reserve, so the staged reject waits as pending.
 		expect(result).toMatchObject({ status: 'finished', fresh: 1, staged: 1 });
 		expect(youtube.deleted).toEqual([]);
-		expect(youtube.moderated).toEqual([{ ids: ['del-1'], status: 'rejected' }]);
+		expect(youtube.moderated).toEqual([]);
 		expect(await actionRows()).toEqual([
-			{ commentId: 'del-1', action: 'reject', state: 'completed', reason: `rule #${ruleId} (keyword: spam-word); delete budget reached, hidden instead` }
+			{ commentId: 'del-1', action: 'reject', state: 'pending', reason: `rule #${ruleId} (keyword: spam-word); delete budget reached, hidden instead` }
 		]);
 	});
 
-	test('with 900 of the 1000 units used today, one reply delete is allowed and the second is hidden as a reject', async () => {
+	test('with 840 of the 1000 units used before this tick, one reply delete is allowed after the batch reserve and the second is hidden as a reject', async () => {
 		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000';
 		await addRule('delete');
-		await storeUnits(900);
+		// 840 stored plus this tick's fetch leaves 158. The 100-unit batch reserve leaves 58, which pays for one 50-unit delete.
+		await storeUnits(840);
 		await seed();
 		youtube.threads = () =>
 			listPage([thread('top-1', THREAD_AT, { totalReplyCount: 2, replies: [resource('del-a', REPLY_AT, 'viewer-b', 'spam-word reply'), resource('del-b', REPLY_AT, 'viewer-c', 'spam-word reply')] })]);

@@ -7,7 +7,7 @@ import { db } from '$lib/server/db';
 import { channels } from '$lib/server/db/schema';
 import { DeadlineExceededError } from '$lib/server/http';
 import { fetchNewComments, MAX_REPLY_LOOKUPS_PER_TICK, type CommentPage, type NewComment } from '$lib/server/youtube';
-import { isQuotaFailure, markQuotaExhausted, readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday, YOUTUBE_UNIT_COST } from '$lib/server/quota';
+import { isQuotaFailure, markQuotaExhausted, readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday, REPLY_WRITE_RESERVE_UNITS, YOUTUBE_UNIT_COST } from '$lib/server/quota';
 import { assertChannelActive, ChannelDeactivatedError, runEnforcement } from './enforcement';
 import { decideAndStage } from './run';
 import { storedCommentIds } from './scoring';
@@ -340,7 +340,7 @@ async function replyDeleteAllowance(nowMs: number): Promise<number> {
 	if (ceiling.kind === 'disabled') {
 		throw new Error(`reply delete allowance requested without a quota cap: the ceiling is disabled (${ceiling.reason})`);
 	}
-	const remaining = ceiling.units - (await readYoutubeUnitsToday(db, nowMs));
+	const remaining = ceiling.units - (await readYoutubeUnitsToday(db, nowMs)) - REPLY_WRITE_RESERVE_UNITS;
 	return Math.max(0, Math.floor(remaining / YOUTUBE_UNIT_COST['comments.delete']));
 }
 
