@@ -176,6 +176,28 @@ describe('a refused reply write', () => {
 		expect(await actionOf('reply-1')).toMatchObject({ state: 'failed' });
 	});
 
+	test('a refused top-level reject in the same run as a reply reject stops the run first: the reply is never written and stays dispatched', async () => {
+		await seedChannel();
+		await seedComment('reply-r', 'rejected', 'top-1');
+		await seedAction('reply-r', 'reject', 'pending');
+		await seedComment('top-r', 'rejected');
+		await seedAction('top-r', 'reject', 'pending');
+		youtube.handlers.moderation = (params) =>
+			params.get('id') === 'top-r' ? refusal(400, 'operationNotSupported') : new Response(null, { status: 204 });
+
+		const error = await failureOf(ENFORCE());
+
+		expect(error).toBeInstanceOf(YoutubeWriteRefusedError);
+		expect(error.message).toBe('setModerationStatus failed: 400 {"error":{"code":400,"message":"synthetic refusal","errors":[{"domain":"youtube.comment","reason":"operationNotSupported","message":"synthetic refusal"}]}}');
+		// One write was sent, for the top-level comment alone: the reply never shares a request with it.
+		expect(youtube.requests.filter((request) => request.route === 'moderation').map((request) => request.params.get('id'))).toEqual(['top-r']);
+		expect(await actionOf('top-r')).toMatchObject({ state: 'dispatched' });
+		expect(await actionOf('reply-r')).toMatchObject({ state: 'dispatched' });
+		expect(await statusOf('top-r')).toEqual({ status: 'rejected', decidedBy: 'rule' });
+		expect(await statusOf('reply-r')).toEqual({ status: 'rejected', decidedBy: 'rule' });
+		expect(await auditRows()).toEqual([]);
+	});
+
 	test('a 403 forbidden on a reply reject parks the row with its status', async () => {
 		await seedChannel();
 		await seedComment('reply-3', 'rejected', 'top-1');
