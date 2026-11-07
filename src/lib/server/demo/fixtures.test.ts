@@ -123,7 +123,7 @@ test('the log has one system entry per comment, newest first, with real reason f
 	expect(data.entries.filter((e) => e.reason.startsWith('rule #'))).toHaveLength(2);
 });
 
-test('demo queue and log rows are top-level comments, shaped like the real loads', () => {
+test('demo queue and log rows are top-level comments: isReply is false on every row', () => {
 	const { pending } = demoQueueData(NOW);
 	const { entries } = demoLogData(NOW);
 	expect(pending.map((row) => row.isReply)).toEqual(pending.map(() => false));
