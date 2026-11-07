@@ -336,6 +336,11 @@ export const channels = sqliteTable('channels', {
 	feedbackHistoryBoundary: text('feedback_history_boundary'),
 	feedbackHistoryPageToken: text('feedback_history_page_token'),
 	feedbackHistoryScanId: text('feedback_history_scan_id'), // per-request nonce planted with feedback_history_boundary — the history run's billing scope (see history_scan_id)
+	moderateRepliesSince: text('moderate_replies_since'), // ISO; NULL = reply moderation off. Only replies posted after this are moderated
+	replySweepBoundary: text('reply_sweep_boundary'), // ISO start of the reply recheck pass in flight; NULL = no pass in flight
+	replySweepPageToken: text('reply_sweep_page_token'), // YouTube continuation token for the reply recheck's next page
+	replySweepLastAt: text('reply_sweep_last_at'), // ISO of the last reply recheck tick; NULL = never run
+	replySweepShortfall: integer('reply_sweep_shortfall'), // replies the last recheck could not cover; shown to the owner
 	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
 }, (table) => [
 	index('channels_user_id_idx').on(table.userId),
@@ -412,6 +417,7 @@ export const comments = sqliteTable('comments', {
 	// reprocesses rather than skips). Billing-independent — rule/allowlist
 	// and unmetered verdicts stamp it too (codex).
 	scanId: text('scan_id'),
+	parentId: text('parent_id'), // a reply's top-level comment id; NULL = top-level comment
 	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
 }, (table) => [
 	index('comments_channel_digested_idx').on(table.channelId, table.feedbackDigestedAt),
