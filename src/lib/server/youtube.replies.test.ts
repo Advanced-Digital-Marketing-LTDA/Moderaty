@@ -285,6 +285,35 @@ test('a reply by the channel itself is not returned, is counted in ownRepliesSki
 	expect(result).not.toHaveProperty('overflow');
 });
 
+test('a malformed reply returned by a comments.list lookup is not returned and is counted in replyShortfall', async () => {
+	const warn = vi.mocked(console.warn);
+	stubFetch(
+		json({ items: [thread('p', { totalReplyCount: 2 })] }),
+		json({ items: [reply('r1'), reply('bad', { text: null })] })
+	);
+
+	const result = await fetchNewComments(CHANNEL, 'token', null, { includeReplies: true });
+
+	expect(result.comments.map((comment) => comment.id)).toEqual(['p', 'r1']);
+	expect(result.replyShortfall).toBe(1);
+	expect(result.overflow).toEqual({ threads: 1, lookups: 1 });
+	expect(warn).toHaveBeenCalledWith(expect.stringContaining('commentThreads.list response item 0 reply lookup item 1 is malformed'));
+});
+
+test('an own-account reply returned by a comments.list lookup is not returned and is counted in ownRepliesSkipped', async () => {
+	stubFetch(
+		json({ items: [thread('p', { totalReplyCount: 2 })] }),
+		json({ items: [reply('own', { author: CHANNEL }), reply('r1')] })
+	);
+
+	const result = await fetchNewComments(CHANNEL, 'token', null, { includeReplies: true });
+
+	expect(result.comments.map((comment) => comment.id)).toEqual(['p', 'r1']);
+	expect(result.ownRepliesSkipped).toBe(1);
+	expect(result).not.toHaveProperty('replyShortfall');
+	expect(result.overflow).toEqual({ threads: 1, lookups: 1 });
+});
+
 test('the lookup budget caps comments.list calls across the call and the uncovered threads become shortfall, logged loudly', async () => {
 	const warn = vi.mocked(console.warn);
 	const fetch = stubFetch(
