@@ -161,8 +161,7 @@ describe('setModerateReplies: input and environment', () => {
 
 describe('setModerateReplies: enabling and disabling', () => {
 	test.each([
-		{ start: 'off', over: {} },
-		{ start: 'on, with a pass in flight', over: CHECKPOINT }
+		{ start: 'off', over: {} }
 	])('enabling from $start stamps the enable time into since and last check and clears the checkpoint', async ({ over }) => {
 		await seedChannel('UC1', over);
 		const before = await rowOf();
@@ -179,6 +178,17 @@ describe('setModerateReplies: enabling and disabling', () => {
 			replySweepPageToken: null,
 			replySweepShortfall: null
 		});
+	});
+
+	test('re-saving an enabled setting changes nothing: the enable time and the checkpoint survive', async () => {
+		await seedChannel('UC1', CHECKPOINT);
+		const before = await rowOf();
+		vi.setSystemTime(new Date(T_LATER));
+
+		const res = await saveReplies('UC1', TICKED);
+
+		expect(res).toMatchObject({ ok: true, scope: 'replies' });
+		expect(await rowOf()).toEqual(before);
 	});
 
 	test('disabling clears all five reply columns and leaves the rest of the row alone', async () => {

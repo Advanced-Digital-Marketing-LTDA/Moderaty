@@ -111,7 +111,7 @@ export const actions = {
 				throw error(500, 'DRY_RUN must be set to exactly "true" or "false" — the deployment is misconfigured');
 			}
 			// Tenancy gate: another team's channel reads as "not found" before any write.
-			await ownedChannel(params.id, locals);
+			const channel = await ownedChannel(params.id, locals);
 			const f = await request.formData();
 			// Explicit target state, as in setPaused. The ticked box posts 'true' and its
 			// hidden fallback posts 'false'. get() returns the first value, so the
@@ -128,6 +128,11 @@ export const actions = {
 					channelId: params.id,
 					error: 'This deployment runs in dry-run mode: reply moderation cannot run here. Set DRY_RUN=false to moderate.'
 				});
+			}
+			// Re-saving an enabled setting changes nothing. Clearing the checkpoint here would skip replies
+			// posted since the enable time, so the enable time and the pass in flight keep running.
+			if (raw === 'true' && channel.moderateRepliesSince !== null) {
+				return { ok: true, scope: 'replies', message: 'Reply moderation saved.' };
 			}
 			// Enabling stamps since and last check with one instant, the invariant
 			// replyCheckStatus reads. Both directions clear the checkpoint.
