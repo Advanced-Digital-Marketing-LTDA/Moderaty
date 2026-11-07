@@ -53,8 +53,9 @@
 	<h2>Moderation and sensitivity</h2>
 	<p>
 		Moderaty scans published top-level comments on connected, active channels in background batches.
-		Replies and a separate sweep of comments held or classified as spam by YouTube are outside
-		the current scanning scope. Live chat is also outside this scope. Protected handles are checked first,
+		Replies are checked only on channels where the owner has turned on reply moderation; see
+		<a href="#reply-moderation">Reply moderation</a> below. YouTube's Held queue, comments YouTube
+		classifies as spam, and live chat are outside the scanning scope. Protected handles are checked first,
 		then your rules. Comments that need AI scoring are screened for possible prompt-injection
 		attacks; flagged comments go to the review queue without moderation scoring. AI scoring
 		failures and uncertain results also go to review rather than being automatically approved or rejected.
@@ -73,6 +74,40 @@
 		LGBTQIA+ people and women, at either sensitivity level. Settings save automatically; check for
 		the saved state or an error before leaving. AI can make mistakes, so review the outcomes and
 		adjust your settings to your community.
+	</p>
+	<h3 id="reply-moderation">Reply moderation</h3>
+	<p>
+		Reply moderation is off by default. The channel owner turns it on for each channel on the channel's
+		<strong>Overview</strong> tab. When it is on, Moderaty checks replies posted after the owner turned it on,
+		in threads whose top-level comment was posted in the last 3 days. A thread is checked about once an hour.
+	</p>
+	<p>
+		Replies go through the same rules, protected handles, AI scoring, review queue, and actions as top-level
+		comments. Each reply that the AI scores uses one credit, like a comment. Moderaty never moderates the
+		channel owner's own replies.
+	</p>
+	<p>
+		If YouTube refuses a reply action, or a server or network error still fails after retries, that one
+		action is parked as failed, and its comment returns to the review queue as a pending comment. Parked
+		actions are not retried automatically: the owner must approve, reject, or delete the comment. A network
+		error can fail after YouTube has already applied the change, so the queue may show a comment YouTube has
+		already changed. Reply rows carry a Reply tag in the review queue and the audit log.
+	</p>
+	<p>
+		Reply checks do not cover replies on threads whose top-level comment is older than 3 days, replies posted
+		before the owner turned reply moderation on, live chat, or YouTube's Held queue. History scans, dry-run
+		previews, and the feedback digest use top-level comments only.
+	</p>
+	<p>
+		A busy thread can be only partly covered. Each check covers at most 100 new replies and makes at most 10
+		lookup calls, with at most 5 lookup pages per thread. Replies a check does not cover are counted as a
+		shortfall, which the channel's Overview tab shows for the last check.
+	</p>
+	<p>
+		Deleting a reply and some other actions use YouTube quota. The server operator sets a daily quota ceiling
+		for reply checks. When that ceiling is not set to a positive whole number, reply checks pause and the
+		channel page says so; top-level moderation keeps running. If YouTube refuses a reply check for quota or
+		rate limits, reply checks pause until the next Pacific day.
 	</p>
 </section>
 

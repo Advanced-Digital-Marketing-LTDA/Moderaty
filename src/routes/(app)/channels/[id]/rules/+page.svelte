@@ -11,7 +11,7 @@
 <!-- Accessible heading only: the shared channel header (h1) and the active
 	 tab already identify this section visually. -->
 <h2 class="sr-only">Rules</h2>
-<p class="page-sub">Keyword, regex, and blocked-user rules that act before AI scoring.</p>
+<p class="page-sub">Keyword, regex, and blocked-user rules that act before AI scoring, on comments and, when reply moderation is on, on replies.</p>
 
 {#if form?.error}<div class="error-box" role="alert">{form.error}</div>{/if}
 
@@ -46,7 +46,7 @@
 {:else}
 	<EmptyState
 		title="No rules yet"
-		hint="AI moderation still applies to every comment — rules add your own keywords, patterns, and blocked users."
+		hint="AI moderation still applies to every comment, and to replies when reply moderation is on for the channel — rules add your own keywords, patterns, and blocked users."
 	/>
 {/each}
 

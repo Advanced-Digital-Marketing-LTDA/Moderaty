@@ -204,7 +204,7 @@
 <section class="protections reply-moderation" aria-labelledby="reply-moderation-title">
 	<h2 id="reply-moderation-title" class="sensitivity-title">Reply moderation</h2>
 	<p class="muted">
-		When on, Moderaty checks replies posted after you turn this on, in threads whose top-level comment was posted in the last 3 days, about once an hour. Each reply is scored on its own text, without the comment it answers. Your own replies are never checked. History scans, dry runs and the feedback digest leave replies out.
+		When on, Moderaty checks replies posted after you turn this on, in threads whose top-level comment was posted in the last 3 days, about once an hour. Each check covers at most 100 new replies. Each reply is scored on its own text, without the comment it answers, and each AI-scored reply uses one credit, like a comment. Your own replies are never checked. History scans, dry runs and the feedback digest leave replies out.
 	</p>
 	<p
 		class="reply-status"
@@ -221,9 +221,9 @@
 		{:else if replyState === 'stale'}
 			The last check stalled before it finished. It restarts on a later run.
 		{:else if replyState === 'paused-by-server'}
-			Reply checks are paused by the server. Top-level comments are still moderated.
+			Reply checks are paused by a server setting. Top-level comments are still moderated.
 		{:else if replyState === 'paused-quota-today'}
-			YouTube's daily quota ran out today, so reply checks wait until it resets at midnight Pacific time.
+			YouTube refused a reply check for quota today, so reply checks wait until midnight Pacific time.
 		{:else if replyState === 'last-check' && ch.replySweepLastAt}
 			Last check {relativeTime(ch.replySweepLastAt)}.
 		{:else}
