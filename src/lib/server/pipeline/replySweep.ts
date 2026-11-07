@@ -332,11 +332,14 @@ async function abandonPass(pass: Pass, page: CommentPage, counts: Partial<ReplyS
 
 /**
  * How many reply deletes the day's remaining ceiling can pay for, each at the delete's unit cost. Read at staging time,
- * so this tick's own fetch is already counted. Reply checks with a disabled ceiling never reach staging, so only a cap is measured.
+ * so this tick's own fetch is already counted. The quota gate refuses a disabled ceiling before any fetch, so reaching
+ * here with one is an invariant breach, and it throws rather than allowing deletes without a budget.
  */
 async function replyDeleteAllowance(nowMs: number): Promise<number> {
 	const ceiling = readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING);
-	if (ceiling.kind === 'disabled') return REPLY_DELETE_CAP_PER_TICK;
+	if (ceiling.kind === 'disabled') {
+		throw new Error(`reply delete allowance requested without a quota cap: the ceiling is disabled (${ceiling.reason})`);
+	}
 	const remaining = ceiling.units - (await readYoutubeUnitsToday(db, nowMs));
 	return Math.max(0, Math.floor(remaining / YOUTUBE_UNIT_COST['comments.delete']));
 }

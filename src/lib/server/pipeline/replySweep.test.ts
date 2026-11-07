@@ -929,6 +929,21 @@ describe('quota guard', () => {
 		expect(youtube.moderated).toEqual([{ ids: ['del-b'], status: 'rejected' }]);
 	});
 
+	test('a ceiling that turns off between the quota gate and staging fails the tick loudly, and no reply delete is sent', async () => {
+		await addRule('delete');
+		await seed();
+		youtube.threads = () => {
+			// The fetch is the only work between the quota gate and staging, so the ceiling changes after the gate has passed.
+			mocks.env.REPLY_SWEEP_QUOTA_CEILING = undefined;
+			return listPage([thread('top-1', THREAD_AT, { totalReplyCount: 1, replies: [resource('del-1', REPLY_AT, 'viewer-b', 'spam-word reply')] })]);
+		};
+
+		await expect(tick()).rejects.toThrow('reply delete allowance requested without a quota cap: the ceiling is disabled (ceiling-not-set)');
+
+		expect(youtube.deleted).toEqual([]);
+		expect(youtube.moderated).toEqual([]);
+	});
+
 	test('the units recorded for one check equal the documented cost of every YouTube call the check made', async () => {
 		await seed();
 		youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 2, replies: [resource('reply-1', REPLY_AT, 'viewer-b', 'a reply')] })]);
