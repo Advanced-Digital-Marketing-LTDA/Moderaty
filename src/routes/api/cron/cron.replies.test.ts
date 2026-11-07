@@ -167,17 +167,19 @@ test('a channel with reply moderation off makes no reply recheck call and fetche
 	expect(body.results['UC-off']).not.toHaveProperty('replySweepError');
 });
 
-test('a channel with a history scan running makes no reply recheck call and fetches no token', async () => {
+test('a channel with a history scan running reports skipped with its reason and fetches no token', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/pipeline/replySweep')>('$lib/server/pipeline/replySweep');
+	mocks.runReplySweep.mockImplementationOnce(actual.runReplySweep);
 	await seedChannel('UC-history', { moderateRepliesSince: SINCE, historyBoundary: '2026-05-01T00:00:00.000Z' });
 	const body = await callBody();
-	expect(mocks.runReplySweep).not.toHaveBeenCalled();
 	expect(mocks.refreshAccessToken).not.toHaveBeenCalled();
-	expect(body.results['UC-history']).not.toHaveProperty('replySweep');
+	expect(mocks.fetchNewComments).not.toHaveBeenCalled();
+	expect(body.results['UC-history'].replySweep).toEqual({ fetched: 0, fresh: 0, staged: 0, deferred: 0, acted: 0, queued: 0, ownRepliesSkipped: 0, status: 'skipped', reason: 'history-running', shortfall: 0 });
 });
 
 test.each([
 	{ label: 'exactly the minimum left', remaining: REPLY_SWEEP_MIN_REMAINING_MS, calls: 1 },
-	{ label: 'one millisecond under the minimum left', remaining: REPLY_SWEEP_MIN_REMAINING_MS - 1, calls: 0 }
+	{ label: 'one millisecond under the minimum left', remaining: REPLY_SWEEP_MIN_REMAINING_MS - 1, calls: 1 }
 ])('with $label after the live run, the recheck is called $calls time(s)', async ({ remaining, calls }) => {
 	await seedChannel('UC-time', { moderateRepliesSince: SINCE });
 	// The live run spends the budget, leaving `remaining` ms before the tick deadline.
@@ -187,6 +189,20 @@ test.each([
 	});
 	await callBody();
 	expect(mocks.runReplySweep).toHaveBeenCalledTimes(calls);
+});
+
+test('with 7999 ms left after the live run, the sweep itself reports no-time and no token is fetched', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/pipeline/replySweep')>('$lib/server/pipeline/replySweep');
+	mocks.runReplySweep.mockImplementationOnce(actual.runReplySweep);
+	await seedChannel('UC-short', { moderateRepliesSince: SINCE });
+	mocks.runChannel.mockImplementationOnce(async () => {
+		vi.setSystemTime(FIXED_NOW + RUN_BUDGET_MS - (REPLY_SWEEP_MIN_REMAINING_MS - 1));
+		return runResult();
+	});
+	const body = await callBody();
+	expect(mocks.refreshAccessToken).not.toHaveBeenCalled();
+	expect(mocks.fetchNewComments).not.toHaveBeenCalled();
+	expect(body.results['UC-short'].replySweep).toEqual({ fetched: 0, fresh: 0, staged: 0, deferred: 0, acted: 0, queued: 0, ownRepliesSkipped: 0, status: 'skipped', reason: 'no-time', shortfall: 0 });
 });
 
 test('an eligible channel runs one recheck with the fresh row, a token provider and the tick deadline', async () => {

@@ -16,7 +16,7 @@ import { generateFeedbackDigest, runFeedbackPreview } from '$lib/server/feedback
 import { sweepZeroCreditAccounts, ZERO_CREDIT_SWEEP_BATCH } from '$lib/server/zeroCredits';
 import { runChannel, type ChannelRunResult } from '$lib/server/pipeline';
 import { ChannelDeactivatedError } from '$lib/server/pipeline/enforcement';
-import { REPLY_SWEEP_MIN_REMAINING_MS, runReplySweep, type ReplySweepResult } from '$lib/server/pipeline/replySweep';
+import { runReplySweep, type ReplySweepResult } from '$lib/server/pipeline/replySweep';
 import { decrypt } from '$lib/server/crypto';
 import { refreshAccessToken } from '$lib/server/youtube';
 import { flushYoutubeUnits } from '$lib/server/quota';
@@ -286,7 +286,8 @@ function liveRunAllowsRecheck(live: ChannelRunResult): boolean {
  * The reply recheck is a second bounded unit (I10) under the claim the live run already holds: it takes
  * no claim or lease of its own and shares the tick deadline. Its outcome goes in its own fields and never
  * writes run health (lastRunStatus, lastRunError, lastSuccessAt), and a failure here never masks the live
- * verdict or stops the digest. The pre-checks only avoid work: the sweep still gates itself.
+ * verdict or stops the digest. Only a channel with reply moderation off skips the call; every other gate,
+ * including the time left and a running history scan, is the sweep's own and is reported with its reason.
  */
 async function runReplyRecheck(
 	channel: typeof channels.$inferSelect,
@@ -294,11 +295,11 @@ async function runReplyRecheck(
 	deadline: number,
 	diagnostics: CronDiagnostics
 ): Promise<ReplyRecheck> {
-	if (!liveRunAllowsRecheck(live) || deadline - Date.now() < REPLY_SWEEP_MIN_REMAINING_MS) return {};
+	if (!liveRunAllowsRecheck(live)) return {};
 	try {
-		// A fresh read after the live run: the setting, the history marker and the stored token are as they stand now.
+		// A fresh read after the live run: the setting and the stored token are as they stand now.
 		const fresh = await db.select().from(channels).where(eq(channels.id, channel.id)).get();
-		if (!fresh || fresh.moderateRepliesSince === null || fresh.historyBoundary !== null) return {};
+		if (!fresh || fresh.moderateRepliesSince === null) return {};
 		// enforcementError is raw provider text: it is classified here and never returned to the caller.
 		const { enforcementError, ...replySweep } = await runReplySweep(
 			fresh,
