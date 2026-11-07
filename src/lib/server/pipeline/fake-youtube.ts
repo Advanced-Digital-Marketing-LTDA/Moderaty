@@ -64,9 +64,13 @@ function defaultHandlers(): Record<FakeRoute, FakeHandler> {
 	};
 }
 
+const YOUTUBE_HOST = 'www.googleapis.com';
+const YOUTUBE_PREFIX = '/youtube/v3';
+
 function routeOf(method: string, url: URL): FakeRoute | undefined {
 	if (method === 'POST' && url.hostname === 'oauth2.googleapis.com' && url.pathname === '/token') return 'token';
-	const path = url.pathname.replace(/^\/youtube\/v3/, '');
+	if (url.hostname !== YOUTUBE_HOST || !url.pathname.startsWith(`${YOUTUBE_PREFIX}/`)) return undefined;
+	const path = url.pathname.slice(YOUTUBE_PREFIX.length);
 	if (method === 'GET' && path === '/commentThreads') return 'threads';
 	if (method === 'GET' && path === '/comments') return url.searchParams.has('parentId') ? 'replies' : 'identities';
 	if (method === 'POST' && path === '/comments/setModerationStatus') return 'moderation';
@@ -86,7 +90,7 @@ export function createFakeYoutube(): FakeYoutube {
 			youtube.unrouted = [];
 		},
 		async fetch(input, init = {}) {
-			const url = new URL(String(input));
+			const url = new URL(input instanceof Request ? input.url : String(input));
 			const method = (init.method ?? 'GET').toUpperCase();
 			const route = routeOf(method, url);
 			if (!route) {
