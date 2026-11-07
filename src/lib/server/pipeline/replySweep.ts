@@ -7,7 +7,7 @@ import { db } from '$lib/server/db';
 import { channels } from '$lib/server/db/schema';
 import { DeadlineExceededError } from '$lib/server/http';
 import { fetchNewComments, MAX_REPLY_LOOKUPS_PER_TICK, type CommentPage, type NewComment } from '$lib/server/youtube';
-import { isQuotaFailure, markQuotaExhausted, readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday } from '$lib/server/quota';
+import { isQuotaFailure, markQuotaExhausted, readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday, YOUTUBE_UNIT_COST } from '$lib/server/quota';
 import { assertChannelActive, ChannelDeactivatedError, runEnforcement } from './enforcement';
 import { decideAndStage } from './run';
 import { storedCommentIds } from './scoring';
@@ -256,11 +256,12 @@ function candidateReplies(comments: NewComment[], sinceMs: number): NewComment[]
 }
 
 async function stageReplies(pass: Pass, processed: NewComment[], page: CommentPage, deadline: number) {
+	const deleteAllowance = await replyDeleteAllowance(pass.nowMs);
 	const staging = await decideAndStage(
 		pass.channel.id,
 		{ comments: processed, nextPageToken: page.nextPageToken, reachedCursor: page.reachedCursor },
 		page.comments.length,
-		{ channel: pass.channel, accessToken: pass.accessToken, deadline, dryRun: false, window: undefined, rescan: undefined, adjust: capReplyDeletes }
+		{ channel: pass.channel, accessToken: pass.accessToken, deadline, dryRun: false, window: undefined, rescan: undefined, adjust: (decisions) => capReplyDeletes(decisions, deleteAllowance) }
 	);
 	if (staging.stagedCount + staging.deferred !== processed.length) {
 		throw new Error(`reply recheck staged ${staging.stagedCount} of ${processed.length} fresh replies for channel ${pass.channel.id}; not advancing`);
@@ -330,15 +331,28 @@ async function abandonPass(pass: Pass, page: CommentPage, counts: Partial<ReplyS
 }
 
 /**
- * Keeps the first REPLY_DELETE_CAP_PER_TICK reply deletes in order and hides each further one as a reject,
- * so the budget never refuses a decision outright. Top-level decisions pass through unchanged.
+ * How many reply deletes the day's remaining ceiling can pay for, each at the delete's unit cost. Read at staging time,
+ * so this tick's own fetch is already counted. Reply checks with a disabled ceiling never reach staging, so only a cap is measured.
  */
-export function capReplyDeletes(decisions: Decision[]): Decision[] {
+async function replyDeleteAllowance(nowMs: number): Promise<number> {
+	const ceiling = readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING);
+	if (ceiling.kind === 'disabled') return REPLY_DELETE_CAP_PER_TICK;
+	const remaining = ceiling.units - (await readYoutubeUnitsToday(db, nowMs));
+	return Math.max(0, Math.floor(remaining / YOUTUBE_UNIT_COST['comments.delete']));
+}
+
+/**
+ * Keeps the first reply deletes this tick may send, and hides each further one as a reject, so the budget never refuses
+ * a decision outright. The tick allows REPLY_DELETE_CAP_PER_TICK, or fewer when `affordable` (the day's allowance) is
+ * lower. Top-level decisions pass through unchanged.
+ */
+export function capReplyDeletes(decisions: Decision[], affordable = REPLY_DELETE_CAP_PER_TICK): Decision[] {
+	const allowed = Math.min(REPLY_DELETE_CAP_PER_TICK, affordable);
 	let kept = 0;
 	return decisions.map((decision) => {
 		if (!decision.comment.parentId || decision.youtubeAction !== 'delete') return decision;
 		kept += 1;
-		if (kept <= REPLY_DELETE_CAP_PER_TICK) return decision;
+		if (kept <= allowed) return decision;
 		const hidden: Decision = {
 			...decision,
 			status: 'rejected',

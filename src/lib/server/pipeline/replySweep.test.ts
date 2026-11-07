@@ -628,6 +628,26 @@ test('capReplyDeletes keeps the first ten reply deletes, hides the rest as rejec
 	expect(deletes.every((item) => item.youtubeAction === 'delete')).toBe(true);
 });
 
+test('capReplyDeletes keeps only as many reply deletes as the day can still afford, and hides the rest as rejects', () => {
+	const deletes = Array.from({ length: 5 }, (_, index) => decision(`afford-${index + 1}`, 'top-1', 'delete'));
+	const hiddenReason = `${DECISION_REASON}; delete budget reached, hidden instead`;
+
+	const output = capReplyDeletes(deletes, 3);
+
+	expect(output.slice(0, 3)).toEqual(deletes.slice(0, 3));
+	expect(output.slice(3)).toEqual([
+		{ ...deletes[3], status: 'rejected', auditAction: 'reject', youtubeAction: 'reject', reason: hiddenReason },
+		{ ...deletes[4], status: 'rejected', auditAction: 'reject', youtubeAction: 'reject', reason: hiddenReason }
+	]);
+});
+
+test('capReplyDeletes allows no reply delete when the day affords none, and never more than the per-tick cap', () => {
+	const deletes = Array.from({ length: 12 }, (_, index) => decision(`none-${index + 1}`, 'top-1', 'delete'));
+
+	expect(capReplyDeletes(deletes, 0).map((item) => item.youtubeAction)).toEqual(Array(12).fill('reject'));
+	expect(capReplyDeletes(deletes, 50).map((item) => item.youtubeAction)).toEqual([...Array(10).fill('delete'), 'reject', 'reject']);
+});
+
 /** Documented unit cost of each recorded YouTube route, keyed as the stub records it. */
 const COST_BY_ROUTE: Record<string, number> = {
 	'GET /commentThreads': YOUTUBE_UNIT_COST['commentThreads.list'],
@@ -875,6 +895,38 @@ describe('quota guard', () => {
 			expect.objectContaining({ message: expect.stringContaining('insert into "youtube_quota_usage"'), cause: expect.objectContaining({ message: 'database is locked' }) })
 		);
 		expect(await replyColumns()).toEqual({ since: SINCE, boundary: SINCE, token: 'page-2', lastAt: iso(NOW_MS - 5 * MINUTE), shortfall: 0 });
+	});
+
+	test('with 960 of the 1000 units used today, a reply delete is hidden as a reject and no delete is sent', async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000';
+		const ruleId = await addRule('delete');
+		await storeUnits(960);
+		await seed();
+		youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 1, replies: [resource('del-1', REPLY_AT, 'viewer-b', 'spam-word reply')] })]);
+
+		const result = await tick();
+
+		expect(result).toMatchObject({ status: 'finished', fresh: 1, staged: 1 });
+		expect(youtube.deleted).toEqual([]);
+		expect(youtube.moderated).toEqual([{ ids: ['del-1'], status: 'rejected' }]);
+		expect(await actionRows()).toEqual([
+			{ commentId: 'del-1', action: 'reject', state: 'completed', reason: `rule #${ruleId} (keyword: spam-word); delete budget reached, hidden instead` }
+		]);
+	});
+
+	test('with 900 of the 1000 units used today, one reply delete is allowed and the second is hidden as a reject', async () => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000';
+		await addRule('delete');
+		await storeUnits(900);
+		await seed();
+		youtube.threads = () =>
+			listPage([thread('top-1', THREAD_AT, { totalReplyCount: 2, replies: [resource('del-a', REPLY_AT, 'viewer-b', 'spam-word reply'), resource('del-b', REPLY_AT, 'viewer-c', 'spam-word reply')] })]);
+
+		const result = await tick();
+
+		expect(result).toMatchObject({ status: 'finished', staged: 2 });
+		expect(youtube.deleted).toEqual(['del-a']);
+		expect(youtube.moderated).toEqual([{ ids: ['del-b'], status: 'rejected' }]);
 	});
 
 	test('the units recorded for one check equal the documented cost of every YouTube call the check made', async () => {
