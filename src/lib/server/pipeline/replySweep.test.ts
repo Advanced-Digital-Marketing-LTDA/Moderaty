@@ -864,6 +864,29 @@ describe('quota guard', () => {
 });
 
 describe('enforcement inside a tick', () => {
+	test('a reply write the owner must decide is counted in replyActionFailures', async () => {
+		await addRule('hold');
+		await seed();
+		youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 1, replies: [resource('reply-1', REPLY_AT, 'viewer-b', 'spam-word reply')] })]);
+		youtube.moderation = () => new Response('bad request', { status: 400 });
+
+		const result = await tick();
+
+		expect(result).toMatchObject({ status: 'finished', acted: 0, replyActionFailures: 1 });
+		expect(await actionRows()).toEqual([expect.objectContaining({ commentId: 'reply-1', state: 'failed' })]);
+	});
+
+	test('a tick that parks nothing has no replyActionFailures key', async () => {
+		await addRule('hold');
+		await seed();
+		youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 1, replies: [resource('reply-1', REPLY_AT, 'viewer-b', 'spam-word reply')] })]);
+
+		const result = await tick();
+
+		expect(result).toMatchObject({ status: 'finished', acted: 1 });
+		expect(result).not.toHaveProperty('replyActionFailures');
+	});
+
 	test('an enforcement deadline ends the pass as partial and writes only the pass start', async () => {
 		const holdId = await addRule('hold');
 		const deleteId = await addRule('delete', 'bad-word');

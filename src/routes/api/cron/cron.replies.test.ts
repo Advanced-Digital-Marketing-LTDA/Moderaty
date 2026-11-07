@@ -420,3 +420,16 @@ test('a tick that throws before responding still attempts its quota flush', asyn
 
 	expect(mocks.flushYoutubeUnits).toHaveBeenCalledTimes(1);
 });
+
+test('a reply the owner must decide is returned in the replySweep payload as replyActionFailures', async () => {
+	await seedChannel('UC-parked', { moderateRepliesSince: SINCE });
+	mocks.runReplySweep.mockImplementationOnce(async () => sweepResult({ replyActionFailures: 1 }));
+	const body = await callBody();
+	expect(body.results['UC-parked'].replySweep).toEqual(sweepResult({ replyActionFailures: 1 }));
+});
+
+test('a tick that parks no reply has no replyActionFailures key in the replySweep payload', async () => {
+	await seedChannel('UC-clean', { moderateRepliesSince: SINCE });
+	const body = await callBody();
+	expect(body.results['UC-clean'].replySweep).not.toHaveProperty('replyActionFailures');
+});

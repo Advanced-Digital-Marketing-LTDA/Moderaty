@@ -51,6 +51,8 @@ export interface ReplySweepResult {
 	/** Replies the pass could not reach, as persisted for the owner's status line. */
 	shortfall: number;
 	ownRepliesSkipped: number;
+	/** Reply writes this tick's enforcement parked for the owner. Present only when there were any. */
+	replyActionFailures?: number;
 	enforcementError?: string;
 }
 
@@ -218,7 +220,12 @@ async function sweepPage(pass: Pass): Promise<ReplySweepResult> {
 		return abandonPass(pass, stagedCounts, `out of credits: ${staging.deferred} reply(ies) deferred`);
 	}
 	const enforcement = await enforceStaged(pass, staging.protection, subDeadline);
-	const enforcedCounts = { ...stagedCounts, acted: enforcement.acted, enforcementError: enforcement.enforcementError };
+	const enforcedCounts = {
+		...stagedCounts,
+		acted: enforcement.acted,
+		enforcementError: enforcement.enforcementError,
+		...(enforcement.replyActionFailures > 0 ? { replyActionFailures: enforcement.replyActionFailures } : {})
+	};
 	if (fresh.length > REPLY_FRESH_CAP_PER_TICK) return outcome('held', pass.shortfall, enforcedCounts);
 	return finishTick(pass, page, enforcedCounts);
 }
@@ -266,10 +273,14 @@ async function stageReplies(pass: Pass, processed: NewComment[], page: CommentPa
  * A quota refusal is the exception: it is stamped for today and rethrown, so the pass stays in flight for the cron to report.
  * A deadline or a deactivated channel is rethrown too: the pass stops where it is, with no checkpoint beyond its start.
  */
-async function enforceStaged(pass: Pass, protection: ProtectedIdentities, deadline: number): Promise<{ acted: number; enforcementError?: string }> {
+async function enforceStaged(
+	pass: Pass,
+	protection: ProtectedIdentities,
+	deadline: number
+): Promise<{ acted: number; replyActionFailures: number; enforcementError?: string }> {
 	try {
-		const { acted } = await runEnforcement(pass.channel.id, pass.accessToken, deadline, pass.channel.orgId, 0, pass.channel, protection);
-		return { acted };
+		const { acted, replyActionFailures } = await runEnforcement(pass.channel.id, pass.accessToken, deadline, pass.channel.orgId, 0, pass.channel, protection);
+		return { acted, replyActionFailures };
 	} catch (error) {
 		if (error instanceof DeadlineExceededError || error instanceof ChannelDeactivatedError) throw error;
 		if (isQuotaFailure(error)) {
@@ -277,7 +288,7 @@ async function enforceStaged(pass: Pass, protection: ProtectedIdentities, deadli
 			throw error;
 		}
 		console.error(`reply recheck enforcement failed for channel ${pass.channel.id}; its actions stay outstanding for the next run`, error);
-		return { acted: 0, enforcementError: error instanceof Error ? error.message : String(error) };
+		return { acted: 0, replyActionFailures: 0, enforcementError: error instanceof Error ? error.message : String(error) };
 	}
 }
 
