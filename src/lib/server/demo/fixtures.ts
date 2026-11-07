@@ -171,6 +171,7 @@ export function demoQueueData(now: number) {
 			text: comment.text,
 			publishedAt: iso(publishedAt(now, comment)),
 			holdState: 'completed',
+			isReply: false,
 			reason: reasonFor(comment)
 		}));
 	return { ch: { id: DEMO_CHANNEL_ID, title: DEMO_CHANNEL_TITLE }, pending, maintenance: PAGE_MAINTENANCE_UNSET };
@@ -202,7 +203,8 @@ export function demoLogData(now: number) {
 			text: null,
 			authorHandle: null,
 			createdAt: iso(publishedAt(now, comment) + MINUTE_MS),
-			undoable: null
+			undoable: null,
+			isReply: false
 		}))
 		.reverse();
 	return {
