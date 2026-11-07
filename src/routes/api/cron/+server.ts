@@ -15,6 +15,10 @@ import { retryContactNotifications } from '$lib/server/contactNotification';
 import { generateFeedbackDigest, runFeedbackPreview } from '$lib/server/feedbackDigest';
 import { sweepZeroCreditAccounts, ZERO_CREDIT_SWEEP_BATCH } from '$lib/server/zeroCredits';
 import { runChannel, type ChannelRunResult } from '$lib/server/pipeline';
+import { ChannelDeactivatedError } from '$lib/server/pipeline/enforcement';
+import { REPLY_SWEEP_MIN_REMAINING_MS, runReplySweep, type ReplySweepResult } from '$lib/server/pipeline/replySweep';
+import { decrypt } from '$lib/server/crypto';
+import { refreshAccessToken } from '$lib/server/youtube';
 import type { RequestHandler } from './$types';
 
 const CONTACT_NOTIFICATION_BUDGET_MS = 5 * 1000;
@@ -266,15 +270,64 @@ async function runDueDigest(channel: typeof channels.$inferSelect, deadline: num
 	}
 }
 
+/** A reply recheck's report for one channel, merged into that channel's `results` entry. Absent when the recheck was not called. */
+type ReplyRecheck = {
+	replySweep?: Omit<ReplySweepResult, 'enforcementError'> | { status: 'partial'; reason: 'deactivated' };
+	replySweepError?: string;
+};
+
+/** A live run may be followed by a reply recheck only when it finished a real, paid, non-dry pass. */
+function liveRunAllowsRecheck(live: ChannelRunResult): boolean {
+	return !live.skipped && !live.dryRun && !live.partial && !live.outOfCredits && !live.unpaid;
+}
+
+/**
+ * The reply recheck is a second bounded unit (I10) under the claim the live run already holds: it takes
+ * no claim or lease of its own and shares the tick deadline. Its outcome goes in its own fields and never
+ * writes run health (lastRunStatus, lastRunError, lastSuccessAt), and a failure here never masks the live
+ * verdict or stops the digest. The pre-checks only avoid work: the sweep still gates itself.
+ */
+async function runReplyRecheck(
+	channel: typeof channels.$inferSelect,
+	live: ChannelRunResult,
+	deadline: number,
+	diagnostics: CronDiagnostics
+): Promise<ReplyRecheck> {
+	if (!liveRunAllowsRecheck(live) || deadline - Date.now() < REPLY_SWEEP_MIN_REMAINING_MS) return {};
+	try {
+		// A fresh read after the live run: the setting, the history marker and the stored token are as they stand now.
+		const fresh = await db.select().from(channels).where(eq(channels.id, channel.id)).get();
+		if (!fresh || fresh.moderateRepliesSince === null || fresh.historyBoundary !== null) return {};
+		const accessToken = await refreshAccessToken(decrypt(fresh.refreshTokenEnc), deadline);
+		// enforcementError is raw provider text: it is classified here and never returned to the caller.
+		const { enforcementError, ...replySweep } = await runReplySweep(fresh, accessToken, deadline);
+		if (enforcementError === undefined) return { replySweep };
+		console.error(`cron: reply recheck enforcement failed for channel ${channel.id}`);
+		return { replySweep, replySweepError: diagnostics.report('reply recheck', new Error(enforcementError)) };
+	} catch (cause) {
+		if (cause instanceof ChannelDeactivatedError) {
+			console.info(`cron: reply recheck stopped for channel ${channel.id}: channel deactivated`);
+			return { replySweep: { status: 'partial', reason: 'deactivated' } };
+		}
+		console.error(`cron: reply recheck failed for channel ${channel.id}`);
+		return { replySweepError: diagnostics.report('reply recheck', cause) };
+	}
+}
+
+/**
+ * One claimed channel's tick, in order: the live run, the reply recheck, the dry-run drain and the digest.
+ * The recheck and the live run share the one claim and lease taken before the live run (I10).
+ */
 async function runClaimedChannel(
 	channel: typeof channels.$inferSelect,
 	deadline: number,
 	diagnostics: CronDiagnostics
-): Promise<{ result: ChannelRunResult; dryRunWindow: unknown; digest: unknown }> {
+): Promise<{ result: ChannelRunResult; replyRecheck: ReplyRecheck; dryRunWindow: unknown; digest: unknown }> {
 	const result = await runChannel(channel.id, { deadline, maxPages: 1 });
+	const replyRecheck = await runReplyRecheck(channel, result, deadline, diagnostics);
 	const dryRunWindow = await drainDryRunWindow(channel, deadline, diagnostics);
 	const digest = await runDueDigest(channel, deadline, diagnostics);
-	return { result, dryRunWindow, digest };
+	return { result, replyRecheck, dryRunWindow, digest };
 }
 
 const orZero = (value: number | null | undefined): number => value ?? 0;
@@ -423,7 +476,7 @@ const runAndRecord = async (
 	let status = 200;
 	const runStartedAt = Date.now();
 	try {
-		const { result, dryRunWindow, digest } = await runClaimedChannel(channel, deadline, diagnostics);
+		const { result, replyRecheck, dryRunWindow, digest } = await runClaimedChannel(channel, deadline, diagnostics);
 		if (result.unpaid) runHealth = { status: 'failed', error: 'unpaid' };
 			else if (result.dryRun || result.stoppedReason === 'deactivated' || result.skipped) runHealth = 'none';
 		else if (result.outOfCredits) runHealth = { status: 'failed', error: 'credits' };
@@ -431,7 +484,7 @@ const runAndRecord = async (
 		else if (result.handleLookupError) runHealth = { status: 'failed', error: 'handles' };
 		const health = typeof runHealth === 'string' ? runHealth : `failed:${runHealth.error}`;
 		console.info(`cron: channel ${channel.id} finished in ${Date.now() - runStartedAt}ms — health=${health}`);
-		body = { ...base, results: { [channel.id]: result }, dryRunWindow, digest };
+		body = { ...base, results: { [channel.id]: { ...result, ...replyRecheck } }, dryRunWindow, digest };
 	} catch (cause) {
 		const category = categorizeRunFailure(cause);
 		runHealth = { status: 'failed', error: category };

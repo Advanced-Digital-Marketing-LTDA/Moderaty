@@ -58,6 +58,7 @@ const CONTEXTS = new Map(Object.entries({
 	'workload claim': { sweep: 'schedulerError', operation: 'workload_claim', service: 'database', provider: 'turso' },
 	'channel run': { sweep: 'channelRun', operation: 'channel_run', service: 'youtube' },
 	'dry-run window drain': { sweep: 'dryRunWindow', operation: 'dry_run_window', service: 'youtube' },
+	'reply recheck': { sweep: 'replySweepError', operation: 'reply_recheck', service: 'youtube' },
 	'feedback digest': { sweep: 'digest', operation: 'feedback_digest', service: 'ai' },
 	'feedback preview': { sweep: 'feedbackPreview', operation: 'feedback_preview', service: 'ai' },
 	'lease release': { sweep: 'leaseRelease', operation: 'lease_release', service: 'database', provider: 'turso' },
