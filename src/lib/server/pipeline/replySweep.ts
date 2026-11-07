@@ -217,7 +217,7 @@ async function sweepPage(pass: Pass): Promise<ReplySweepResult> {
 	const stagedCounts = { ...counts, staged: staging.stagedCount, deferred: staging.deferred, queued: staging.queued };
 	if (staging.deferred > 0) {
 		console.warn(`reply recheck paused for channel ${pass.channel.id}: ${staging.deferred} reply(ies) deferred for lack of credits; the pass is abandoned`);
-		return abandonPass(pass, stagedCounts, `out of credits: ${staging.deferred} reply(ies) deferred`);
+		return abandonPass(pass, page, stagedCounts, `out of credits: ${staging.deferred} reply(ies) deferred`);
 	}
 	const enforcement = await enforceStaged(pass, staging.protection, subDeadline);
 	const enforcedCounts = {
@@ -306,9 +306,14 @@ async function stampQuotaExhausted(pass: Pass, detail: string): Promise<void> {
 	console.error(`reply recheck stopped: quota exhausted for channel ${pass.channel.id}${detail}`);
 }
 
+/** The pass's shortfall once this page's unreachable replies are added. */
+function shortfallAfter(pass: Pass, page: CommentPage): number {
+	return pass.shortfall + (page.replyShortfall ?? 0);
+}
+
 /** Records this page's shortfall, then either finishes the pass (no further page) or advances it to the next page. */
 async function finishTick(pass: Pass, page: CommentPage, counts: Partial<ReplySweepResult>): Promise<ReplySweepResult> {
-	const shortfall = pass.shortfall + (page.replyShortfall ?? 0);
+	const shortfall = shortfallAfter(pass, page);
 	if (page.reachedCursor || page.nextPageToken === null) {
 		await pass.checkpoint.write({ boundary: null, token: null, lastAt: iso(pass.now()), shortfall });
 		return outcome('finished', shortfall, counts);
@@ -317,10 +322,11 @@ async function finishTick(pass: Pass, page: CommentPage, counts: Partial<ReplySw
 	return outcome('advanced', shortfall, counts);
 }
 
-/** Ends the pass without a verdict on its remaining replies: the next pass starts again from the lookback. */
-async function abandonPass(pass: Pass, counts: Partial<ReplySweepResult>, reason: string): Promise<ReplySweepResult> {
-	await pass.checkpoint.write({ boundary: null, token: null, lastAt: iso(pass.now()), shortfall: pass.shortfall });
-	return outcome('abandoned', pass.shortfall, { ...counts, reason });
+/** Ends the pass without a verdict on its remaining replies, keeping this page's shortfall: the next pass starts again from the lookback. */
+async function abandonPass(pass: Pass, page: CommentPage, counts: Partial<ReplySweepResult>, reason: string): Promise<ReplySweepResult> {
+	const shortfall = shortfallAfter(pass, page);
+	await pass.checkpoint.write({ boundary: null, token: null, lastAt: iso(pass.now()), shortfall });
+	return outcome('abandoned', shortfall, { ...counts, reason });
 }
 
 /**

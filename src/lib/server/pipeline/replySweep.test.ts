@@ -956,3 +956,17 @@ describe('enforcement inside a tick', () => {
 		expect(error).not.toHaveBeenCalled();
 	});
 });
+
+describe('a deferral keeps the page shortfall', () => {
+	test('a deferred page stores the pass shortfall plus the replies its own page could not reach', async () => {
+		await seed({ replySweepBoundary: SINCE, replySweepPageToken: 'page-2', replySweepLastAt: iso(NOW_MS - 5 * MINUTE), replySweepShortfall: 3 }, 0);
+		await seedSpentPeriod();
+		// Three replies in total, one embedded and deferred; the lookup finds none, so two stay unreachable on this page.
+		youtube.threads = () => listPage([thread('top-1', THREAD_AT, { totalReplyCount: 3, replies: [resource('reply-1', REPLY_AT)] })]);
+
+		const result = await tick();
+
+		expect(result).toMatchObject({ status: 'abandoned', deferred: 1, shortfall: 5, reason: 'out of credits: 1 reply(ies) deferred' });
+		expect(await replyColumns()).toEqual({ since: SINCE, boundary: null, token: null, lastAt: NOW, shortfall: 5 });
+	});
+});
