@@ -175,6 +175,15 @@ describe('the day meter', () => {
 		expect(await storedUnits('2026-11-08')).toBeUndefined();
 	});
 
+	test('two overlapping flushes write the pending units once, not twice', async () => {
+		recordYoutubeUnits('comments.delete', NOON_UTC_MS);
+
+		await Promise.all([flushYoutubeUnits(testDb().db), flushYoutubeUnits(testDb().db)]);
+
+		expect(await storedUnits()).toBe(50);
+		expect(await readYoutubeUnitsToday(testDb().db, NOON_UTC_MS)).toBe(50);
+	});
+
 	test("readYoutubeUnitsToday counts only today: yesterday's row is ignored", async () => {
 		await testDb().db.insert(youtubeQuotaUsage).values({ day: '2026-11-06', units: 900 });
 

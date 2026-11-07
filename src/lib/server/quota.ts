@@ -49,7 +49,17 @@ export type QuotaDb = LibSQLDatabase<typeof schema>;
  * Adds each Pacific day's pending units to that day's row, one upsert per day. A day's units are released only after its
  * write succeeds, so a failed write propagates and the rest wait for the next flush. Writes nothing when nothing is pending.
  */
-export async function flushYoutubeUnits(database: QuotaDb): Promise<void> {
+let flushChain: Promise<void> = Promise.resolve();
+
+/** Flushes run one at a time, so two overlapping flushes cannot both write the same pending units. */
+export function flushYoutubeUnits(database: QuotaDb): Promise<void> {
+	const run = flushChain.then(() => writePendingUnits(database));
+	// Keeps the chain alive after a failed write. The caller still receives the rejection from run.
+	flushChain = run.catch(() => undefined);
+	return run;
+}
+
+async function writePendingUnits(database: QuotaDb): Promise<void> {
 	for (const [day, units] of [...pendingByDay]) {
 		await database
 			.insert(youtubeQuotaUsage)
