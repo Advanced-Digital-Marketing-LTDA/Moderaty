@@ -12,14 +12,14 @@ test('the reply lookup limits match the documented values', () => {
 	expect(MAX_REPLY_LOOKUPS_PER_TICK).toBe(10);
 });
 
-/** A commentThreads item. `replies` is omitted when undefined, so `replies: 'garbage'` is a wrong-typed container. */
-function thread(id: string, options: { publishedAt?: string; totalReplyCount?: unknown; replies?: unknown; videoId?: string } = {}) {
+/** A commentThreads item. `replies` is omitted when undefined, so `replies: 'garbage'` is a wrong-typed container. `text: null` drops the top-level textDisplay. */
+function thread(id: string, options: { publishedAt?: string; totalReplyCount?: unknown; replies?: unknown; videoId?: string; text?: null } = {}) {
 	const snippet: Record<string, unknown> = {
 		videoId: options.videoId ?? `video-${id}`,
 		topLevelComment: {
 			id,
 			snippet: {
-				textDisplay: `Comment ${id}`,
+				textDisplay: options.text === null ? undefined : `Comment ${id}`,
 				publishedAt: options.publishedAt ?? '2026-01-04T00:00:00.000Z',
 				authorChannelId: { value: `author-${id}` },
 				authorDisplayName: `Author ${id}`
@@ -162,6 +162,19 @@ test('without a total, each malformed reply is counted in replyShortfall and no 
 	expect(calledUrls(fetch)).toHaveLength(1);
 	expect(result.comments.map((comment) => comment.id)).toEqual(['p', 'r1']);
 	expect(result.replyShortfall).toBe(1);
+});
+
+test('a thread with no totalReplyCount warns once that its reply count is unknown, and keeps its embedded replies with no lookup', async () => {
+	const warn = vi.mocked(console.warn);
+	const fetch = stubFetch(json({ items: [thread('p', { replies: { comments: [reply('r1')] } })] }));
+
+	const result = await fetchNewComments(CHANNEL, 'token', null, { includeReplies: true });
+
+	expect(result.comments.map((comment) => comment.id)).toEqual(['p', 'r1']);
+	expect(result).not.toHaveProperty('replyShortfall');
+	expect(calledUrls(fetch)).toHaveLength(1);
+	expect(warn).toHaveBeenCalledTimes(1);
+	expect(warn).toHaveBeenCalledWith('commentThreads.list response item 0 has no totalReplyCount; the reply count is unknown');
 });
 
 test.each([

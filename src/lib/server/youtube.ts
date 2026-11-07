@@ -545,10 +545,13 @@ function fetchReplyPage(parentId: string, accessToken: string, pageToken: string
 	return fetchCommentListPage('comments', params, accessToken, deadline);
 }
 
-/** snippet.totalReplyCount when it is a non-negative integer. Otherwise null, and a present value is warned about. */
+/** snippet.totalReplyCount when it is a non-negative integer. Otherwise null, and the count is warned about as unknown. */
 function replyTotal(snippet: JsonObject, context: string): number | null {
 	const raw = snippet.totalReplyCount;
-	if (raw === undefined) return null;
+	if (raw === undefined) {
+		console.warn(`${context} has no totalReplyCount; the reply count is unknown`);
+		return null;
+	}
 	if (typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0) return raw;
 	console.warn(`${context} totalReplyCount ${JSON.stringify(raw)} is not a non-negative integer; the reply count is unknown`);
 	return null;
