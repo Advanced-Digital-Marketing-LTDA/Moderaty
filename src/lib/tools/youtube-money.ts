@@ -39,8 +39,9 @@ export type Outputs = {
 	viewsNeeded: number | null;
 };
 
-// Round before ceiling so float noise like 250000.0000000001 does not add a view.
-const ceilWhole = (value: number) => Math.ceil(Math.round(value * 1e6) / 1e6);
+// Whole views needed. The relative tolerance absorbs float noise on an exact answer without adding a view,
+// and a positive goal always needs at least one view.
+const wholeViews = (value: number) => Math.max(1, Math.ceil(value - value * 1e-14));
 
 const earnedPerStream = (streams: StreamInput[], factor: number) =>
 	streams.reduce((sum, stream) => sum + (stream.views / 1000) * stream.rpm * factor, 0);
@@ -50,6 +51,11 @@ export function calculate(streams: StreamInput[], goalUsd: number | null): Outpu
 	const monthlyUsd = earnedPerStream(streams, 1);
 	const totalViews = streams.reduce((sum, stream) => sum + stream.views, 0);
 	const blendedRpm = (monthlyUsd / totalViews) * 1000;
+	const viewsNeeded = goalUsd === null ? null : wholeViews((goalUsd / blendedRpm) * 1000);
+	// Written so that NaN and Infinity also fail: an answer this large is not a number the page may show.
+	if (viewsNeeded !== null && !(viewsNeeded <= MAX_MONTHLY_VIEWS)) {
+		throw new CalcInputError('The goal needs more views a month than this calculator accepts. Check the goal and the RPM.');
+	}
 	return {
 		monthlyUsd,
 		dailyUsd: monthlyUsd / DAYS_PER_MONTH,
@@ -59,7 +65,7 @@ export function calculate(streams: StreamInput[], goalUsd: number | null): Outpu
 		blendedRpm,
 		halfRpmMonthlyUsd: earnedPerStream(streams, 0.5),
 		doubleRpmMonthlyUsd: earnedPerStream(streams, 2),
-		viewsNeeded: goalUsd === null ? null : ceilWhole((goalUsd / blendedRpm) * 1000)
+		viewsNeeded
 	};
 }
 
@@ -68,7 +74,7 @@ export function cpmToLongFormRpm(cpmUsd: number, monetizedPercent: number): numb
 	return cpmUsd * (monetizedPercent / 100) * LONG_FORM_REVENUE_SHARE;
 }
 
-export type CalcRun = { ok: true; streams: StreamInput[]; outputs: Outputs } | { ok: false; error: string };
+export type CalcRun = { ok: true; streams: StreamInput[]; outputs: Outputs; goalUsd: number | null } | { ok: false; error: string };
 export type NicheRun = { ok: true; rpmLow: number; rpmHigh: number } | { ok: false; error: string };
 
 export type CalculatorForm = {
@@ -95,7 +101,7 @@ export function runCalculator(form: CalculatorForm): CalcRun {
 		if (form.contentType !== 'shorts') streams.push(readStream('Long-form', form.longFormViews, form.longFormRpm));
 		if (form.contentType !== 'long-form') streams.push(readStream('Shorts', form.shortsViews, form.shortsRpm));
 		const goal = form.goalUsd.trim() === '' ? null : parseRequiredNumber(form.goalUsd, 'Monthly income goal', { max: MAX_MONTHLY_USD });
-		return { ok: true, streams, outputs: calculate(streams, goal) };
+		return { ok: true, streams, outputs: calculate(streams, goal), goalUsd: goal };
 	} catch (error) {
 		if (error instanceof CalcInputError) return { ok: false, error: error.message };
 		throw error;

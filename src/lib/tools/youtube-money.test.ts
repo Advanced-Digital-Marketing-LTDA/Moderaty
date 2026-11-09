@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { CalcInputError, calculate, cpmToLongFormRpm, parseRequiredNumber, runCalculator, runNiche } from './youtube-money';
+import { CalcInputError, MAX_MONTHLY_VIEWS, calculate, cpmToLongFormRpm, parseRequiredNumber, runCalculator, runNiche } from './youtube-money';
 
 const RPM_OPTIONS = { max: 1000 };
 
@@ -96,4 +96,32 @@ test('runCalculator computes the goal when one is given and skips it when blank'
 	expect(withGoal.ok && withGoal.outputs.viewsNeeded).toBe(285_715);
 	const noGoal = runCalculator({ ...base, goalUsd: '  ' });
 	expect(noGoal.ok && noGoal.outputs.viewsNeeded).toBe(null);
+});
+
+test('runCalculator reports the goal it was calculated with', () => {
+	const run = runCalculator({ contentType: 'long-form', longFormViews: '250000', longFormRpm: '3.5', shortsViews: '', shortsRpm: '', goalUsd: '1000' });
+	expect(run.ok && run.goalUsd).toBe(1000);
+});
+
+test('a positive goal needs at least one view, however small the goal', () => {
+	expect(calculate([{ label: 'Long-form', views: 250_000, rpm: 3.5 }], 1e-10).viewsNeeded).toBe(1);
+});
+
+test('a goal that needs more views than the calculator accepts is an error, not a number', () => {
+	expect(() => calculate([{ label: 'Long-form', views: 1000, rpm: 0.001 }], 1_000_000)).toThrow(CalcInputError);
+});
+
+test('an RPM so small that the goal needs unbounded views is an error, not Infinity', () => {
+	expect(() => calculate([{ label: 'Shorts', views: 1000, rpm: 1e-308 }], 1)).toThrow(CalcInputError);
+});
+
+test('views needed is exact when the answer is a whole number', () => {
+	expect(calculate([{ label: 'Long-form', views: 250_000, rpm: 3.5 }], 875).viewsNeeded).toBe(250_000);
+});
+
+test('the largest accepted values pass and one above them is rejected', () => {
+	expect(parseRequiredNumber('1000', 'RPM', RPM_OPTIONS)).toBe(1000);
+	expect(() => parseRequiredNumber('1000.01', 'RPM', RPM_OPTIONS)).toThrow('or less');
+	expect(parseRequiredNumber(String(MAX_MONTHLY_VIEWS), 'Views', { max: MAX_MONTHLY_VIEWS, whole: true })).toBe(MAX_MONTHLY_VIEWS);
+	expect(() => parseRequiredNumber(String(MAX_MONTHLY_VIEWS + 1), 'Views', { max: MAX_MONTHLY_VIEWS, whole: true })).toThrow('or less');
 });
