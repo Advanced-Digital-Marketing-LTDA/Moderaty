@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { CalcInputError, MAX_MONTHLY_VIEWS, calculate, cpmToLongFormRpm, parseRequiredNumber, runCalculator, runNiche } from './youtube-money';
+import { CalcInputError, MAX_MONTHLY_VIEWS, calculate, cpmToLongFormRpm, guardUnexpected, parseRequiredNumber, runCalculator, runNiche } from './youtube-money';
 
 const RPM_OPTIONS = { max: 1000 };
 
@@ -124,4 +124,35 @@ test('the largest accepted values pass and one above them is rejected', () => {
 	expect(() => parseRequiredNumber('1000.01', 'RPM', RPM_OPTIONS)).toThrow('or less');
 	expect(parseRequiredNumber(String(MAX_MONTHLY_VIEWS), 'Views', { max: MAX_MONTHLY_VIEWS, whole: true })).toBe(MAX_MONTHLY_VIEWS);
 	expect(() => parseRequiredNumber(String(MAX_MONTHLY_VIEWS + 1), 'Views', { max: MAX_MONTHLY_VIEWS, whole: true })).toThrow('or less');
+});
+
+test('an RPM with more decimals than it can show is an error, not a silently rounded figure', () => {
+	expect(parseRequiredNumber('3.123456', 'RPM', { max: 1000, decimals: 6 })).toBe(3.123456);
+	expect(() => parseRequiredNumber('3.1234567', 'RPM', { max: 1000, decimals: 6 })).toThrow('at most 6 decimal places');
+});
+
+test('a goal with more than two decimals is an error, because money is shown to the cent', () => {
+	const run = runCalculator({ contentType: 'long-form', longFormViews: '250000', longFormRpm: '3.5', shortsViews: '', shortsRpm: '', goalUsd: '1000.555' });
+	expect(run).toEqual({ ok: false, error: expect.stringContaining('at most 2 decimal places') });
+});
+
+test('an unexpected failure is reported and shown as a generic message, without its internals', () => {
+	const reported: unknown[] = [];
+	const run = guardUnexpected(
+		() => {
+			throw new TypeError('internal detail');
+		},
+		(error) => reported.push(error)
+	);
+	expect(run).toEqual({ ok: false, error: expect.stringContaining('Reload the page') });
+	expect(JSON.stringify(run)).not.toContain('internal detail');
+	expect(reported).toHaveLength(1);
+	expect(reported[0]).toBeInstanceOf(TypeError);
+});
+
+test('a computation that succeeds passes through unchanged and is not reported', () => {
+	const reported: unknown[] = [];
+	const result = guardUnexpected(() => ({ ok: true as const, value: 42 }), (error) => reported.push(error));
+	expect(result).toEqual({ ok: true, value: 42 });
+	expect(reported).toHaveLength(0);
 });

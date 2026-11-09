@@ -12,7 +12,7 @@ export const LONG_FORM_REVENUE_SHARE = 0.55;
 
 export class CalcInputError extends Error {}
 
-type NumberOptions = { max: number; whole?: boolean };
+type NumberOptions = { max: number; whole?: boolean; decimals?: number };
 
 export function parseRequiredNumber(raw: string, label: string, options: NumberOptions): number {
 	const text = raw.trim();
@@ -22,6 +22,10 @@ export function parseRequiredNumber(raw: string, label: string, options: NumberO
 	if (value <= 0) throw new CalcInputError(`${label} must be greater than zero.`);
 	if (value > options.max) throw new CalcInputError(`${label} must be ${options.max} or less.`);
 	if (options.whole && !Number.isInteger(value)) throw new CalcInputError(`${label} must be a whole number.`);
+	// More decimals than the page can show would be rounded on display, so the visitor is told instead.
+	if (options.decimals !== undefined && (text.split('.')[1] ?? '').length > options.decimals) {
+		throw new CalcInputError(`${label} can have at most ${options.decimals} decimal places.`);
+	}
 	return value;
 }
 
@@ -90,7 +94,7 @@ function readStream(label: StreamInput['label'], views: string, rpm: string): St
 	return {
 		label,
 		views: parseRequiredNumber(views, `${label} monthly views`, { max: MAX_MONTHLY_VIEWS, whole: true }),
-		rpm: parseRequiredNumber(rpm, `${label} RPM`, { max: MAX_RPM_USD })
+		rpm: parseRequiredNumber(rpm, `${label} RPM`, { max: MAX_RPM_USD, decimals: 6 })
 	};
 }
 
@@ -100,7 +104,7 @@ export function runCalculator(form: CalculatorForm): CalcRun {
 		const streams: StreamInput[] = [];
 		if (form.contentType !== 'shorts') streams.push(readStream('Long-form', form.longFormViews, form.longFormRpm));
 		if (form.contentType !== 'long-form') streams.push(readStream('Shorts', form.shortsViews, form.shortsRpm));
-		const goal = form.goalUsd.trim() === '' ? null : parseRequiredNumber(form.goalUsd, 'Monthly income goal', { max: MAX_MONTHLY_USD });
+		const goal = form.goalUsd.trim() === '' ? null : parseRequiredNumber(form.goalUsd, 'Monthly income goal', { max: MAX_MONTHLY_USD, decimals: 2 });
 		return { ok: true, streams, outputs: calculate(streams, goal), goalUsd: goal };
 	} catch (error) {
 		if (error instanceof CalcInputError) return { ok: false, error: error.message };
@@ -115,5 +119,20 @@ export function runNiche(monetizedRaw: string, cpmLow: number, cpmHigh: number):
 	} catch (error) {
 		if (error instanceof CalcInputError) return { ok: false, error: error.message };
 		throw error;
+	}
+}
+
+export const UNEXPECTED_ERROR_MESSAGE = 'Something went wrong while calculating. Reload the page and try again.';
+
+// Bugs must not disappear: the failure is reported to the caller and the visitor sees a generic message, never the internals.
+export function guardUnexpected<T extends { ok: boolean }>(
+	compute: () => T,
+	report: (error: unknown) => void
+): T | { ok: false; error: string } {
+	try {
+		return compute();
+	} catch (error) {
+		report(error);
+		return { ok: false, error: UNEXPECTED_ERROR_MESSAGE };
 	}
 }

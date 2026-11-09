@@ -3,7 +3,8 @@
 	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
 	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
 	import TableScroll from '$lib/components/blogs/TableScroll.svelte';
-	import { calculate, runCalculator, runNiche, type CalcRun, type NicheRun } from '$lib/tools/youtube-money';
+	import { calculate, guardUnexpected, runCalculator, runNiche, type CalcRun, type NicheRun } from '$lib/tools/youtube-money';
+	import { formatRpm } from '$lib/tools/youtube-money-format';
 	import {
 		NICHE_CPM_NOTE,
 		NICHE_CPM_ROWS,
@@ -97,18 +98,28 @@
 
 	async function calculateNow(event: SubmitEvent) {
 		event.preventDefault();
-		run = runCalculator({
-			contentType,
-			longFormViews: longForm.views,
-			longFormRpm: longForm.rpm,
-			shortsViews: shorts.views,
-			shortsRpm: shorts.rpm,
-			goalUsd
-		});
+		// Bad input is a message from the engine. Anything else is a fault: it is logged and the visitor sees a generic message.
+		const report = (error: unknown) => console.error('YouTube money calculator: submit failed', error);
+		run = guardUnexpected(
+			() =>
+				runCalculator({
+					contentType,
+					longFormViews: longForm.views,
+					longFormRpm: longForm.rpm,
+					shortsViews: shorts.views,
+					shortsRpm: shorts.rpm,
+					goalUsd
+				}),
+			report
+		);
 		const row = NICHE_CPM_ROWS.find((candidate) => candidate.niche === nicheName);
 		nicheResult =
 			row && contentType !== 'shorts'
-				? { ...row, monetized: monetizedShare, run: runNiche(monetizedShare, row.cpmLow, row.cpmHigh) }
+				? {
+						...row,
+						monetized: monetizedShare,
+						run: guardUnexpected(() => runNiche(monetizedShare, row.cpmLow, row.cpmHigh), report)
+					}
 				: null;
 		// Moving focus to the results lets a screen reader read them once, in order, instead of re-reading live text.
 		await tick();
@@ -225,14 +236,14 @@
 									<tr>
 										<th scope="row">{row.stream.label}</th>
 										<td>{count(row.stream.views)}</td>
-										<td>{usd(row.stream.rpm)}</td>
+										<td>{formatRpm(row.stream.rpm)}</td>
 										<td>{usd(row.monthlyUsd)}</td>
 									</tr>
 								{/each}
 								<tr>
 									<th scope="row">Total</th>
 									<td>{count(run.outputs.totalViews)}</td>
-									<td>{usd(run.outputs.blendedRpm)} blended</td>
+									<td>{formatRpm(run.outputs.blendedRpm)} blended</td>
 									<td>{usd(run.outputs.monthlyUsd)}</td>
 								</tr>
 							</tbody>
@@ -249,7 +260,7 @@
 				<h3>The formula with your numbers</h3>
 				<ul class="formula">
 					{#each rows as row (row.stream.label)}
-						<li>{row.stream.label}: {count(row.stream.views)} views ÷ 1,000 × {usd(row.stream.rpm)} = {usd(row.monthlyUsd)} a month</li>
+						<li>{row.stream.label}: {count(row.stream.views)} views ÷ 1,000 × {formatRpm(row.stream.rpm)} = {usd(row.monthlyUsd)} a month</li>
 					{/each}
 				</ul>
 				<p class="hint">Daily figures divide the month by 30.</p>
@@ -260,7 +271,7 @@
 			{#if nicheResult.run.ok}
 				<p>
 					{nicheResult.niche} is {usd(nicheResult.cpmLow)} to {usd(nicheResult.cpmHigh)} CPM. With {nicheResult.monetized}% of views monetized,
-					the long-form RPM range is {usd(nicheResult.run.rpmLow)} to {usd(nicheResult.run.rpmHigh)}. Compare it with your Studio RPM; it does not replace it.
+					the long-form RPM range is {formatRpm(nicheResult.run.rpmLow)} to {formatRpm(nicheResult.run.rpmHigh)}. Compare it with your Studio RPM; it does not replace it.
 				</p>
 			{:else}
 				<div class="error-box" role="alert">{nicheResult.run.error}</div>

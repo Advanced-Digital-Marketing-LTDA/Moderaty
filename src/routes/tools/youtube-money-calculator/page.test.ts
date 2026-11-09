@@ -154,3 +154,15 @@ test('results are a focus target and not a live region that re-reads the whole b
 	expect(body).toMatch(/class="results[^"]*" tabindex="-1"/);
 	expect(body).not.toContain('aria-live="polite"');
 });
+
+test('RPM figures use the RPM formatter, so typed decimals are shown rather than rounded to cents', () => {
+	const source = pageSource();
+	expect(source).not.toMatch(/usd\((row\.stream\.rpm|run\.outputs\.blendedRpm|nicheResult\.run\.rpm(Low|High))\)/);
+	expect(source).toMatch(/formatRpm\(row\.stream\.rpm\)/);
+});
+
+test('the submit handler reports unexpected failures and shows a generic message', () => {
+	const source = pageSource();
+	expect(source).toContain('guardUnexpected(');
+	expect(source).toContain("console.error('YouTube money calculator: submit failed'");
+});
