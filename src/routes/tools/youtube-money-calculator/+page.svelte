@@ -1,0 +1,371 @@
+<script lang="ts">
+	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
+	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
+	import TableScroll from '$lib/components/blogs/TableScroll.svelte';
+	import { calculate, runCalculator, runNiche, type CalcRun, type NicheRun } from '$lib/tools/youtube-money';
+	import {
+		NICHE_CPM_NOTE,
+		NICHE_CPM_ROWS,
+		YOUTUBE_MONEY_CALCULATOR,
+		YOUTUBE_MONEY_EDITION,
+		YOUTUBE_MONEY_FAQ,
+		YOUTUBE_MONEY_SECTIONS,
+		YOUTUBE_MONEY_SOURCES
+	} from '$lib/tools/youtube-money-content';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+
+	const pageUrl = $derived(new URL(YOUTUBE_MONEY_CALCULATOR.path, data.siteOrigin).href);
+	const schema = $derived({
+		'@context': 'https://schema.org',
+		'@graph': [
+			{
+				'@type': 'WebApplication',
+				name: 'YouTube money calculator',
+				url: pageUrl,
+				applicationCategory: 'FinanceApplication',
+				operatingSystem: 'Any',
+				description: YOUTUBE_MONEY_CALCULATOR.description,
+				offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+				inLanguage: 'en'
+			},
+			{
+				'@type': 'FAQPage',
+				mainEntity: YOUTUBE_MONEY_FAQ.map((entry) => ({
+					'@type': 'Question',
+					name: entry.q,
+					acceptedAnswer: { '@type': 'Answer', text: entry.a }
+				}))
+			}
+		]
+	});
+
+	type ContentType = 'long-form' | 'shorts' | 'both';
+	type Stream = { views: string; rpm: string };
+	type NicheResult = { niche: string; cpmLow: number; cpmHigh: number; monetized: string; run: NicheRun };
+
+	const CONTENT_TYPES = [
+		{ value: 'long-form', label: 'Long-form' },
+		{ value: 'shorts', label: 'Shorts' },
+		{ value: 'both', label: 'Both (mixed)' }
+	] as const;
+	const PRESETS = [
+		{ label: '10K', views: 10_000 },
+		{ label: '100K', views: 100_000 },
+		{ label: '500K', views: 500_000 },
+		{ label: '1M', views: 1_000_000 },
+		{ label: '5M', views: 5_000_000 }
+	];
+
+	const usd = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+	const count = (value: number) => new Intl.NumberFormat('en-US').format(value);
+	const updatedLabel = new Date(`${YOUTUBE_MONEY_EDITION.updated}T00:00:00Z`).toLocaleDateString('en-GB', {
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric',
+		timeZone: 'UTC'
+	});
+
+	let contentType = $state<ContentType>('long-form');
+	let longForm = $state<Stream>({ views: '', rpm: '' });
+	let shorts = $state<Stream>({ views: '', rpm: '' });
+	let goalUsd = $state('');
+	let nicheName = $state('');
+	let monetizedShare = $state('');
+
+	// Nothing is computed until the visitor submits, so a blank RPM shows its message only after they ask.
+	let run = $state<CalcRun | null>(null);
+	let nicheResult = $state<NicheResult | null>(null);
+
+	const rows = $derived(run?.ok ? run.streams.map((stream) => ({ stream, monthlyUsd: calculate([stream], null).monthlyUsd })) : []);
+
+	function calculateNow(event: SubmitEvent) {
+		event.preventDefault();
+		run = runCalculator({
+			contentType,
+			longFormViews: longForm.views,
+			longFormRpm: longForm.rpm,
+			shortsViews: shorts.views,
+			shortsRpm: shorts.rpm,
+			goalUsd
+		});
+		const row = NICHE_CPM_ROWS.find((candidate) => candidate.niche === nicheName);
+		nicheResult =
+			row && contentType !== 'shorts'
+				? { ...row, monetized: monetizedShare, run: runNiche(monetizedShare, row.cpmLow, row.cpmHigh) }
+				: null;
+	}
+</script>
+
+<BlogMeta
+	title={YOUTUBE_MONEY_CALCULATOR.title}
+	description={YOUTUBE_MONEY_CALCULATOR.description}
+	path={YOUTUBE_MONEY_CALCULATOR.path}
+	origin={data.siteOrigin}
+	{schema}
+/>
+
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+	<ol><li><a href="/">Home</a></li><li aria-current="page">YouTube money calculator</li></ol>
+</nav>
+
+<h1>Views are free. Here's what they pay.</h1>
+<p>
+	Enter your monthly views and your RPM from YouTube Studio. The calculator shows what the month adds up to, plus the views
+	you need for an income goal. Nothing is guessed: if a number is missing or wrong, you get a message instead of a result.
+</p>
+
+{#snippet presetButtons(title: string, onPick: (views: number) => void)}
+	<div class="presets" role="group" aria-label="{title} views presets">
+		{#each PRESETS as preset (preset.label)}
+			<button type="button" class="preset btn-press" aria-label="Set {title.toLowerCase()} monthly views to {preset.label}" onclick={() => onPick(preset.views)}>
+				{preset.label}
+			</button>
+		{/each}
+	</div>
+{/snippet}
+
+{#snippet streamFields(title: string, stream: Stream, hidden: boolean)}
+	{@const id = title.toLowerCase()}
+	<fieldset class="stream" {hidden}>
+		<legend>{title}</legend>
+		<label for="{id}-views">{title} monthly views</label>
+		<input id="{id}-views" type="text" inputmode="numeric" bind:value={stream.views} />
+		{@render presetButtons(title, (views) => (stream.views = String(views)))}
+		<label for="{id}-rpm">{title} RPM (USD per 1,000 views)</label>
+		<input id="{id}-rpm" type="text" inputmode="decimal" bind:value={stream.rpm} aria-describedby="{id}-rpm-hint" />
+		<p id="{id}-rpm-hint" class="hint">From YouTube Studio: Analytics &gt; Revenue &gt; RPM. Your own figure, not a niche average.</p>
+	</fieldset>
+{/snippet}
+
+<section class="calculator-block" aria-labelledby="calculator-heading">
+	<h2 id="calculator-heading">Calculate your month</h2>
+	<form class="calculator" onsubmit={calculateNow} novalidate>
+		<fieldset class="choice">
+			<legend>Content type</legend>
+			{#each CONTENT_TYPES as option (option.value)}
+				<label class="choice-option">
+					<input type="radio" name="content-type" value={option.value} bind:group={contentType} />
+					{option.label}
+				</label>
+			{/each}
+		</fieldset>
+
+		<!-- Hidden, not removed: both rows stay in the DOM so their labels and values survive a switch of content type. -->
+		{@render streamFields('Long-form', longForm, contentType === 'shorts')}
+		{@render streamFields('Shorts', shorts, contentType === 'long-form')}
+
+		<label for="goal">Monthly income goal (USD, optional)</label>
+		<input id="goal" type="text" inputmode="decimal" placeholder="1000" bind:value={goalUsd} aria-describedby="goal-hint" />
+		<p id="goal-hint" class="hint">Leave blank to skip. The calculator shows the views you need each month to reach the goal.</p>
+
+		<fieldset class="niche" hidden={contentType === 'shorts'}>
+				<legend>Niche CPM estimate (long-form only)</legend>
+				<p class="hint">{NICHE_CPM_NOTE} This turns a CPM range into an RPM range. It does not fill in your RPM.</p>
+				<label for="niche">Niche</label>
+				<select id="niche" bind:value={nicheName}>
+					<option value="">No niche</option>
+					{#each NICHE_CPM_ROWS as row (row.niche)}
+						<option value={row.niche}>{row.niche}: {usd(row.cpmLow)} to {usd(row.cpmHigh)} CPM</option>
+					{/each}
+				</select>
+				<label for="monetized">Share of views that are monetized (%)</label>
+				<input id="monetized" type="text" inputmode="decimal" bind:value={monetizedShare} aria-describedby="monetized-hint" />
+				<p id="monetized-hint" class="hint">Converted RPM = monetized share × CPM × 55%. Required when a niche is picked. There is no preset.</p>
+		</fieldset>
+
+		<button type="submit" class="submit btn-press">Calculate earnings</button>
+	</form>
+
+	<div class="results">
+		{#if run === null}
+			<p class="hint">Enter your numbers and calculate. Nothing is estimated until you do.</p>
+		{:else if !run.ok}
+			<div class="error-box" role="alert">{run.error}</div>
+		{:else}
+			<output class="figures-block" aria-live="polite">
+				<dl class="figures">
+					<div><dt>Daily</dt><dd>{usd(run.outputs.dailyUsd)}</dd></div>
+					<div><dt>Monthly</dt><dd>{usd(run.outputs.monthlyUsd)}</dd></div>
+					<div><dt>Yearly</dt><dd>{usd(run.outputs.yearlyUsd)}</dd></div>
+					<div>
+						<dt>{run.streams.length > 1 ? 'Per 1 million views, blended' : 'Per 1 million views'}</dt>
+						<dd>{usd(run.outputs.perMillionUsd)}</dd>
+					</div>
+				</dl>
+
+				{#if rows.length > 1}
+					<TableScroll captionId="earnings-caption">
+						<table>
+							<caption id="earnings-caption">Earnings by content type</caption>
+							<thead>
+								<tr><th scope="col">Type</th><th scope="col">Views a month</th><th scope="col">RPM</th><th scope="col">Earned a month</th></tr>
+							</thead>
+							<tbody>
+								{#each rows as row (row.stream.label)}
+									<tr>
+										<th scope="row">{row.stream.label}</th>
+										<td>{count(row.stream.views)}</td>
+										<td>{usd(row.stream.rpm)}</td>
+										<td>{usd(row.monthlyUsd)}</td>
+									</tr>
+								{/each}
+								<tr>
+									<th scope="row">Total</th>
+									<td>{count(run.outputs.totalViews)}</td>
+									<td>{usd(run.outputs.blendedRpm)} blended</td>
+									<td>{usd(run.outputs.monthlyUsd)}</td>
+								</tr>
+							</tbody>
+						</table>
+					</TableScroll>
+				{/if}
+
+				<p>At half your RPM: {usd(run.outputs.halfRpmMonthlyUsd)} a month. At double: {usd(run.outputs.doubleRpmMonthlyUsd)} a month.</p>
+
+				{#if run.outputs.viewsNeeded !== null}
+					<p>To earn {usd(Number(goalUsd.trim()))} a month at this mix, you need at least {count(run.outputs.viewsNeeded)} views a month.</p>
+				{/if}
+
+				<h3>The formula with your numbers</h3>
+				<ul class="formula">
+					{#each rows as row (row.stream.label)}
+						<li>{row.stream.label}: {count(row.stream.views)} views ÷ 1,000 × {usd(row.stream.rpm)} = {usd(row.monthlyUsd)} a month</li>
+					{/each}
+				</ul>
+				<p class="hint">Daily figures divide the month by 30.</p>
+			</output>
+		{/if}
+
+		{#if nicheResult}
+			{#if nicheResult.run.ok}
+				<p>
+					{nicheResult.niche} is {usd(nicheResult.cpmLow)} to {usd(nicheResult.cpmHigh)} CPM. With {nicheResult.monetized}% of views monetized,
+					the long-form RPM range is {usd(nicheResult.run.rpmLow)} to {usd(nicheResult.run.rpmHigh)}. Compare it with your Studio RPM; it does not replace it.
+				</p>
+			{:else}
+				<div class="error-box" role="alert">{nicheResult.run.error}</div>
+			{/if}
+		{/if}
+	</div>
+</section>
+
+<ArticleContents headings={YOUTUBE_MONEY_SECTIONS} />
+
+<h2 id="how-it-works" tabindex="-1">How the calculator works</h2>
+<p>
+	Your estimate is views ÷ 1,000 × RPM. RPM is what YouTube Studio reports: what you earned per 1,000 views after YouTube's
+	revenue share. For long-form, RPM counts all views. For Shorts, it counts engaged views. The calculator uses one RPM per content
+	type and assumes a 30-day month for the daily figure. It does not look up any figure for you.
+	<a href={YOUTUBE_MONEY_SOURCES.adRevenueAnalytics.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.adRevenueAnalytics.label}</a>.
+</p>
+
+<h2 id="cpm-vs-rpm" tabindex="-1">CPM vs RPM</h2>
+<p>
+	CPM is the cost per 1,000 ad impressions before YouTube's revenue share. It is the advertiser's number. RPM is what you earned per
+	1,000 views after the share. RPM is usually lower than CPM because it is calculated after the share and includes views that were
+	not monetized. Source: <a href={YOUTUBE_MONEY_SOURCES.adRevenueAnalytics.href} target="_blank" rel="noopener">YouTube Help, Understand ad revenue analytics</a>.
+</p>
+
+<h2 id="revenue-share" tabindex="-1">Who keeps what</h2>
+<p>YouTube Help sets these shares. <a href={YOUTUBE_MONEY_SOURCES.partnerEarnings.href} target="_blank" rel="noopener">Source</a>.</p>
+<ul>
+	<li>Long-form: you keep 55% of net ad revenue on Watch Page ads.</li>
+	<li>Shorts: you keep 45% of the revenue allocated to your Shorts.</li>
+	<li>Memberships, Super Chat, Super Stickers and Super Thanks: you keep 70% of net revenue.</li>
+</ul>
+
+<h2 id="shorts-revenue" tabindex="-1">How Shorts revenue is calculated</h2>
+<p>
+	Shorts ad revenue for each month goes into one pool. Music changes how much of the pool is shared: with one music track, half the
+	revenue tied to engaged views is set aside; with two tracks, one third. Each creator's share of the pool follows their share of
+	engaged views, country by country, and you keep 45% of that share.
+	<a href={YOUTUBE_MONEY_SOURCES.shortsMonetization.href} target="_blank" rel="noopener">Source: YouTube Help, Shorts monetization policies</a>.
+</p>
+
+<h2 id="niche-cpm" tabindex="-1">Niche CPM ranges</h2>
+<p>
+	These are advertiser-side CPM ranges, not RPM. They describe what advertisers pay per 1,000 ad impressions before YouTube's share.
+	Use them as a starting point, then replace them with your own RPM from Studio.
+</p>
+<TableScroll captionId="niche-caption">
+	<table>
+		<caption id="niche-caption">Niche CPM ranges (USD)</caption>
+		<thead>
+			<tr><th scope="col">Niche</th><th scope="col">CPM range</th></tr>
+		</thead>
+		<tbody>
+			{#each NICHE_CPM_ROWS as row (row.niche)}
+				<tr><th scope="row">{row.niche}</th><td>{usd(row.cpmLow)} to {usd(row.cpmHigh)}</td></tr>
+			{/each}
+		</tbody>
+	</table>
+</TableScroll>
+<p class="hint">
+	{NICHE_CPM_NOTE} <a href={YOUTUBE_MONEY_SOURCES.cpmBenchmarks.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.cpmBenchmarks.label}</a>.
+</p>
+
+<h2 id="partner-program" tabindex="-1">Who can earn: the YouTube Partner Program</h2>
+<p>
+	Ads on your videos are paid through the YouTube Partner Program. From 1 February 2027, new applicants need 8,000 qualified watch
+	hours in the previous 365 days, or 20 million qualified Shorts views in the previous 90 days. YouTube's Help page also says new
+	applicants still need 1,000 subscribers. Creators already in the program are not affected by this update. Fan Funding and shopping
+	thresholds stay the same. From 1 February 2027, Shorts revenue needs at least 10 million qualified Shorts views in the last 90 days.
+</p>
+<p>
+	Sources: <a href={YOUTUBE_MONEY_SOURCES.programBlog.href} target="_blank" rel="noopener">YouTube Blog, Partner Program updates 2027</a>
+	and <a href={YOUTUBE_MONEY_SOURCES.programChanges.href} target="_blank" rel="noopener">YouTube Help, Changes to the YouTube Partner Program</a>.
+</p>
+
+<h2 id="faq" tabindex="-1">Frequently asked questions</h2>
+{#each YOUTUBE_MONEY_FAQ as entry (entry.q)}
+	<details class="faq-item">
+		<summary>{entry.q}</summary>
+		<p>{entry.a}</p>
+	</details>
+{/each}
+
+<p class="updated">Last updated <time datetime={YOUTUBE_MONEY_EDITION.updated}>{updatedLabel}</time>.</p>
+
+<h2 id="comments" tabindex="-1">What is in the comments under those views</h2>
+<p>
+	Moderaty screens published top-level comments on your channel with your rules and AI scoring, and sends uncertain ones to your review
+	queue. It does not reply to viewers. It does not change your RPM.
+</p>
+<p><a href="/login">Connect your YouTube channel</a> · <a href="/pricing">See pricing</a></p>
+
+<style>
+	.calculator-block { margin: 32px 0 48px; }
+	.calculator { display: grid; gap: 16px; border: 1px solid var(--line-strong); padding: 24px; }
+	.calculator input,
+	.calculator select { width: 100%; }
+	.calculator fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+	.calculator fieldset[hidden] { display: none; }
+	.calculator legend { font-weight: 600; margin-bottom: 4px; }
+	.choice { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+	.choice-option { display: inline-flex; gap: 8px; align-items: center; }
+	.presets { display: flex; flex-wrap: wrap; gap: 8px; }
+	.preset { min-height: 44px; min-width: 44px; padding: 0 14px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); }
+	.hint { color: var(--text-2); font-size: 14px; margin: 0; line-height: 1.6; }
+	.submit { justify-self: start; min-height: 44px; padding: 0 20px; background: var(--paper); color: var(--bg); border: 0; font-weight: 600; }
+	.preset:focus-visible,
+	.submit:focus-visible,
+	.calculator input:focus-visible,
+	.calculator select:focus-visible,
+	.choice-option input:focus-visible,
+	summary:focus-visible {
+		outline: 2px solid var(--paper);
+		outline-offset: 3px;
+	}
+	.results { margin-top: 24px; display: grid; gap: 16px; }
+	.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin: 0; }
+	.figures div { border-top: 1px solid var(--line-strong); padding-top: 12px; }
+	.figures dt { color: var(--text-2); font-size: 14px; }
+	.figures dd { margin: 4px 0 0; font-size: 24px; }
+	.formula { padding-left: 20px; }
+	.faq-item { border-top: 1px solid var(--line-strong); padding: 16px 0; }
+	.faq-item summary { cursor: pointer; font-weight: 600; }
+	.faq-item p { margin: 12px 0 0; }
+	.updated { color: var(--text-2); font-size: 14px; }
+</style>
