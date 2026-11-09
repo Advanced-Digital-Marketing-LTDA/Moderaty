@@ -1,8 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { render } from 'svelte/server';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import Page from './+page.svelte';
 import { NICHE_CPM_NOTE, YOUTUBE_MONEY_CALCULATOR, YOUTUBE_MONEY_EDITION, YOUTUBE_MONEY_FAQ, NICHE_CPM_ROWS } from '$lib/tools/youtube-money-content';
+import { PUBLIC_BLOG_ROUTE_IDS, llmsTxt, sitemapXml } from '$lib/server/siteIndex';
+
+vi.mock('$env/dynamic/private', () => ({ env: { APP_URL: 'https://preview.example' } }));
 
 const data = { siteOrigin: 'https://preview.example', canonical: null, locale: 'en' as const };
 const rendered = () => render(Page, { props: { data } });
@@ -76,6 +79,12 @@ test('the page links only to site-relative pages and the cited YouTube sources',
 	const { body } = rendered();
 	expect(body).not.toMatch(/href="https:\/\/moderaty\.com/);
 	expect(body).toContain('href="https://support.google.com/youtube/answer/72902"');
+});
+
+test('the calculator is listed in the sitemap, llms.txt and the blog route list', () => {
+	expect(sitemapXml()).toContain(`<loc>${articleUrl}</loc>`);
+	expect(llmsTxt()).toContain(`](${articleUrl})`);
+	expect(PUBLIC_BLOG_ROUTE_IDS).toContain('/tools/youtube-money-calculator');
 });
 
 test('the page source makes no network calls and has no placeholder copy', () => {

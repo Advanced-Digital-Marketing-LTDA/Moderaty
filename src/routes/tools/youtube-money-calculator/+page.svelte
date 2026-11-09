@@ -338,12 +338,12 @@
 <style>
 	.calculator-block { margin: 32px 0 48px; }
 	.calculator { display: grid; gap: 16px; border: 1px solid var(--line-strong); padding: 24px; }
-	.calculator input,
+	.calculator input[type='text'],
 	.calculator select { width: 100%; }
 	.calculator fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
 	.calculator fieldset[hidden] { display: none; }
 	.calculator legend { font-weight: 600; margin-bottom: 4px; }
-	.choice { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+	.calculator .choice { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 	.choice-option { display: inline-flex; gap: 8px; align-items: center; }
 	.presets { display: flex; flex-wrap: wrap; gap: 8px; }
 	.preset { min-height: 44px; min-width: 44px; padding: 0 14px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); }
