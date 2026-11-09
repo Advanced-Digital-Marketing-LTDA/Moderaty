@@ -135,11 +135,11 @@
 	<ol><li><a href="/">Home</a></li><li aria-current="page">YouTube money calculator</li></ol>
 </nav>
 
-<h1>Views are free. Here's what they pay.</h1>
+<h1>YouTube Money Calculator</h1>
 <p>
-	Enter your monthly views and your RPM from YouTube Studio. The calculator shows what the month adds up to, plus the views
-	you need for an income goal. Nothing is guessed: if a required number is missing or wrong, you get a message instead of a result.
+	Enter your monthly views and your RPM from YouTube Studio. Nothing is guessed: if a required number is missing or wrong, you get a message instead of a result.
 </p>
+<p class="updated">Last updated <time datetime={YOUTUBE_MONEY_EDITION.updated}>{updatedLabel}</time>.</p>
 
 {#snippet presetButtons(title: string, onPick: (views: number) => void)}
 	<div class="presets" role="group" aria-label="{title} views presets">
@@ -352,7 +352,6 @@
 	</details>
 {/each}
 
-<p class="updated">Last updated <time datetime={YOUTUBE_MONEY_EDITION.updated}>{updatedLabel}</time>.</p>
 
 <h2 id="comments" tabindex="-1">What is in the comments under those views</h2>
 <p>

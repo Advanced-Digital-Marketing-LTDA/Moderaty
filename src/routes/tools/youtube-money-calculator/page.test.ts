@@ -196,3 +196,15 @@ test('the revenue text colour reaches 3:1 against the page background, from the 
 test('the FAQ paragraph rule sets the answer spacing', () => {
 	expect(pageSource()).toMatch(/details\.faq-item > p \{[^}]*margin: 12px 0 0/);
 });
+
+test('the H1 and the title tag are exactly YouTube Money Calculator', () => {
+	const { head, body } = rendered();
+	expect(body).toMatch(/<h1>YouTube Money Calculator<\/h1>/);
+	expect(head).toContain('<title>YouTube Money Calculator | Moderaty</title>');
+});
+
+test('the last-updated date sits once, above the calculator', () => {
+	const { body } = rendered();
+	expect((body.match(/Last updated/g) ?? []).length).toBe(1);
+	expect(body.indexOf('Last updated')).toBeLessThan(body.indexOf('id="calculator-heading"'));
+});
