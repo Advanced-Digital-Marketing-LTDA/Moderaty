@@ -249,3 +249,8 @@ test('demo pages never appear in the sitemap, llms.txt or the public page list',
 	expect(sitemapXml()).not.toContain('/demo');
 	expect(llmsTxt()).not.toContain('/demo');
 });
+
+test('the calculator owns its canonical, so the layout does not add a second one', () => {
+	expect(canonicalUrl('/tools/youtube-money-calculator/')).toBeNull();
+	expect(canonicalUrl('/tools/youtube-money-calculator')).toBeNull();
+});
