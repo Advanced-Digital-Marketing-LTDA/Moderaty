@@ -81,6 +81,15 @@ test('the page links only to site-relative pages and the cited YouTube sources',
 	expect(body).toContain('href="https://support.google.com/youtube/answer/72902"');
 });
 
+test('the copy keeps the sourced meaning of the Shorts pool and the entry thresholds', () => {
+	const text = rendered().body.replace(/\s+/g, ' ');
+	expect(text).toContain('only half of the revenue associated with engaged views is allocated to the Creator Pool');
+	expect(text).toContain('with two tracks, one third');
+	expect(text).toContain('The new entry thresholds do not apply to creators already in the program.');
+	expect(text).toContain('you need at least 10 million qualified Shorts views in the last 90 days');
+	expect(text).not.toMatch(/set aside/);
+});
+
 test('the calculator is listed in the sitemap, llms.txt and the blog route list', () => {
 	expect(sitemapXml()).toContain(`<loc>${articleUrl}</loc>`);
 	expect(llmsTxt()).toContain(`](${articleUrl})`);

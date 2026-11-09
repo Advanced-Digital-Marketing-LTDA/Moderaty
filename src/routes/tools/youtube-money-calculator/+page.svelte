@@ -1,4 +1,5 @@
 <script lang="ts">
+	import EmptyState from '$lib/EmptyState.svelte';
 	import BlogMeta from '$lib/components/blogs/BlogMeta.svelte';
 	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
 	import TableScroll from '$lib/components/blogs/TableScroll.svelte';
@@ -180,7 +181,7 @@
 
 	<div class="results">
 		{#if run === null}
-			<p class="hint">Enter your numbers and calculate. Nothing is estimated until you do.</p>
+			<EmptyState title="No estimate yet." hint="Enter your numbers and calculate. Nothing is estimated until you do." />
 		{:else if !run.ok}
 			<div class="error-box" role="alert">{run.error}</div>
 		{:else}
@@ -278,8 +279,8 @@
 
 <h2 id="shorts-revenue" tabindex="-1">How Shorts revenue is calculated</h2>
 <p>
-	Shorts ad revenue for each month goes into one pool. Music changes how much of the pool is shared: with one music track, half the
-	revenue tied to engaged views is set aside; with two tracks, one third. Each creator's share of the pool follows their share of
+	Shorts ad revenue for each month goes into one pool. Music changes how much of the revenue reaches the pool: with one music track,
+	only half of the revenue associated with engaged views is allocated to the Creator Pool; with two tracks, one third. Each creator's share of the pool follows their share of
 	engaged views, country by country, and you keep 45% of that share.
 	<a href={YOUTUBE_MONEY_SOURCES.shortsMonetization.href} target="_blank" rel="noopener">Source: YouTube Help, Shorts monetization policies</a>.
 </p>
@@ -309,9 +310,10 @@
 <h2 id="partner-program" tabindex="-1">Who can earn: the YouTube Partner Program</h2>
 <p>
 	Ads on your videos are paid through the YouTube Partner Program. From 1 February 2027, new applicants need 8,000 qualified watch
-	hours in the previous 365 days, or 20 million qualified Shorts views in the previous 90 days. YouTube's Help page also says new
-	applicants still need 1,000 subscribers. Creators already in the program are not affected by this update. Fan Funding and shopping
-	thresholds stay the same. From 1 February 2027, Shorts revenue needs at least 10 million qualified Shorts views in the last 90 days.
+	hours in the previous 365 days, or 20 million qualified Shorts views in the previous 90 days. YouTube's Help page says these
+	thresholds apply in addition to still needing 1,000 subscribers. The new entry thresholds do not apply to creators already in the
+	program. Fan Funding and shopping thresholds stay the same. To earn a share of Shorts ad revenue from the Creator Pool from
+	1 February 2027, you need at least 10 million qualified Shorts views in the last 90 days.
 </p>
 <p>
 	Sources: <a href={YOUTUBE_MONEY_SOURCES.programBlog.href} target="_blank" rel="noopener">YouTube Blog, Partner Program updates 2027</a>
@@ -359,6 +361,10 @@
 		outline-offset: 3px;
 	}
 	.results { margin-top: 24px; display: grid; gap: 16px; }
+	/* Grid items default to min-width: auto, so the wide earnings table would push the page sideways instead of scrolling inside its box. */
+	.results > *,
+	.figures-block { min-width: 0; }
+	.figures-block { display: grid; gap: 16px; }
 	.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin: 0; }
 	.figures div { border-top: 1px solid var(--line-strong); padding-top: 12px; }
 	.figures dt { color: var(--text-2); font-size: 14px; }

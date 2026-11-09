@@ -16,7 +16,7 @@ test.each([
 	['abc', 'plain number'],
 	['Infinity', 'plain number'],
 	['1e3', 'plain number'],
-	['1,000', 'plain number'],
+	['1,000', 'commas'],
 	['5000', 'or less']
 ])('parseRequiredNumber rejects %j loudly with a message containing %j', (raw, fragment) => {
 	expect(() => parseRequiredNumber(raw, 'RPM', RPM_OPTIONS)).toThrow(CalcInputError);

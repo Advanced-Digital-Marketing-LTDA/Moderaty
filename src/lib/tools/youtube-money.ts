@@ -17,7 +17,7 @@ type NumberOptions = { max: number; whole?: boolean };
 export function parseRequiredNumber(raw: string, label: string, options: NumberOptions): number {
 	const text = raw.trim();
 	if (text === '') throw new CalcInputError(`${label} is empty. Enter a number.`);
-	if (!/^\d+(\.\d+)?$/.test(text)) throw new CalcInputError(`${label} must be a plain number such as 3.50, with no letters, signs or exponents.`);
+	if (!/^\d+(\.\d+)?$/.test(text)) throw new CalcInputError(`${label} must be a plain number such as 3.50, with no letters, signs, exponents or commas.`);
 	const value = Number(text);
 	if (value <= 0) throw new CalcInputError(`${label} must be greater than zero.`);
 	if (value > options.max) throw new CalcInputError(`${label} must be ${options.max} or less.`);
