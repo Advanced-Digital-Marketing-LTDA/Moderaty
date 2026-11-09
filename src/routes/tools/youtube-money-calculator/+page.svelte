@@ -299,11 +299,19 @@
 
 <h2 id="revenue-share" tabindex="-1">Who keeps what</h2>
 <p>YouTube Help sets these shares. <a href={YOUTUBE_MONEY_SOURCES.partnerEarnings.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.partnerEarnings.label}</a>.</p>
-<ul>
-	<li>Long-form: you keep 55% of net ad revenue on Watch Page ads.</li>
-	<li>Shorts: you keep 45% of the revenue allocated to your Shorts.</li>
-	<li>Memberships, Super Chat, Super Stickers and Super Thanks: you keep 70% of net revenue.</li>
-</ul>
+<TableScroll captionId="share-caption">
+	<table>
+		<caption id="share-caption">Share of revenue you keep, by revenue type</caption>
+		<thead>
+			<tr><th scope="col">Revenue type</th><th scope="col">You keep</th></tr>
+		</thead>
+		<tbody>
+			<tr><th scope="row">Long-form ads</th><td>55% of net ad revenue on Watch Page ads</td></tr>
+			<tr><th scope="row">Shorts ads</th><td>45% of the revenue allocated to your Shorts</td></tr>
+			<tr><th scope="row">Memberships, Super Chat, Super Stickers and Super Thanks</th><td>70% of net revenue</td></tr>
+		</tbody>
+	</table>
+</TableScroll>
 
 <h2 id="shorts-revenue" tabindex="-1">How Shorts revenue is calculated</h2>
 <p>
@@ -357,12 +365,14 @@
 {/each}
 
 
-<h2 id="comments" tabindex="-1">What is in the comments under those views</h2>
-<p>
-	Moderaty screens published top-level comments on your channel with your rules and AI scoring, and sends uncertain ones to your review
-	queue. It does not reply to viewers. It does not change your RPM.
-</p>
-<p><a href="/login">Connect your YouTube channel</a> · <a href="/pricing">See pricing</a></p>
+<aside class="closing" aria-labelledby="comments">
+	<h2 id="comments" tabindex="-1">What is in the comments under those views</h2>
+	<p>
+		Moderaty screens published top-level comments on your channel with your rules and AI scoring, and sends uncertain ones to your review
+		queue. It does not reply to viewers. It does not change your RPM.
+	</p>
+	<p class="closing-links"><a class="cta" href="/login">Connect your YouTube channel</a><a href="/pricing">See pricing</a></p>
+</aside>
 
 <style>
 	.calculator-block { margin: 32px 0 48px; }
@@ -436,4 +446,8 @@
 	.faq-item[open] summary::after { content: '\2212'; }
 	details.faq-item > p { margin: 12px 0 0; }
 	.updated { color: var(--text-2); font-size: 14px; }
+	.closing { margin-top: 64px; border-top: 1px solid var(--line-strong); }
+	.closing .closing-links { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+	.closing a.cta { display: inline-flex; align-items: center; min-height: 48px; padding: 0 20px; background: var(--accent); color: var(--bg); font-weight: 600; text-decoration: none; }
+	.closing a.cta:hover { background: var(--accent-press); }
 </style>

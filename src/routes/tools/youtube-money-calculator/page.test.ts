@@ -237,3 +237,18 @@ test('the monthly figure leads the figures and carries the accent bar', () => {
 test('the submit button uses the accent colour', () => {
 	expect(pageSource()).toMatch(/\.submit \{[^}]*background: var\(--accent\)/);
 });
+
+test('the revenue shares are a table that keeps the sourced percentages', () => {
+	const text = rendered().body.replace(/\s+/g, ' ');
+	expect(text).toContain('Share of revenue you keep, by revenue type');
+	expect(text).toContain('55% of net ad revenue on Watch Page ads');
+	expect(text).toContain('45% of the revenue allocated to your Shorts');
+	expect(text).toContain('70% of net revenue');
+});
+
+test('the Moderaty block is an aside with one button-style link to sign in and a plain pricing link', () => {
+	const { body } = rendered();
+	expect(body).toMatch(/<aside class="closing[^"]*"/);
+	expect(body).toMatch(/class="cta[^"]*" href="\/login"/);
+	expect(body).toContain('href="/pricing"');
+});
