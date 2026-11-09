@@ -13,6 +13,7 @@
 		YOUTUBE_MONEY_SECTIONS,
 		YOUTUBE_MONEY_SOURCES
 	} from '$lib/tools/youtube-money-content';
+	import { tick, untrack } from 'svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -59,7 +60,9 @@
 		{ label: '5M', views: 5_000_000 }
 	];
 
-	const usd = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+	const usdFormat = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+	// Anything between zero and half a cent would print as $0.00, which reads as no earnings at all.
+	const usd = (value: number) => (value > 0 && value < 0.005 ? 'less than $0.01' : usdFormat.format(value));
 	const count = (value: number) => new Intl.NumberFormat('en-US').format(value);
 	const updatedLabel = new Date(`${YOUTUBE_MONEY_EDITION.updated}T00:00:00Z`).toLocaleDateString('en-GB', {
 		day: 'numeric',
@@ -78,10 +81,21 @@
 	// Nothing is computed until the visitor submits, so a blank RPM shows its message only after they ask.
 	let run = $state<CalcRun | null>(null);
 	let nicheResult = $state<NicheResult | null>(null);
+	let resultsEl: HTMLDivElement | undefined;
 
 	const rows = $derived(run?.ok ? run.streams.map((stream) => ({ stream, monthlyUsd: calculate([stream], null).monthlyUsd })) : []);
 
-	function calculateNow(event: SubmitEvent) {
+	// Any edit after a calculation makes it stale: clear it rather than leave numbers that no longer match the inputs.
+	const inputsKey = $derived(JSON.stringify([contentType, longForm, shorts, goalUsd, nicheName, monetizedShare]));
+	$effect(() => {
+		void inputsKey;
+		untrack(() => {
+			run = null;
+			nicheResult = null;
+		});
+	});
+
+	async function calculateNow(event: SubmitEvent) {
 		event.preventDefault();
 		run = runCalculator({
 			contentType,
@@ -96,6 +110,9 @@
 			row && contentType !== 'shorts'
 				? { ...row, monetized: monetizedShare, run: runNiche(monetizedShare, row.cpmLow, row.cpmHigh) }
 				: null;
+		// Moving focus to the results lets a screen reader read them once, in order, instead of re-reading live text.
+		await tick();
+		resultsEl?.focus();
 	}
 </script>
 
@@ -179,13 +196,13 @@
 		<button type="submit" class="submit btn-press">Calculate earnings</button>
 	</form>
 
-	<div class="results">
+	<div class="results" tabindex="-1" bind:this={resultsEl}>
 		{#if run === null}
 			<EmptyState title="No estimate yet." hint="Enter your numbers and calculate. Nothing is estimated until you do." />
 		{:else if !run.ok}
 			<div class="error-box" role="alert">{run.error}</div>
 		{:else}
-			<output class="figures-block" aria-live="polite">
+			<div class="figures-block">
 				<dl class="figures">
 					<div><dt>Daily</dt><dd>{usd(run.outputs.dailyUsd)}</dd></div>
 					<div><dt>Monthly</dt><dd>{usd(run.outputs.monthlyUsd)}</dd></div>
@@ -225,8 +242,8 @@
 
 				<p>At half your RPM: {usd(run.outputs.halfRpmMonthlyUsd)} a month. At double: {usd(run.outputs.doubleRpmMonthlyUsd)} a month.</p>
 
-				{#if run.outputs.viewsNeeded !== null}
-					<p>To earn {usd(Number(goalUsd.trim()))} a month at this mix, you need at least {count(run.outputs.viewsNeeded)} views a month.</p>
+				{#if run.outputs.viewsNeeded !== null && run.goalUsd !== null}
+					<p>To earn {usd(run.goalUsd)} a month at this mix, you need at least {count(run.outputs.viewsNeeded)} views a month.</p>
 				{/if}
 
 				<h3>The formula with your numbers</h3>
@@ -236,7 +253,7 @@
 					{/each}
 				</ul>
 				<p class="hint">Daily figures divide the month by 30.</p>
-			</output>
+			</div>
 		{/if}
 
 		{#if nicheResult}
