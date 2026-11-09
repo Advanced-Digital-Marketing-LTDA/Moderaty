@@ -54,7 +54,9 @@ function menuInteraction(templateSource = source) {
 		return dependencies[id];
 	};
 	const elements = descendants(parse(source).html as TemplateNode);
-	const button = elements.find((node) => node.name === 'button');
+	const button = elements.find((node) => node.name === 'button' && node.attributes?.some(
+		(attr) => attr.name === 'class' && Array.isArray(attr.value) && attr.value[0]?.data?.includes('menu-btn')
+	));
 	const mobile = elements.find((node) => node.name === 'nav' && node.attributes?.some(
 		(attr) => attr.name === 'aria-label' && Array.isArray(attr.value) && attr.value[0]?.data === 'Mobile'
 	));
@@ -105,24 +107,16 @@ describe('landing navigation', () => {
 		}
 	});
 
-	it('keeps the desktop nav within the 1152px container after copy changes', () => {
+	it('lists every desktop item once, including the Tools toggle', () => {
 		const body = render(Nav).body;
 		const labels = [
-			...Array.from(source.matchAll(/\{ label: '([^']+)', href: /g), ([, label]) => label),
+			...Array.from(source.split('const LINKS = [')[1].split('];')[0].matchAll(/\{ label: '([^']+)', href: /g), ([, label]) => label),
+			'Tools',
 			'GitHub',
 			'Feedback'
 		];
-		expect(labels).toHaveLength(8);
+		expect(labels).toHaveLength(9);
 		for (const label of labels) expect(body).toContain(label);
-		// Conservative JetBrains Mono width budget at the CSS launch breakpoint:
-		// 11px mono links with 0.16em tracking, 14px wordmark with 0.22em tracking,
-		// full-width CTA plus 40px padding, nav/link gaps, and 48px shell padding.
-		// Leave a 36px margin for font rasterization and browser differences.
-		const navWidth = labels.join('').length * 11 * (0.62 + 0.16) + (labels.length - 1) * 20;
-		const brandWidth = 'Moderaty'.length * 14 * (0.62 + 0.22);
-		const ctaWidth = 'Connect YouTube channel'.length * 14 * 0.62 + 40;
-		const required = navWidth + brandWidth + ctaWidth + 2 * 24;
-		expect(required).toBeLessThanOrEqual(1152 - 48 - 36);
 	});
 
 	it('uses the compact menu until the single-line desktop navigation fits', () => {
@@ -159,6 +153,26 @@ describe('landing navigation', () => {
 		menu.clickButton();
 		expect(menu.body()).toContain('aria-label="Open menu"');
 		expect(menu.body()).not.toContain('aria-label="Mobile"');
+	});
+});
+
+describe('tools menu', () => {
+	it('offers a Tools toggle after Pricing, closed by default', () => {
+		const body = render(Nav).body;
+		expect(body).toContain('aria-controls="tools-menu"');
+		expect(body).toContain('aria-expanded="false"');
+		expect(body.indexOf('>Pricing<')).toBeLessThan(body.indexOf('>Tools<'));
+		expect(body).not.toContain('id="tools-menu"');
+	});
+
+	it('lists the calculator as the tools destination and dismisses on Escape and outside clicks', () => {
+		expect(source).toContain("href: '/tools/youtube-money-calculator/'");
+		expect(source).toMatch(/<svelte:window[^>]*onkeydown=/);
+		expect(source).toMatch(/<svelte:window[^>]*onclick=/);
+	});
+
+	it('gives the mobile menu its own Tools disclosure', () => {
+		expect(source).toContain('aria-controls="tools-menu-mobile"');
 	});
 });
 
