@@ -68,3 +68,22 @@ test('the desktop bar keeps every item on one row at 1152px, with the Tools item
 	// The links occupy a single row: a wrapped item would make the bar taller than one line.
 	expect(m.links.bottom - m.links.top).toBeLessThan(40);
 });
+
+test('the Tools toggle matches the typography of the links beside it, desktop and mobile', async ({ app, page }) => {
+	const typography = (locator: import('@playwright/test').Locator) =>
+		locator.evaluate((el) => {
+			const s = getComputedStyle(el);
+			return { family: s.fontFamily, size: s.fontSize, weight: s.fontWeight, spacing: s.letterSpacing, transform: s.textTransform, color: s.color };
+		});
+	await page.setViewportSize({ width: 1280, height: 900 });
+	await page.goto(`${app.baseURL}/`);
+	await page.waitForLoadState('networkidle');
+	const pricing = page.locator('.links').getByRole('link', { name: 'Pricing', exact: true });
+	const toggle = page.getByRole('button', { name: 'Tools', exact: true });
+	expect(await typography(toggle)).toEqual(await typography(pricing));
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.getByRole('button', { name: 'Open menu' }).click();
+	const mobilePricing = page.locator('.mobile-links').getByRole('link', { name: 'Pricing', exact: true });
+	const mobileToggle = page.locator('.mobile-links').getByRole('button', { name: 'Tools', exact: true });
+	expect(await typography(mobileToggle)).toEqual(await typography(mobilePricing));
+});

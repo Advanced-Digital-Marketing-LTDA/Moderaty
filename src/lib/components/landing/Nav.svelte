@@ -197,7 +197,6 @@
 		border: 0;
 		padding: 0;
 		cursor: pointer;
-		font: inherit;
 		text-align: left;
 	}
 	.tools-panel {
