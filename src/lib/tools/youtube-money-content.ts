@@ -4,7 +4,7 @@ export const YOUTUBE_MONEY_CALCULATOR = {
 	path: '/tools/youtube-money-calculator/',
 	title: 'YouTube Money Calculator',
 	description:
-		'Estimate YouTube earnings from monthly views and your own RPM from YouTube Studio. See daily, monthly and yearly output, and the views you need for an income goal.'
+		'Free YouTube money calculator. Enter your monthly views and Studio RPM to see daily, monthly and yearly earnings and the views you need for an income goal.'
 } as const;
 
 export const YOUTUBE_MONEY_EDITION = { updated: '2026-11-09' } as const;
@@ -45,36 +45,36 @@ export const NICHE_CPM_ROWS = [
 ] as const;
 
 export const YOUTUBE_MONEY_FAQ: FaqEntry[] = [
-	{
-		q: 'How much does YouTube pay per 1,000 views?',
-		a: "It depends on your RPM: what you earned per 1,000 views after YouTube's revenue share. Your own figure is in YouTube Studio under Analytics, Revenue, RPM. Enter it in the calculator and it multiplies that figure by your views."
-	},
-	{
-		q: 'What is the difference between CPM and RPM?',
-		a: "CPM is the cost per 1,000 ad impressions before YouTube's revenue share, so it is the advertiser side. RPM is what you earned per 1,000 views after the share. RPM is usually lower than CPM because it is calculated after the share and counts views that were not monetized."
-	},
-	{
-		q: 'How much does 1 million views pay?',
-		a: 'At your RPM, 1 million views pay your RPM multiplied by 1,000. The calculator shows that number, then the same views at half and double your RPM, so you can see how far a change in RPM moves the total.'
-	},
-	{
-		q: 'Do Shorts earn less than long-form?',
-		a: 'Enter each type\'s own RPM, because they are paid differently. Long-form creators keep 55% of net ad revenue. Shorts ad revenue goes into a monthly pool, and creators keep 45% of their allocated share. The pool is split by engaged views and music use, so the same view count can pay differently on each.'
-	},
-	{
-		q: 'Do all views earn money?',
-		a: 'No. Only monetized playbacks earn ad revenue. Your own RPM already counts views that were not monetized, so it needs no monetized share. The niche CPM estimate in the calculator asks for one.'
-	},
-	{
-		q: 'How many views do I need to make $1,000 a month?',
-		a: 'Enter $1,000 as your monthly income goal. The calculator divides the goal by your RPM and shows the views you need each month. With both content types entered, it keeps your current mix and shows the total views for that mix.'
-	},
-	{
-		q: 'Do I need the YouTube Partner Program to earn ad revenue?',
-		a: 'Yes. Ads on your videos are paid through the YouTube Partner Program. The section above lists the entry thresholds for new applicants, which change on 1 February 2027.'
-	},
-	{
-		q: 'Is this calculator accurate?',
-		a: 'It returns your RPM multiplied by your views, with the formula shown. It does not read your channel, your audience or your payouts, so a real month can differ from the estimate. Use the RPM from your own Studio numbers and treat the output as an estimate.'
-	}
+    {
+        q: 'How much does YouTube pay per 1,000 views?',
+        a: "Your RPM sets it. RPM is what you earned per 1,000 views after YouTube's revenue share, and YouTube Studio shows it under Analytics, Revenue, RPM. Enter it in the calculator and it multiplies that figure by your views."
+    },
+    {
+        q: 'What is the difference between CPM and RPM?',
+        a: "CPM is what an advertiser pays for 1,000 ad impressions, before YouTube's revenue share. RPM is what you earned per 1,000 views after the share. RPM usually runs lower than CPM because it comes after the share and counts views that earned no ad revenue."
+    },
+    {
+        q: 'How much does 1 million views pay?',
+        a: '1 million views pay your RPM × 1,000. At a $3.50 RPM, an example figure and not a benchmark, that is $3,500.00. The calculator shows this number for your RPM, then the same views at half and double your RPM.'
+    },
+    {
+        q: 'Do Shorts earn less than long-form?',
+        a: "Enter each content type's own RPM, because they are paid differently. Long-form creators keep 55% of net ad revenue. Shorts ad revenue goes into a monthly pool, and creators keep 45% of their allocated share. The pool is split by engaged views and music use, so the same view count can pay differently on each."
+    },
+    {
+        q: 'Do all views earn money?',
+        a: 'No. Only monetized playbacks earn ad revenue. Your own RPM already counts views that earned nothing, so it needs no monetized share. The niche CPM estimate in the calculator asks for one.'
+    },
+    {
+        q: 'How many views do I need to make $1,000 a month?',
+        a: 'Enter $1,000 as your monthly income goal. The calculator divides the goal by your RPM and shows the views you need each month. At a $3.50 RPM, for example, that is at least 285,715 views a month. With both content types entered, it keeps your current mix and shows the total views for that mix.'
+    },
+    {
+        q: 'Do I need the YouTube Partner Program to earn ad revenue?',
+        a: 'Yes. YouTube pays ad revenue on your videos through the YouTube Partner Program. The entry thresholds for new applicants change on 1 February 2027; the Partner Program section above lists them.'
+    },
+    {
+        q: 'Is this calculator accurate?',
+        a: 'It returns your RPM multiplied by your views, with the formula shown. It reads no channel, audience or payout data, so a real month can differ from the estimate. Use the RPM from your own Studio numbers.'
+    }
 ];
