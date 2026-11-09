@@ -55,3 +55,20 @@ test('the calculator fits a 390px phone without horizontal scrolling', async ({ 
 	const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 	expect(overflow).toBe(0);
 });
+
+test('on a desktop screen the result panel sits beside the form', async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 900 });
+	const form = await page.locator('form.calculator').boundingBox();
+	const results = await page.locator('.results').boundingBox();
+	if (!form || !results) throw new Error('form or results panel has no box');
+	expect(results.x).toBeGreaterThanOrEqual(form.x + form.width - 1);
+	expect(Math.abs(results.y - form.y)).toBeLessThan(8);
+});
+
+test('on a phone the result panel sits under the form', async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	const form = await page.locator('form.calculator').boundingBox();
+	const results = await page.locator('.results').boundingBox();
+	if (!form || !results) throw new Error('form or results panel has no box');
+	expect(results.y).toBeGreaterThanOrEqual(form.y + form.height - 1);
+});

@@ -208,3 +208,32 @@ test('the last-updated date sits once, above the calculator', () => {
 	expect((body.match(/Last updated/g) ?? []).length).toBe(1);
 	expect(body.indexOf('Last updated')).toBeLessThan(body.indexOf('id="calculator-heading"'));
 });
+
+test('the content type is three real radios in a segmented group', () => {
+	const { body } = rendered();
+	expect((body.match(/type="radio"/g) ?? []).length).toBe(3);
+	expect(body).toMatch(/class="choice segmented[^"]*"/);
+});
+
+test('the niche estimate is a collapsed details block, not an open section of the form', () => {
+	const { body } = rendered();
+	expect(body).toMatch(/<details class="niche[^"]*"(?![^>]*\bopen\b)[^>]*>/);
+	expect(body).toContain("Don't know your RPM? Estimate it from a niche CPM");
+});
+
+test('the form and the result share one workspace, sticky beside the form from 760px', () => {
+	const source = pageSource();
+	expect(rendered().body).toMatch(/class="workspace[^"]*"/);
+	expect(source).toMatch(/@media \(min-width: 760px\) \{[^}]*\.workspace \{ grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+	expect(source).toMatch(/\.workspace \.results \{ position: sticky/);
+});
+
+test('the monthly figure leads the figures and carries the accent bar', () => {
+	const source = pageSource();
+	expect(source).toMatch(/<div class="figure-main"><dt>Monthly<\/dt>/);
+	expect(source).toMatch(/\.figures \.figure-main \{[^}]*border-left: 4px solid var\(--accent\)/);
+});
+
+test('the submit button uses the accent colour', () => {
+	expect(pageSource()).toMatch(/\.submit \{[^}]*background: var\(--accent\)/);
+});

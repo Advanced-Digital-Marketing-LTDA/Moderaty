@@ -166,113 +166,117 @@
 
 <section class="calculator-block" aria-labelledby="calculator-heading">
 	<h2 id="calculator-heading">Calculate your month</h2>
-	<form class="calculator" onsubmit={calculateNow} novalidate>
-		<fieldset class="choice">
-			<legend>Content type</legend>
-			{#each CONTENT_TYPES as option (option.value)}
-				<label class="choice-option">
-					<input type="radio" name="content-type" value={option.value} bind:group={contentType} />
-					{option.label}
-				</label>
-			{/each}
-		</fieldset>
+	<div class="workspace">
+		<form class="calculator" onsubmit={calculateNow} novalidate>
+			<fieldset class="choice segmented">
+				<legend>Content type</legend>
+				{#each CONTENT_TYPES as option (option.value)}
+					<label class="choice-option">
+						<input type="radio" name="content-type" value={option.value} bind:group={contentType} />
+						<span>{option.label}</span>
+					</label>
+				{/each}
+			</fieldset>
 
-		<!-- Hidden, not removed: both rows stay in the DOM so their labels and values survive a switch of content type. -->
-		{@render streamFields('Long-form', longForm, contentType === 'shorts')}
-		{@render streamFields('Shorts', shorts, contentType === 'long-form')}
+			<!-- Hidden, not removed: both rows stay in the DOM so their labels and values survive a switch of content type. -->
+			{@render streamFields('Long-form', longForm, contentType === 'shorts')}
+			{@render streamFields('Shorts', shorts, contentType === 'long-form')}
 
-		<label for="goal">Monthly income goal (USD, optional)</label>
-		<input id="goal" type="text" inputmode="decimal" placeholder="1000" bind:value={goalUsd} aria-describedby="goal-hint" />
-		<p id="goal-hint" class="hint">Leave blank to skip. The calculator shows the views you need each month to reach the goal.</p>
+			<label for="goal">Monthly income goal (USD, optional)</label>
+			<input id="goal" type="text" inputmode="decimal" placeholder="1000" bind:value={goalUsd} aria-describedby="goal-hint" />
+			<p id="goal-hint" class="hint">Leave blank to skip. The calculator shows the views you need each month to reach the goal.</p>
 
-		<fieldset class="niche" hidden={contentType === 'shorts'}>
-				<legend>Niche CPM estimate (long-form only)</legend>
-				<p class="hint">{NICHE_CPM_NOTE} This turns a CPM range into an RPM range. It does not fill in your RPM.</p>
-				<label for="niche">Niche</label>
-				<select id="niche" bind:value={nicheName}>
-					<option value="">No niche</option>
-					{#each NICHE_CPM_ROWS as row (row.niche)}
-						<option value={row.niche}>{row.niche}: {formatUsd(row.cpmLow)} to {formatUsd(row.cpmHigh)} CPM</option>
-					{/each}
-				</select>
-				<label for="monetized">Share of views that are monetized (%)</label>
-				<input id="monetized" type="text" inputmode="decimal" bind:value={monetizedShare} aria-describedby="monetized-hint" />
-				<p id="monetized-hint" class="hint">Converted RPM = monetized share × CPM × 55%. This assumes each monetized playback shows one ad impression. Required when a niche is picked. There is no preset.</p>
-		</fieldset>
+			<details class="niche" hidden={contentType === 'shorts'}>
+				<summary>Don't know your RPM? Estimate it from a niche CPM (long-form only)</summary>
+				<div class="niche-body">
+					<p class="hint">{NICHE_CPM_NOTE} This turns a CPM range into an RPM range. It does not fill in your RPM.</p>
+					<label for="niche">Niche</label>
+					<select id="niche" bind:value={nicheName}>
+						<option value="">No niche</option>
+						{#each NICHE_CPM_ROWS as row (row.niche)}
+							<option value={row.niche}>{row.niche}: {formatUsd(row.cpmLow)} to {formatUsd(row.cpmHigh)} CPM</option>
+						{/each}
+					</select>
+					<label for="monetized">Share of views that are monetized (%)</label>
+					<input id="monetized" type="text" inputmode="decimal" bind:value={monetizedShare} aria-describedby="monetized-hint" />
+					<p id="monetized-hint" class="hint">Converted RPM = monetized share × CPM × 55%. This assumes each monetized playback shows one ad impression. Required when a niche is picked. There is no preset.</p>
+				</div>
+			</details>
 
-		<button type="submit" class="submit btn-press">Calculate earnings</button>
-	</form>
+			<button type="submit" class="submit btn-press">Calculate earnings</button>
+		</form>
 
-	<div class="results" tabindex="-1" bind:this={resultsEl}>
-		{#if run === null}
-			<EmptyState title="No estimate yet." hint="Enter your numbers and calculate. Nothing is estimated until you do." />
-		{:else if !run.ok}
-			<div class="error-box" role="alert">{run.error}</div>
-		{:else}
-			<div class="figures-block">
-				<dl class="figures">
-					<div><dt>Daily</dt><dd>{formatUsd(run.outputs.dailyUsd)}</dd></div>
-					<div><dt>Monthly</dt><dd>{formatUsd(run.outputs.monthlyUsd)}</dd></div>
-					<div><dt>Yearly</dt><dd>{formatUsd(run.outputs.yearlyUsd)}</dd></div>
-					<div>
-						<dt>{run.streams.length > 1 ? 'Per 1 million views, blended' : 'Per 1 million views'}</dt>
-						<dd>{formatUsd(run.outputs.perMillionUsd)}</dd>
-					</div>
-				</dl>
-
-				{#if rows.length > 1}
-					<TableScroll captionId="earnings-caption">
-						<table>
-							<caption id="earnings-caption">Earnings by content type</caption>
-							<thead>
-								<tr><th scope="col">Type</th><th scope="col">Views a month</th><th scope="col">RPM</th><th scope="col">Earned a month</th></tr>
-							</thead>
-							<tbody>
-								{#each rows as row (row.stream.label)}
-									<tr>
-										<th scope="row">{row.stream.label}</th>
-										<td>{formatCount(row.stream.views)}</td>
-										<td>{formatRpm(row.stream.rpm)}</td>
-										<td>{formatUsd(row.monthlyUsd)}</td>
-									</tr>
-								{/each}
-								<tr>
-									<th scope="row">Total</th>
-									<td>{formatCount(run.outputs.totalViews)}</td>
-									<td>{formatRpm(run.outputs.blendedRpm)} blended</td>
-									<td>{formatUsd(run.outputs.monthlyUsd)}</td>
-								</tr>
-							</tbody>
-						</table>
-					</TableScroll>
-				{/if}
-
-				<p>At half your RPM: {formatUsd(run.outputs.halfRpmMonthlyUsd)} a month. At double: {formatUsd(run.outputs.doubleRpmMonthlyUsd)} a month.</p>
-
-				{#if run.outputs.viewsNeeded !== null && run.goalUsd !== null}
-					<p>To earn {formatUsd(run.goalUsd)} a month at this mix, you need at least {formatCount(run.outputs.viewsNeeded)} views a month.</p>
-				{/if}
-
-				<h3>The formula with your numbers</h3>
-				<ul class="formula">
-					{#each rows as row (row.stream.label)}
-						<li>{row.stream.label}: {formatCount(row.stream.views)} views ÷ 1,000 × {formatRpm(row.stream.rpm)} = {formatUsd(row.monthlyUsd)} a month</li>
-					{/each}
-				</ul>
-				<p class="hint">Daily figures divide the month by 30.</p>
-			</div>
-		{/if}
-
-		{#if nicheResult}
-			{#if nicheResult.run.ok}
-				<p>
-					{nicheResult.niche} is {formatUsd(nicheResult.cpmLow)} to {formatUsd(nicheResult.cpmHigh)} CPM. With {nicheResult.monetized}% of views monetized,
-					the long-form RPM range is {formatRpm(nicheResult.run.rpmLow)} to {formatRpm(nicheResult.run.rpmHigh)}. Compare it with your Studio RPM; it does not replace it.
-				</p>
+		<div class="results" tabindex="-1" bind:this={resultsEl}>
+			{#if run === null}
+				<EmptyState title="No estimate yet." hint="Enter your numbers and calculate. Nothing is estimated until you do." />
+			{:else if !run.ok}
+				<div class="error-box" role="alert">{run.error}</div>
 			{:else}
-				<div class="error-box" role="alert">{nicheResult.run.error}</div>
+				<div class="figures-block">
+					<dl class="figures">
+						<div class="figure-main"><dt>Monthly</dt><dd>{formatUsd(run.outputs.monthlyUsd)}</dd></div>
+						<div><dt>Daily</dt><dd>{formatUsd(run.outputs.dailyUsd)}</dd></div>
+						<div><dt>Yearly</dt><dd>{formatUsd(run.outputs.yearlyUsd)}</dd></div>
+						<div>
+							<dt>{run.streams.length > 1 ? 'Per 1 million views, blended' : 'Per 1 million views'}</dt>
+							<dd>{formatUsd(run.outputs.perMillionUsd)}</dd>
+						</div>
+					</dl>
+
+					{#if rows.length > 1}
+						<TableScroll captionId="earnings-caption">
+							<table>
+								<caption id="earnings-caption">Earnings by content type</caption>
+								<thead>
+									<tr><th scope="col">Type</th><th scope="col">Views a month</th><th scope="col">RPM</th><th scope="col">Earned a month</th></tr>
+								</thead>
+								<tbody>
+									{#each rows as row (row.stream.label)}
+										<tr>
+											<th scope="row">{row.stream.label}</th>
+											<td>{formatCount(row.stream.views)}</td>
+											<td>{formatRpm(row.stream.rpm)}</td>
+											<td>{formatUsd(row.monthlyUsd)}</td>
+										</tr>
+									{/each}
+									<tr>
+										<th scope="row">Total</th>
+										<td>{formatCount(run.outputs.totalViews)}</td>
+										<td>{formatRpm(run.outputs.blendedRpm)} blended</td>
+										<td>{formatUsd(run.outputs.monthlyUsd)}</td>
+									</tr>
+								</tbody>
+							</table>
+						</TableScroll>
+					{/if}
+
+					<p>At half your RPM: {formatUsd(run.outputs.halfRpmMonthlyUsd)} a month. At double: {formatUsd(run.outputs.doubleRpmMonthlyUsd)} a month.</p>
+
+					{#if run.outputs.viewsNeeded !== null && run.goalUsd !== null}
+						<p>To earn {formatUsd(run.goalUsd)} a month at this mix, you need at least {formatCount(run.outputs.viewsNeeded)} views a month.</p>
+					{/if}
+
+					<h3>The formula with your numbers</h3>
+					<ul class="formula">
+						{#each rows as row (row.stream.label)}
+							<li>{row.stream.label}: {formatCount(row.stream.views)} views ÷ 1,000 × {formatRpm(row.stream.rpm)} = {formatUsd(row.monthlyUsd)} a month</li>
+						{/each}
+					</ul>
+					<p class="hint">Daily figures divide the month by 30.</p>
+				</div>
 			{/if}
-		{/if}
+
+			{#if nicheResult}
+				{#if nicheResult.run.ok}
+					<p>
+						{nicheResult.niche} is {formatUsd(nicheResult.cpmLow)} to {formatUsd(nicheResult.cpmHigh)} CPM. With {nicheResult.monetized}% of views monetized,
+						the long-form RPM range is {formatRpm(nicheResult.run.rpmLow)} to {formatRpm(nicheResult.run.rpmHigh)}. Compare it with your Studio RPM; it does not replace it.
+					</p>
+				{:else}
+					<div class="error-box" role="alert">{nicheResult.run.error}</div>
+				{/if}
+			{/if}
+		</div>
 	</div>
 </section>
 
@@ -362,37 +366,69 @@
 
 <style>
 	.calculator-block { margin: 32px 0 48px; }
-	.calculator { display: grid; gap: 16px; border: 1px solid var(--line-strong); padding: 24px; }
+	.workspace { display: grid; gap: 24px; align-items: start; }
+	@media (min-width: 760px) {
+		.workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+		.workspace .results { position: sticky; top: 96px; }
+	}
+	.calculator { display: grid; gap: 16px; border: 1px solid var(--line-strong); padding: 24px; min-width: 0; }
 	.calculator input[type='text'],
 	.calculator select { width: 100%; font-size: 16px; border: 1px solid var(--text-2); }
 	.calculator fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
-	.calculator fieldset[hidden] { display: none; }
+	.calculator fieldset[hidden],
+	.calculator details[hidden] { display: none; }
 	.calculator legend { font-weight: 600; margin-bottom: 4px; }
-	.calculator .choice { display: flex; flex-wrap: wrap; gap: 8px 20px; }
-	.choice-option { display: inline-flex; gap: 8px; align-items: center; }
-	.presets { display: flex; flex-wrap: wrap; gap: 8px; }
-	.preset { min-height: 44px; min-width: 44px; padding: 0 14px; background: var(--surface); color: var(--text); border: 1px solid var(--text-2); font: inherit; }
+	.calculator .hint { margin: 0; }
+	.calculator .segmented { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.choice-option {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 44px;
+		padding: 0 8px;
+		border: 1px solid var(--text-2);
+		font-size: 16px;
+		line-height: 1.2;
+		text-align: center;
+		cursor: pointer;
+	}
+	.choice-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+	.choice-option:has(input:checked) { background: var(--paper); color: var(--bg); font-weight: 600; }
+	.choice-option:has(input:focus-visible) { outline: 2px solid var(--paper); outline-offset: 3px; }
+	.presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+	.preset { min-height: 44px; min-width: 0; padding: 0; background: var(--surface); color: var(--text); border: 1px solid var(--text-2); font: inherit; }
 	.hint { color: var(--text-2); font-size: 14px; margin: 0; line-height: 1.6; }
-	.submit { justify-self: start; min-height: 44px; padding: 0 20px; background: var(--paper); color: var(--bg); border: 0; font: inherit; font-weight: 600; }
+	.niche { border: 1px solid var(--line-strong); }
+	.niche summary { display: flex; align-items: center; min-height: 44px; padding: 8px 16px; cursor: pointer; font-size: 16px; font-weight: 600; line-height: 1.4; list-style: none; }
+	.niche summary::-webkit-details-marker { display: none; }
+	.niche summary::after { content: '+'; margin-left: auto; padding-left: 12px; }
+	.niche[open] summary::after { content: '\2212'; }
+	.niche-body { display: grid; gap: 8px; padding: 0 16px 16px; }
+	.submit { min-height: 48px; padding: 0 20px; background: var(--accent); color: var(--bg); border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+	.submit:hover { background: var(--accent-press); }
 	.preset:focus-visible,
 	.submit:focus-visible,
 	.calculator input:focus-visible,
 	.calculator select:focus-visible,
-	.choice-option input:focus-visible,
 	summary:focus-visible {
 		outline: 2px solid var(--paper);
 		outline-offset: 3px;
 	}
-	.results { margin-top: 24px; display: grid; gap: 16px; }
+	.results { display: grid; gap: 16px; padding: 24px; border: 1px solid var(--line-strong); background: var(--surface); scroll-margin-top: 96px; }
 	/* Grid items default to min-width: auto, so the wide earnings table would push the page sideways instead of scrolling inside its box. */
 	.results > *,
 	.figures-block { min-width: 0; }
 	.figures-block { display: grid; gap: 16px; }
-	.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin: 0; }
+	.workspace .results p { margin: 0; font-size: 16px; line-height: 1.6; }
+	.workspace .results h3 { margin: 0; font-size: 18px; line-height: 1.3; }
+	.figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; }
 	.figures div { border-top: 1px solid var(--line-strong); padding-top: 12px; }
+	.figures .figure-main { grid-column: 1 / -1; border-top: 0; border-left: 4px solid var(--accent); padding: 0 0 0 16px; }
 	.figures dt { color: var(--text-2); font-size: 14px; }
 	.figures dd { margin: 4px 0 0; font-size: clamp(18px, 5vw, 24px); overflow-wrap: anywhere; }
-	.formula { padding-left: 20px; }
+	.figures .figure-main dd { font-size: clamp(40px, 9vw, 56px); line-height: 1.1; }
+	.formula { padding-left: 20px; margin: 0; }
 	.faq-item { border-top: 1px solid var(--line-strong); padding: 16px 0; }
 	.faq-item summary { cursor: pointer; font-weight: 600; list-style: none; }
 	.faq-item summary::-webkit-details-marker { display: none; }
