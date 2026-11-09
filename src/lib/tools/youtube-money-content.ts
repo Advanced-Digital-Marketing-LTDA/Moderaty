@@ -29,7 +29,7 @@ export const YOUTUBE_MONEY_SOURCES = {
 		label: 'YouTube Blog: New opportunities to earn and changes to the YouTube Partner Program',
 		href: 'https://blog.youtube/news-and-events/youtube-partner-program-updates-2027-new-opportunities-earn/'
 	},
-	cpmBenchmarks: { label: 'OutlierKit: YouTube RPM benchmarks', href: 'https://outlierkit.com/resources/youtube-rpm-benchmarks/' }
+	cpmBenchmarks: { label: 'OutlierKit: YouTube RPM benchmarks (figures are CPM)', href: 'https://outlierkit.com/resources/youtube-rpm-benchmarks/' }
 } as const;
 
 // CPM is an advertiser-side figure (cost per 1,000 ad impressions), not a creator RPM. Keep the label on every use.
@@ -59,11 +59,11 @@ export const YOUTUBE_MONEY_FAQ: FaqEntry[] = [
 	},
 	{
 		q: 'Do Shorts earn less than long-form?',
-		a: 'Enter each type\'s own RPM, because they are paid differently. Long-form creators keep 55% of net ad revenue. Shorts ad revenue goes into a monthly pool, and creators keep 45% of their allocated share. The pool is split by engaged views, so the same view count can pay differently on each.'
+		a: 'Enter each type\'s own RPM, because they are paid differently. Long-form creators keep 55% of net ad revenue. Shorts ad revenue goes into a monthly pool, and creators keep 45% of their allocated share. The pool is split by engaged views and music use, so the same view count can pay differently on each.'
 	},
 	{
 		q: 'Do all views earn money?',
-		a: 'No. Only monetized playbacks earn ad revenue. Your own RPM already counts views that were not monetized, so the calculator does not ask for a monetized share. That share is only needed for the niche CPM estimate below.'
+		a: 'No. Only monetized playbacks earn ad revenue. Your own RPM already counts views that were not monetized, so it needs no monetized share. The niche CPM estimate in the calculator asks for one.'
 	},
 	{
 		q: 'How many views do I need to make $1,000 a month?',

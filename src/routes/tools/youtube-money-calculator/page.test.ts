@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
 import Page from './+page.svelte';
-import { NICHE_CPM_NOTE, YOUTUBE_MONEY_CALCULATOR, YOUTUBE_MONEY_EDITION, YOUTUBE_MONEY_FAQ, NICHE_CPM_ROWS } from '$lib/tools/youtube-money-content';
+import { NICHE_CPM_NOTE, YOUTUBE_MONEY_CALCULATOR, YOUTUBE_MONEY_EDITION, YOUTUBE_MONEY_FAQ, YOUTUBE_MONEY_SOURCES, NICHE_CPM_ROWS } from '$lib/tools/youtube-money-content';
 import { PUBLIC_BLOG_ROUTE_IDS, llmsTxt, sitemapXml } from '$lib/server/siteIndex';
 
 vi.mock('$env/dynamic/private', () => ({ env: { APP_URL: 'https://preview.example' } }));
@@ -27,7 +27,7 @@ test('the JSON-LD graph carries a WebApplication and an FAQPage whose questions 
 	const graph = jsonLdBlocks(head).find((block) => (block as { '@graph'?: unknown[] })['@graph']) as { '@graph': Record<string, unknown>[] };
 	const app = graph['@graph'].find((node) => node['@type'] === 'WebApplication');
 	const faq = graph['@graph'].find((node) => node['@type'] === 'FAQPage') as { mainEntity: { name: string }[] };
-	expect(app).toBeDefined();
+	expect(app).toMatchObject({ name: 'YouTube money calculator', url: articleUrl, applicationCategory: 'FinanceApplication' });
 	expect(faq.mainEntity.map((question) => question.name)).toEqual(YOUTUBE_MONEY_FAQ.map((entry) => entry.q));
 	for (const entry of YOUTUBE_MONEY_FAQ) expect(body).toContain(`>${entry.q}</summary>`);
 });
@@ -100,4 +100,57 @@ test('the page source makes no network calls and has no placeholder copy', () =>
 	const source = readFileSync(new URL('./+page.svelte', import.meta.url), 'utf8');
 	expect(source).not.toMatch(/\bfetch\(/);
 	expect(source).not.toMatch(/lorem ipsum/i);
+});
+
+test('the lead says only a required number triggers a message, since the goal is optional', () => {
+	expect(rendered().body.replace(/\s+/g, ' ')).toContain('if a required number is missing or wrong');
+});
+
+test('the niche conversion states its one-impression-per-playback assumption', () => {
+	expect(rendered().body.replace(/\s+/g, ' ')).toContain('This assumes each monetized playback shows one ad impression.');
+});
+
+test('source links name their page instead of the bare word Source', () => {
+	const { body } = rendered();
+	expect(body).not.toContain('>Source</a>');
+	expect(body).toContain(`>${YOUTUBE_MONEY_SOURCES.partnerEarnings.label}</a>`);
+});
+
+// Source guards for styling, which server-rendered tests cannot measure. Browser checks cover the rendered result.
+const pageSource = () => readFileSync(new URL('./+page.svelte', import.meta.url), 'utf8');
+
+test('calculator inputs are 16px, so iOS Safari does not zoom on focus', () => {
+	expect(pageSource()).toMatch(/\.calculator input\[type='text'\],\s*\.calculator select \{[^}]*font-size: 16px/);
+});
+
+test('field and preset borders use a token that reaches 3:1 against the page background', () => {
+	const source = pageSource();
+	expect(source).toMatch(/\.calculator input\[type='text'\],\s*\.calculator select \{[^}]*border: 1px solid var\(--text-2\)/);
+	expect(source).toMatch(/\.preset \{[^}]*border: 1px solid var\(--text-2\)/);
+});
+
+test('preset and submit buttons inherit the page font', () => {
+	const source = pageSource();
+	expect(source).toMatch(/\.preset \{[^}]*font: inherit/);
+	expect(source).toMatch(/\.submit \{[^}]*font: inherit/);
+});
+
+test('the yearly figure wraps inside its box instead of breaking mid-number', () => {
+	expect(pageSource()).toMatch(/\.figures dd \{[^}]*overflow-wrap: anywhere/);
+});
+
+test('FAQ answer paragraphs beat the editorial paragraph margin', () => {
+	expect(pageSource()).toMatch(/details\.faq-item > p \{/);
+});
+
+test('FAQ questions show an expand marker', () => {
+	const source = pageSource();
+	expect(source).toMatch(/\.faq-item summary::after/);
+	expect(source).toMatch(/\.faq-item\[open\] summary::after/);
+});
+
+test('results are a focus target and not a live region that re-reads the whole block', () => {
+	const { body } = rendered();
+	expect(body).toMatch(/class="results[^"]*" tabindex="-1"/);
+	expect(body).not.toContain('aria-live="polite"');
 });

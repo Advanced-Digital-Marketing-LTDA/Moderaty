@@ -131,7 +131,7 @@
 <h1>Views are free. Here's what they pay.</h1>
 <p>
 	Enter your monthly views and your RPM from YouTube Studio. The calculator shows what the month adds up to, plus the views
-	you need for an income goal. Nothing is guessed: if a number is missing or wrong, you get a message instead of a result.
+	you need for an income goal. Nothing is guessed: if a required number is missing or wrong, you get a message instead of a result.
 </p>
 
 {#snippet presetButtons(title: string, onPick: (views: number) => void)}
@@ -190,7 +190,7 @@
 				</select>
 				<label for="monetized">Share of views that are monetized (%)</label>
 				<input id="monetized" type="text" inputmode="decimal" bind:value={monetizedShare} aria-describedby="monetized-hint" />
-				<p id="monetized-hint" class="hint">Converted RPM = monetized share × CPM × 55%. Required when a niche is picked. There is no preset.</p>
+				<p id="monetized-hint" class="hint">Converted RPM = monetized share × CPM × 55%. This assumes each monetized playback shows one ad impression. Required when a niche is picked. There is no preset.</p>
 		</fieldset>
 
 		<button type="submit" class="submit btn-press">Calculate earnings</button>
@@ -287,7 +287,7 @@
 </p>
 
 <h2 id="revenue-share" tabindex="-1">Who keeps what</h2>
-<p>YouTube Help sets these shares. <a href={YOUTUBE_MONEY_SOURCES.partnerEarnings.href} target="_blank" rel="noopener">Source</a>.</p>
+<p>YouTube Help sets these shares. <a href={YOUTUBE_MONEY_SOURCES.partnerEarnings.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.partnerEarnings.label}</a>.</p>
 <ul>
 	<li>Long-form: you keep 55% of net ad revenue on Watch Page ads.</li>
 	<li>Shorts: you keep 45% of the revenue allocated to your Shorts.</li>
@@ -358,16 +358,16 @@
 	.calculator-block { margin: 32px 0 48px; }
 	.calculator { display: grid; gap: 16px; border: 1px solid var(--line-strong); padding: 24px; }
 	.calculator input[type='text'],
-	.calculator select { width: 100%; }
+	.calculator select { width: 100%; font-size: 16px; border: 1px solid var(--text-2); }
 	.calculator fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
 	.calculator fieldset[hidden] { display: none; }
 	.calculator legend { font-weight: 600; margin-bottom: 4px; }
 	.calculator .choice { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 	.choice-option { display: inline-flex; gap: 8px; align-items: center; }
 	.presets { display: flex; flex-wrap: wrap; gap: 8px; }
-	.preset { min-height: 44px; min-width: 44px; padding: 0 14px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); }
+	.preset { min-height: 44px; min-width: 44px; padding: 0 14px; background: var(--surface); color: var(--text); border: 1px solid var(--text-2); font: inherit; }
 	.hint { color: var(--text-2); font-size: 14px; margin: 0; line-height: 1.6; }
-	.submit { justify-self: start; min-height: 44px; padding: 0 20px; background: var(--paper); color: var(--bg); border: 0; font-weight: 600; }
+	.submit { justify-self: start; min-height: 44px; padding: 0 20px; background: var(--paper); color: var(--bg); border: 0; font: inherit; font-weight: 600; }
 	.preset:focus-visible,
 	.submit:focus-visible,
 	.calculator input:focus-visible,
@@ -385,10 +385,13 @@
 	.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin: 0; }
 	.figures div { border-top: 1px solid var(--line-strong); padding-top: 12px; }
 	.figures dt { color: var(--text-2); font-size: 14px; }
-	.figures dd { margin: 4px 0 0; font-size: 24px; }
+	.figures dd { margin: 4px 0 0; font-size: clamp(18px, 5vw, 24px); overflow-wrap: anywhere; }
 	.formula { padding-left: 20px; }
 	.faq-item { border-top: 1px solid var(--line-strong); padding: 16px 0; }
-	.faq-item summary { cursor: pointer; font-weight: 600; }
-	.faq-item p { margin: 12px 0 0; }
+	.faq-item summary { cursor: pointer; font-weight: 600; list-style: none; }
+	.faq-item summary::-webkit-details-marker { display: none; }
+	.faq-item summary::after { content: '+'; float: right; }
+	.faq-item[open] summary::after { content: '\2212'; }
+	details.faq-item > p { margin: 12px 0 0; }
 	.updated { color: var(--text-2); font-size: 14px; }
 </style>
