@@ -4,7 +4,7 @@
 	import ArticleContents from '$lib/components/blogs/ArticleContents.svelte';
 	import TableScroll from '$lib/components/blogs/TableScroll.svelte';
 	import { calculate, guardUnexpected, runCalculator, runNiche, type CalcRun, type NicheRun } from '$lib/tools/youtube-money';
-	import { formatRpm } from '$lib/tools/youtube-money-format';
+	import { formatCount, formatRpm, formatUsd } from '$lib/tools/youtube-money-format';
 	import {
 		NICHE_CPM_NOTE,
 		NICHE_CPM_ROWS,
@@ -61,10 +61,6 @@
 		{ label: '5M', views: 5_000_000 }
 	];
 
-	const usdFormat = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-	// Anything between zero and half a cent would print as $0.00, which reads as no earnings at all.
-	const usd = (value: number) => (value > 0 && value < 0.005 ? 'less than $0.01' : usdFormat.format(value));
-	const count = (value: number) => new Intl.NumberFormat('en-US').format(value);
 	const updatedLabel = new Date(`${YOUTUBE_MONEY_EDITION.updated}T00:00:00Z`).toLocaleDateString('en-GB', {
 		day: 'numeric',
 		month: 'long',
@@ -196,7 +192,7 @@
 				<select id="niche" bind:value={nicheName}>
 					<option value="">No niche</option>
 					{#each NICHE_CPM_ROWS as row (row.niche)}
-						<option value={row.niche}>{row.niche}: {usd(row.cpmLow)} to {usd(row.cpmHigh)} CPM</option>
+						<option value={row.niche}>{row.niche}: {formatUsd(row.cpmLow)} to {formatUsd(row.cpmHigh)} CPM</option>
 					{/each}
 				</select>
 				<label for="monetized">Share of views that are monetized (%)</label>
@@ -215,12 +211,12 @@
 		{:else}
 			<div class="figures-block">
 				<dl class="figures">
-					<div><dt>Daily</dt><dd>{usd(run.outputs.dailyUsd)}</dd></div>
-					<div><dt>Monthly</dt><dd>{usd(run.outputs.monthlyUsd)}</dd></div>
-					<div><dt>Yearly</dt><dd>{usd(run.outputs.yearlyUsd)}</dd></div>
+					<div><dt>Daily</dt><dd>{formatUsd(run.outputs.dailyUsd)}</dd></div>
+					<div><dt>Monthly</dt><dd>{formatUsd(run.outputs.monthlyUsd)}</dd></div>
+					<div><dt>Yearly</dt><dd>{formatUsd(run.outputs.yearlyUsd)}</dd></div>
 					<div>
 						<dt>{run.streams.length > 1 ? 'Per 1 million views, blended' : 'Per 1 million views'}</dt>
-						<dd>{usd(run.outputs.perMillionUsd)}</dd>
+						<dd>{formatUsd(run.outputs.perMillionUsd)}</dd>
 					</div>
 				</dl>
 
@@ -235,32 +231,32 @@
 								{#each rows as row (row.stream.label)}
 									<tr>
 										<th scope="row">{row.stream.label}</th>
-										<td>{count(row.stream.views)}</td>
+										<td>{formatCount(row.stream.views)}</td>
 										<td>{formatRpm(row.stream.rpm)}</td>
-										<td>{usd(row.monthlyUsd)}</td>
+										<td>{formatUsd(row.monthlyUsd)}</td>
 									</tr>
 								{/each}
 								<tr>
 									<th scope="row">Total</th>
-									<td>{count(run.outputs.totalViews)}</td>
+									<td>{formatCount(run.outputs.totalViews)}</td>
 									<td>{formatRpm(run.outputs.blendedRpm)} blended</td>
-									<td>{usd(run.outputs.monthlyUsd)}</td>
+									<td>{formatUsd(run.outputs.monthlyUsd)}</td>
 								</tr>
 							</tbody>
 						</table>
 					</TableScroll>
 				{/if}
 
-				<p>At half your RPM: {usd(run.outputs.halfRpmMonthlyUsd)} a month. At double: {usd(run.outputs.doubleRpmMonthlyUsd)} a month.</p>
+				<p>At half your RPM: {formatUsd(run.outputs.halfRpmMonthlyUsd)} a month. At double: {formatUsd(run.outputs.doubleRpmMonthlyUsd)} a month.</p>
 
 				{#if run.outputs.viewsNeeded !== null && run.goalUsd !== null}
-					<p>To earn {usd(run.goalUsd)} a month at this mix, you need at least {count(run.outputs.viewsNeeded)} views a month.</p>
+					<p>To earn {formatUsd(run.goalUsd)} a month at this mix, you need at least {formatCount(run.outputs.viewsNeeded)} views a month.</p>
 				{/if}
 
 				<h3>The formula with your numbers</h3>
 				<ul class="formula">
 					{#each rows as row (row.stream.label)}
-						<li>{row.stream.label}: {count(row.stream.views)} views ÷ 1,000 × {formatRpm(row.stream.rpm)} = {usd(row.monthlyUsd)} a month</li>
+						<li>{row.stream.label}: {formatCount(row.stream.views)} views ÷ 1,000 × {formatRpm(row.stream.rpm)} = {formatUsd(row.monthlyUsd)} a month</li>
 					{/each}
 				</ul>
 				<p class="hint">Daily figures divide the month by 30.</p>
@@ -270,7 +266,7 @@
 		{#if nicheResult}
 			{#if nicheResult.run.ok}
 				<p>
-					{nicheResult.niche} is {usd(nicheResult.cpmLow)} to {usd(nicheResult.cpmHigh)} CPM. With {nicheResult.monetized}% of views monetized,
+					{nicheResult.niche} is {formatUsd(nicheResult.cpmLow)} to {formatUsd(nicheResult.cpmHigh)} CPM. With {nicheResult.monetized}% of views monetized,
 					the long-form RPM range is {formatRpm(nicheResult.run.rpmLow)} to {formatRpm(nicheResult.run.rpmHigh)}. Compare it with your Studio RPM; it does not replace it.
 				</p>
 			{:else}
@@ -326,7 +322,7 @@
 		</thead>
 		<tbody>
 			{#each NICHE_CPM_ROWS as row (row.niche)}
-				<tr><th scope="row">{row.niche}</th><td>{usd(row.cpmLow)} to {usd(row.cpmHigh)}</td></tr>
+				<tr><th scope="row">{row.niche}</th><td>{formatUsd(row.cpmLow)} to {formatUsd(row.cpmHigh)}</td></tr>
 			{/each}
 		</tbody>
 	</table>

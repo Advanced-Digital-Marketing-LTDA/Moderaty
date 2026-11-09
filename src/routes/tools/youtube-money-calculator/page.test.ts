@@ -157,12 +157,42 @@ test('results are a focus target and not a live region that re-reads the whole b
 
 test('RPM figures use the RPM formatter, so typed decimals are shown rather than rounded to cents', () => {
 	const source = pageSource();
-	expect(source).not.toMatch(/usd\((row\.stream\.rpm|run\.outputs\.blendedRpm|nicheResult\.run\.rpm(Low|High))\)/);
+	expect(source).not.toMatch(/formatUsd\((row\.stream\.rpm|run\.outputs\.blendedRpm|nicheResult\.run\.rpm(Low|High))\)/);
 	expect(source).toMatch(/formatRpm\(row\.stream\.rpm\)/);
 });
 
 test('the submit handler reports unexpected failures and shows a generic message', () => {
 	const source = pageSource();
-	expect(source).toContain('guardUnexpected(');
+	// Anchored to a live statement at line start, so commented-out code cannot satisfy it.
+	expect(source).toMatch(/^\s*run = guardUnexpected\(/m);
 	expect(source).toContain("console.error('YouTube money calculator: submit failed'");
+});
+
+test('every label points at a control that exists, so the label names the field', () => {
+	const { body } = rendered();
+	const targets = [...body.matchAll(/<label[^>]* for="([^"]+)"/g)].map((match) => match[1]);
+	expect(targets.length).toBeGreaterThan(5);
+	for (const id of targets) expect(body, id).toContain(`id="${id}"`);
+});
+
+test('the revenue text colour reaches 3:1 against the page background, from the tokens in app.css', () => {
+	const css = readFileSync(new URL('../../../app.css', import.meta.url), 'utf8');
+	const token = (name: string) => {
+		const match = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));
+		if (!match) throw new Error(`token --${name} not found in app.css`);
+		return match[1];
+	};
+	const luminance = (hex: string) => {
+		const channels = [1, 3, 5].map((index) => {
+			const value = parseInt(hex.slice(index, index + 2), 16) / 255;
+			return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+		});
+		return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+	};
+	const [light, dark] = [luminance(token('text-2')), luminance(token('bg'))].sort((a, b) => b - a);
+	expect((light + 0.05) / (dark + 0.05)).toBeGreaterThanOrEqual(3);
+});
+
+test('the FAQ paragraph rule sets the answer spacing', () => {
+	expect(pageSource()).toMatch(/details\.faq-item > p \{[^}]*margin: 12px 0 0/);
 });

@@ -156,3 +156,32 @@ test('a computation that succeeds passes through unchanged and is not reported',
 	expect(result).toEqual({ ok: true, value: 42 });
 	expect(reported).toHaveLength(0);
 });
+
+test('a goal that lands on a whole view is not pushed up by float noise', () => {
+	expect(calculate([{ label: 'Long-form', views: 250_000, rpm: 0.07 }], 7).viewsNeeded).toBe(100_000);
+});
+
+test('a goal must be greater than zero: zero and negative goals are refused, not clamped to one view', () => {
+	const stream = [{ label: 'Long-form' as const, views: 250_000, rpm: 3.5 }];
+	expect(() => calculate(stream, 0)).toThrow(CalcInputError);
+	expect(() => calculate(stream, -5)).toThrow(CalcInputError);
+});
+
+test('views needed at exactly the view limit is accepted, one above it is refused', () => {
+	const stream = [{ label: 'Long-form' as const, views: 1000, rpm: 1 }];
+	expect(calculate(stream, 1_000_000).viewsNeeded).toBe(MAX_MONTHLY_VIEWS);
+	expect(() => calculate(stream, 1_000_000.001)).toThrow(CalcInputError);
+});
+
+test('the niche share accepts exactly 100 and refuses anything above it', () => {
+	expect(runNiche('100', 15, 25)).toEqual({ ok: true, rpmLow: expect.closeTo(8.25, 10), rpmHigh: expect.closeTo(13.75, 10) });
+	expect(runNiche('100.01', 15, 25)).toEqual({ ok: false, error: expect.stringContaining('100 or less') });
+});
+
+test('the calculator applies the views and RPM limits to every content type it reads', () => {
+	const base = { contentType: 'both' as const, longFormViews: '1000', longFormRpm: '2', shortsViews: '1000', shortsRpm: '0.1', goalUsd: '' };
+	expect(runCalculator({ ...base, longFormViews: '1000.5' })).toEqual({ ok: false, error: expect.stringContaining('whole number') });
+	expect(runCalculator({ ...base, longFormRpm: '1000.5' })).toEqual({ ok: false, error: expect.stringContaining('or less') });
+	expect(runCalculator({ ...base, shortsRpm: '1001' })).toEqual({ ok: false, error: expect.stringContaining('Shorts RPM') });
+	expect(runCalculator({ ...base, shortsRpm: '0.1234567' })).toEqual({ ok: false, error: expect.stringContaining('at most 6 decimal places') });
+});

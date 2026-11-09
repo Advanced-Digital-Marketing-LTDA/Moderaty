@@ -9,6 +9,8 @@ export const MAX_MONTHLY_USD = 1_000_000_000;
 export const DAYS_PER_MONTH = 30;
 // YouTube Help (support.google.com/youtube/answer/72902): creators keep 55% of net ad revenue on long-form.
 export const LONG_FORM_REVENUE_SHARE = 0.55;
+// The most decimal places an RPM may have; the page shows RPM with exactly these, so nothing is rounded on display.
+export const RPM_DECIMALS = 6;
 
 export class CalcInputError extends Error {}
 
@@ -45,7 +47,7 @@ export type Outputs = {
 
 // Whole views needed. The relative tolerance absorbs float noise on an exact answer without adding a view,
 // and a positive goal always needs at least one view.
-const wholeViews = (value: number) => Math.max(1, Math.ceil(value - value * 1e-14));
+const wholeViews = (value: number) => Math.ceil(value - value * 1e-14);
 
 const earnedPerStream = (streams: StreamInput[], factor: number) =>
 	streams.reduce((sum, stream) => sum + (stream.views / 1000) * stream.rpm * factor, 0);
@@ -54,6 +56,7 @@ export function calculate(streams: StreamInput[], goalUsd: number | null): Outpu
 	if (streams.length === 0) throw new CalcInputError('Enter views and RPM for at least one content type.');
 	const monthlyUsd = earnedPerStream(streams, 1);
 	const totalViews = streams.reduce((sum, stream) => sum + stream.views, 0);
+	if (goalUsd !== null && !(goalUsd > 0)) throw new CalcInputError('The monthly income goal must be greater than zero.');
 	const blendedRpm = (monthlyUsd / totalViews) * 1000;
 	const viewsNeeded = goalUsd === null ? null : wholeViews((goalUsd / blendedRpm) * 1000);
 	// Written so that NaN and Infinity also fail: an answer this large is not a number the page may show.
@@ -94,7 +97,7 @@ function readStream(label: StreamInput['label'], views: string, rpm: string): St
 	return {
 		label,
 		views: parseRequiredNumber(views, `${label} monthly views`, { max: MAX_MONTHLY_VIEWS, whole: true }),
-		rpm: parseRequiredNumber(rpm, `${label} RPM`, { max: MAX_RPM_USD, decimals: 6 })
+		rpm: parseRequiredNumber(rpm, `${label} RPM`, { max: MAX_RPM_USD, decimals: RPM_DECIMALS })
 	};
 }
 
