@@ -10,12 +10,12 @@ export const YOUTUBE_MONEY_CALCULATOR = {
 export const YOUTUBE_MONEY_EDITION = { updated: '2026-11-09' } as const;
 
 export const YOUTUBE_MONEY_SECTIONS = [
-	{ id: 'how-it-works', title: 'How the calculator works' },
-	{ id: 'cpm-vs-rpm', title: 'CPM vs RPM' },
-	{ id: 'revenue-share', title: 'Who keeps what' },
-	{ id: 'shorts-revenue', title: 'How Shorts revenue is calculated' },
-	{ id: 'niche-cpm', title: 'Niche CPM ranges' },
-	{ id: 'partner-program', title: 'Who can earn: the YouTube Partner Program' },
+	{ id: 'how-it-works', title: 'How is YouTube revenue calculated?' },
+	{ id: 'cpm-vs-rpm', title: 'What is the difference between CPM and RPM?' },
+	{ id: 'revenue-share', title: 'How much of the revenue do you keep?' },
+	{ id: 'shorts-revenue', title: 'How is Shorts revenue calculated?' },
+	{ id: 'niche-cpm', title: 'What are typical CPM ranges by niche?' },
+	{ id: 'partner-program', title: 'Who can monetize: YouTube Partner Program requirements' },
 	{ id: 'faq', title: 'Frequently asked questions' },
 	{ id: 'comments', title: 'What is in the comments under those views' }
 ] as const;

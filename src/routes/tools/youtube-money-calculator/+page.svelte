@@ -137,7 +137,7 @@
 
 <h1>YouTube Money Calculator</h1>
 <p>
-	Enter your monthly views and your RPM from YouTube Studio. Nothing is guessed: if a required number is missing or wrong, you get a message instead of a result.
+	Enter your monthly views and your RPM from YouTube Studio, and the YouTube Money Calculator returns daily, monthly and yearly earnings plus the views you need for an income goal. If a required number is missing or wrong, you get a message instead of a result.
 </p>
 <p class="updated">Last updated <time datetime={YOUTUBE_MONEY_EDITION.updated}>{updatedLabel}</time>.</p>
 
@@ -282,23 +282,20 @@
 
 <ArticleContents headings={YOUTUBE_MONEY_SECTIONS} />
 
-<h2 id="how-it-works" tabindex="-1">How the calculator works</h2>
+<h2 id="how-it-works" tabindex="-1">How is YouTube revenue calculated?</h2>
 <p>
-	Your estimate is views ÷ 1,000 × RPM. RPM is what YouTube Studio reports: what you earned per 1,000 views after YouTube's
-	revenue share. For long-form, RPM counts all views. For Shorts, it counts engaged views. The calculator uses one RPM per content
-	type and assumes a 30-day month for the daily figure. It does not look up any figure for you.
+	Estimated revenue is monthly views ÷ 1,000 × RPM. RPM, or revenue per mille, is the figure YouTube Studio reports: what you earned per 1,000 views after YouTube's revenue share. For long-form videos, RPM counts all views. For Shorts, it counts engaged views. The calculator uses one RPM per content type, treats a month as 30 days for the daily figure, and looks up nothing for you.
 	<a href={YOUTUBE_MONEY_SOURCES.adRevenueAnalytics.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.adRevenueAnalytics.label}</a>.
 </p>
 
-<h2 id="cpm-vs-rpm" tabindex="-1">CPM vs RPM</h2>
+<h2 id="cpm-vs-rpm" tabindex="-1">What is the difference between CPM and RPM?</h2>
 <p>
-	CPM is the cost per 1,000 ad impressions before YouTube's revenue share. It is the advertiser's number. RPM is what you earned per
-	1,000 views after the share. RPM is usually lower than CPM because it is calculated after the share and includes views that were
-	not monetized. Source: <a href={YOUTUBE_MONEY_SOURCES.adRevenueAnalytics.href} target="_blank" rel="noopener">YouTube Help, Understand ad revenue analytics</a>.
+	CPM is what an advertiser pays for 1,000 ad impressions, before YouTube's revenue share. RPM is what you earned per 1,000 views after the share. RPM usually runs lower than CPM because it comes after the share and counts views that earned no ad revenue. YouTube's own example: $7 earned over 2,000 ad impressions is a $3.50 CPM, and the same $7 over 1,500 monetized playbacks is a $4.67 playback-based CPM.
+	<a href={YOUTUBE_MONEY_SOURCES.adRevenueAnalytics.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.adRevenueAnalytics.label}</a>.
 </p>
 
-<h2 id="revenue-share" tabindex="-1">Who keeps what</h2>
-<p>YouTube Help sets these shares. <a href={YOUTUBE_MONEY_SOURCES.partnerEarnings.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.partnerEarnings.label}</a>.</p>
+<h2 id="revenue-share" tabindex="-1">How much of the revenue do you keep?</h2>
+<p>You keep 55% of net ad revenue on long-form Watch Page ads, 45% of the revenue allocated to your Shorts, and 70% of net revenue from channel memberships, Super Chat, Super Stickers and Super Thanks. YouTube Help sets these shares. <a href={YOUTUBE_MONEY_SOURCES.partnerEarnings.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.partnerEarnings.label}</a>.</p>
 <TableScroll captionId="share-caption">
 	<table>
 		<caption id="share-caption">Share of revenue you keep, by revenue type</caption>
@@ -313,18 +310,15 @@
 	</table>
 </TableScroll>
 
-<h2 id="shorts-revenue" tabindex="-1">How Shorts revenue is calculated</h2>
+<h2 id="shorts-revenue" tabindex="-1">How is Shorts revenue calculated?</h2>
 <p>
-	Shorts ad revenue for each month goes into one pool. Music changes how much of the revenue reaches the pool: with one music track,
-	only half of the revenue associated with engaged views is allocated to the Creator Pool; with two tracks, one third. Each creator's share of the pool follows their share of
-	engaged views, country by country, and you keep 45% of that share.
-	<a href={YOUTUBE_MONEY_SOURCES.shortsMonetization.href} target="_blank" rel="noopener">Source: YouTube Help, Shorts monetization policies</a>.
+	Shorts ad revenue for each month goes into one pool, the Creator Pool. A Short with no music sends all of its associated revenue to the pool. Music changes how much reaches it: with one music track, only half of the revenue associated with engaged views is allocated to the Creator Pool; with two tracks, one third. Each creator's share of the pool follows their share of engaged views, country by country, and you keep 45% of that share.
+	<a href={YOUTUBE_MONEY_SOURCES.shortsMonetization.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.shortsMonetization.label}</a>.
 </p>
 
-<h2 id="niche-cpm" tabindex="-1">Niche CPM ranges</h2>
+<h2 id="niche-cpm" tabindex="-1">What are typical CPM ranges by niche?</h2>
 <p>
-	These are advertiser-side CPM ranges, not RPM. They describe what advertisers pay per 1,000 ad impressions before YouTube's share.
-	Use them as a starting point, then replace them with your own RPM from Studio.
+	These are advertiser-side CPM ranges, not RPM: what advertisers pay per 1,000 ad impressions before YouTube's share. They run from $20 to $40 in investing and stock market down to $3 to $6 in gaming. Use them as a starting point, then replace them with your own RPM from Studio.
 </p>
 <TableScroll captionId="niche-caption">
 	<table>
@@ -343,17 +337,12 @@
 	{NICHE_CPM_NOTE} <a href={YOUTUBE_MONEY_SOURCES.cpmBenchmarks.href} target="_blank" rel="noopener">{YOUTUBE_MONEY_SOURCES.cpmBenchmarks.label}</a>.
 </p>
 
-<h2 id="partner-program" tabindex="-1">Who can earn: the YouTube Partner Program</h2>
+<h2 id="partner-program" tabindex="-1">Who can monetize: YouTube Partner Program requirements</h2>
 <p>
-	Ads on your videos are paid through the YouTube Partner Program. From 1 February 2027, new applicants need 8,000 qualified watch
-	hours in the previous 365 days, or 20 million qualified Shorts views in the previous 90 days. YouTube's Help page says these
-	thresholds apply in addition to still needing 1,000 subscribers. The new entry thresholds do not apply to creators already in the
-	program. Fan Funding and shopping thresholds stay the same. To earn a share of Shorts ad revenue from the Creator Pool from
-	1 February 2027, you need at least 10 million qualified Shorts views in the last 90 days.
+	Ads on your videos are paid through the YouTube Partner Program. From 1 February 2027, new applicants need <a href={YOUTUBE_MONEY_SOURCES.programBlog.href} target="_blank" rel="noopener">8,000 qualified watch hours in the previous 365 days, or 20 million qualified Shorts views in the previous 90 days</a>. YouTube Help adds that <a href={YOUTUBE_MONEY_SOURCES.programChanges.href} target="_blank" rel="noopener">1,000 subscribers</a> are still required. The new entry thresholds do not apply to creators already in the program. Fan Funding and shopping thresholds stay the same: 500 subscribers and either 3,000 qualified watch hours in the last year or 3 million qualified Shorts views in the last 90 days. To earn a share of Shorts ad revenue from the Creator Pool from 1 February 2027, you need at least 10 million qualified Shorts views in the last 90 days.
 </p>
 <p>
-	Sources: <a href={YOUTUBE_MONEY_SOURCES.programBlog.href} target="_blank" rel="noopener">YouTube Blog, Partner Program updates 2027</a>
-	and <a href={YOUTUBE_MONEY_SOURCES.programChanges.href} target="_blank" rel="noopener">YouTube Help, Changes to the YouTube Partner Program</a>.
+	Creators already in the program must accept the updated terms in YouTube Studio by 31 January 2027. Creators who do not accept stop earning from the associated monetization features from 1 February 2027, can regain access by accepting later, and stay in the program. From 1 February 2027, YouTube Help <a href={YOUTUBE_MONEY_SOURCES.programChanges.href} target="_blank" rel="noopener">counts a channel as active</a> if it meets any one of these: 1,000 qualified watch hours in the past 365 days, 1 million qualified Shorts views in the last 90 days, or 2 long-form videos or 5 Shorts uploaded every 90 days. Creators who drop below get an extended 90-day window to meet the watch-hours or the Shorts-views requirement to stay in the program.
 </p>
 
 <h2 id="faq" tabindex="-1">Frequently asked questions</h2>
@@ -368,6 +357,7 @@
 <aside class="closing" aria-labelledby="comments">
 	<h2 id="comments" tabindex="-1">What is in the comments under those views</h2>
 	<p>
+		Views are free. Here is what they pay. Then there are the comments.
 		Moderaty screens published top-level comments on your channel with your rules and AI scoring, and sends uncertain ones to your review
 		queue. It does not reply to viewers. It does not change your RPM.
 	</p>
