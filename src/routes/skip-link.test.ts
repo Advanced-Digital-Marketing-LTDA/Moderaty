@@ -26,7 +26,7 @@ test.each([
 });
 
 test('editorial pages keep their own #blog-content target behind the shared component', () => {
-	for (const path of ['./blogs/+layout.svelte', './guides/+layout.svelte']) {
+	for (const path of ['./blogs/+layout.svelte', './guides/+layout.svelte', './tools/+layout.svelte']) {
 		expect(read(path)).toContain('<EditorialLayout>{@render children()}</EditorialLayout>');
 	}
 	const source = read('../lib/components/blogs/EditorialLayout.svelte');
