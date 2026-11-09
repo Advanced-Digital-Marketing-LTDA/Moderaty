@@ -100,7 +100,7 @@ describe('queue load projection (behavior)', () => {
 		expect(result.pending).toHaveLength(2);
 		expect(result.pending.map((row) => row.id)).toEqual(['comment-1', 'comment-2']);
 		for (const row of result.pending) {
-			expect(Object.keys(row).sort()).toEqual(['holdState', 'id', 'publishedAt', 'reason', 'text']);
+			expect(Object.keys(row).sort()).toEqual(['holdState', 'id', 'isReply', 'publishedAt', 'reason', 'text']);
 			expect(row).not.toHaveProperty('authorName');
 			expect(row).not.toHaveProperty('authorChannelId');
 		}
@@ -116,9 +116,17 @@ describe('queue load projection (behavior)', () => {
 		expect(Object.keys(mocks.state.selectArgs[0] as Record<string, unknown>).sort()).toEqual([
 			'holdState',
 			'id',
+			'parentId',
 			'publishedAt',
 			'reason',
 			'text'
 		]);
+	});
+
+	it('selects no author field: the projection carries only the comment fields and parentId', async () => {
+		await load(event());
+
+		const projected = Object.keys(mocks.state.selectArgs[0] as Record<string, unknown>);
+		expect(projected.filter((key) => /author/i.test(key))).toEqual([]);
 	});
 });

@@ -91,7 +91,7 @@ async function seedChannel() {
 		.values({ id: 'UC1', userId: OWNER.id, orgId: 'org-1', title: 'Ch', refreshTokenEnc: 'enc-secret' });
 }
 
-async function seedEntries(rows: { commentId: string; action: string; createdAt: string }[]) {
+async function seedEntries(rows: { commentId: string; action: string; createdAt: string; actor?: string }[]) {
 	await testDb()
 		.db.insert(auditLog)
 		.values(rows.map((row) => ({ channelId: 'UC1', reason: 'test', actor: 'system', ...row })));
@@ -288,6 +288,33 @@ test('load rejects a signed-out request with 401', async () => {
 		.values({ id: 'UC1', userId: OWNER.id, orgId: 'org-1', title: 'Ch', refreshTokenEnc: 'enc-secret' });
 
 	await expect(load({ params: { id: 'UC1' }, locals: { user: null }, url: LOG_URL } as never)).rejects.toMatchObject({ status: 401 });
+});
+
+test('the reply flag marks a live action on a stored reply and nothing else', async () => {
+	await seedChannel();
+	await testDb().db.insert(comments).values([
+		{ id: 'reply-live', channelId: 'UC1', text: 'a reply', publishedAt: '2026-01-01', status: 'approved', decidedBy: 'human', parentId: 'top-live' },
+		{ id: 'top-live', channelId: 'UC1', text: 'a top-level comment', publishedAt: '2026-01-01', status: 'approved', decidedBy: 'human', parentId: null },
+		// A manual dry-run action updates a stored reply's comments row, so the dry-run row has one too.
+		{ id: 'reply-dry', channelId: 'UC1', text: 'a reply in a dry run', publishedAt: '2026-01-01', status: 'approved', decidedBy: 'human', parentId: 'top-live' }
+	]);
+	await seedEntries([
+		{ commentId: 'reply-live', action: 'approve', createdAt: '2026-01-02T00:00:01.000Z' },
+		{ commentId: 'top-live', action: 'approve', createdAt: '2026-01-02T00:00:02.000Z' },
+		{ commentId: 'reply-dry', action: 'dry-run', createdAt: '2026-01-02T00:00:03.000Z' },
+		{ commentId: 'no-row-dry', action: 'dry-run', createdAt: '2026-01-02T00:00:04.000Z' },
+		{ commentId: 'no-row-manual', action: 'delete', actor: 'user', createdAt: '2026-01-02T00:00:05.000Z' }
+	]);
+
+	const result = await load({ params: { id: 'UC1' }, locals: { user: OWNER }, url: LOG_URL } as never);
+
+	expect(Object.fromEntries(result!.entries.map((entry) => [entry.commentId, entry.isReply]))).toEqual({
+		'reply-live': true,
+		'top-live': false,
+		'reply-dry': false,
+		'no-row-dry': false,
+		'no-row-manual': false
+	});
 });
 
 test('a dry-run audit row surfaces its stored comment text to the page', async () => {

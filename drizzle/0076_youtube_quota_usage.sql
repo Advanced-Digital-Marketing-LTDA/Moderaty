@@ -1,0 +1,1 @@
+CREATE TABLE `youtube_quota_usage` (`day` text PRIMARY KEY NOT NULL, `units` integer DEFAULT 0 NOT NULL, `exhausted_at` text);

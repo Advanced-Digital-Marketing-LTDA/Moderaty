@@ -115,3 +115,17 @@ test.each(['in_flight', 'uncertain'])('a %s write displays its paused-action exp
 	expect(body).toContain(state === 'uncertain' ? 'Contact support' : 'Check again shortly');
 	expect(body).not.toContain('action="?/recoverRestore"');
 });
+
+test('the reply tag marks only the live reply row, inside its comment cell', () => {
+	const body = renderLog({
+		entries: [
+			{ ...ENTRY, id: 1, commentId: 'c-reply', action: 'approve', isReply: true },
+			{ ...ENTRY, id: 2, commentId: 'c-top', action: 'approve', isReply: false },
+			{ ...ENTRY, id: 3, commentId: 'c-dry', action: 'dry-run', isReply: false }
+		]
+	});
+
+	expect(body.match(/data-reply="true"/g)).toHaveLength(1);
+	const replyRow = body.split('<tr>').find((row) => row.includes('c-reply')) ?? '';
+	expect(replyRow).toMatch(/data-label="Comment">[\s\S]*data-reply="true"[\s\S]*data-label="Handle"/);
+});

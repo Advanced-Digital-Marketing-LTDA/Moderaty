@@ -42,3 +42,4 @@ verified (see the Phase H PR body).
   https://myaccount.google.com/permissions and reconnect.
 - `quotaExceeded` → wait for the daily quota reset; do not create extra
   Google Cloud projects.
+- Reply checks (see [reply moderation](reply-moderation.md)) never run under `DRY_RUN=true`, whatever the quota ceiling. Outside dry-run, a reply check runs only when `REPLY_SWEEP_QUOTA_CEILING` is a positive whole number, so set it in any environment where a reply check is expected to run. The e2e fixtures (`e2e/support/youtube-fixtures.mjs`, `e2e/support/server.mjs`) mock only `topLevelComment`, so they never exercise reply checks.

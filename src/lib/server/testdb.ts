@@ -248,6 +248,11 @@ export async function createTestDb(): Promise<TestDb> {
 			feedback_history_boundary TEXT,
 			feedback_history_page_token TEXT,
 			feedback_history_scan_id TEXT,
+			moderate_replies_since TEXT,
+			reply_sweep_boundary TEXT,
+			reply_sweep_page_token TEXT,
+			reply_sweep_last_at TEXT,
+			reply_sweep_shortfall INTEGER,
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 			CONSTRAINT channels_org_requires_owner CHECK (org_id IS NOT NULL OR user_id IS NULL)
 		)`,
@@ -283,6 +288,7 @@ export async function createTestDb(): Promise<TestDb> {
 			ai_score TEXT,
 			feedback_digested_at TEXT,
 			scan_id TEXT,
+			parent_id TEXT,
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 		)`,
 		`CREATE INDEX comments_channel_digested_idx ON comments (channel_id, feedback_digested_at)`,
@@ -612,7 +618,12 @@ export async function createTestDb(): Promise<TestDb> {
 			published_at TEXT NOT NULL,
 			scan_id TEXT
 		)`,
-		`CREATE INDEX feedback_history_comments_channel_idx ON feedback_history_comments (channel_id)`
+		`CREATE INDEX feedback_history_comments_channel_idx ON feedback_history_comments (channel_id)`,
+		`CREATE TABLE youtube_quota_usage (
+			day TEXT PRIMARY KEY NOT NULL,
+			units INTEGER NOT NULL DEFAULT 0,
+			exhausted_at TEXT
+		)`
 	]);
 	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0062_hosted_welcome_email.sql', import.meta.url), 'utf8'));
 	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0063_welcome_campaign_pacing.sql', import.meta.url), 'utf8'));

@@ -201,6 +201,8 @@ function channelRunProblems(payload) {
 		if (typeof entry.error === 'string' && !USER_ACTIONABLE_CATEGORIES.has(entry.error)) {
 			problems.push(`channel run failed: ${['quota', 'scoring', 'timeout', 'error'].includes(entry.error) ? entry.error : 'error'}`);
 		}
+		// A reply recheck that threw is a failed sweep, like the others: the scheduler's exit code is the only alert path.
+		if (typeof entry.replySweepError === 'string') problems.push(`reply recheck failed: ${entry.replySweepError}`);
 		// A channel run that ended partial on the tick deadline returns inside
 		// a 200 payload — without this check a moderation run that never
 		// finished classifies as a healthy tick (codex). 'deactivated' stops

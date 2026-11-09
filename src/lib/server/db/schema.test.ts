@@ -379,6 +379,11 @@ describe('channels', () => {
 			feedback_history_boundary: { notNull: false },
 			feedback_history_page_token: { notNull: false },
 			feedback_history_scan_id: { notNull: false },
+			moderate_replies_since: { notNull: false },
+			reply_sweep_boundary: { notNull: false },
+			reply_sweep_page_token: { notNull: false },
+			reply_sweep_last_at: { notNull: false },
+			reply_sweep_shortfall: { notNull: false },
 			created_at: { notNull: true, hasDefault: true }
 		});
 		expectCreatedAtDefault(channels);
@@ -439,6 +444,7 @@ describe('comments', () => {
 			ai_score: { notNull: false },
 			feedback_digested_at: { notNull: false },
 			scan_id: { notNull: false },
+			parent_id: { notNull: false },
 			created_at: { notNull: true, hasDefault: true }
 		});
 		expectCreatedAtDefault(comments);

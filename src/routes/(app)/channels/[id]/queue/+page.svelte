@@ -11,6 +11,7 @@
 	import Skeleton from '$lib/Skeleton.svelte';
 	import { autoRefresh } from '$lib/auto-refresh.svelte';
 	import { relativeTime } from '$lib/relative-time';
+	import ReplyTag from '$lib/ReplyTag.svelte';
 
 	let { data, form } = $props();
 	let confirming = $state<{ id: string; kind: 'delete' | 'ban' } | null>(null);
@@ -19,6 +20,10 @@
 	// name their target with a short text preview instead of the (unknown)
 	// author name (I13).
 	const preview = (text: string) => (text.length > 40 ? `${text.slice(0, 40)}…` : text);
+
+	// Reply rows say so in their accessible names (I13); top-level names are unchanged.
+	const targetLabel = (comment: { text: string; isReply: boolean }, verb: string) =>
+		`${verb}: ${preview(comment.text)}${comment.isReply ? ' (reply)' : ''}`;
 
 	autoRefresh();
 
@@ -111,7 +116,7 @@
 					class:flash-approve={flash[c.id] === 'approve'}
 					class:flash-reject={flash[c.id] === 'reject'}
 				>
-					<p class="row-time muted" title={c.publishedAt}>{relativeTime(c.publishedAt)}</p>
+					<p class="row-time muted" title={c.publishedAt}>{relativeTime(c.publishedAt)}{#if c.isReply} <ReplyTag />{/if}</p>
 					<blockquote class="quote">{c.text}</blockquote>
 					{#if c.reason}
 						<p class="queue-reason"><strong>Why queued:</strong> {c.reason}</p>
@@ -147,7 +152,7 @@
 								<button
 									class="row-action approve"
 									disabled={!!flash[c.id] || !!exiting[c.id]}
-									aria-label="Approve comment: {preview(c.text)}">Approve</button
+									aria-label={targetLabel(c, 'Approve comment')}>Approve</button
 								>
 							</form>
 							<form class="inline" method="POST" action="?/reject" use:enhance={decide(c.id, 'reject')}>
@@ -155,19 +160,19 @@
 								<button
 									class="row-action reject"
 									disabled={!!flash[c.id] || !!exiting[c.id]}
-									aria-label="Reject comment: {preview(c.text)}">Reject</button
+									aria-label={targetLabel(c, 'Reject comment')}>Reject</button
 								>
 							</form>
 							<button
 								class="btn danger small"
 								type="button"
-								aria-label="Delete comment: {preview(c.text)}"
+								aria-label={targetLabel(c, 'Delete comment')}
 								onclick={() => (confirming = { id: c.id, kind: 'delete' })}
 							>Delete</button>
 							<button
 								class="btn danger small"
 								type="button"
-								aria-label="Ban author of comment: {preview(c.text)}"
+								aria-label={targetLabel(c, 'Ban author of comment')}
 								onclick={() => (confirming = { id: c.id, kind: 'ban' })}
 							>Ban author</button>
 						</div>

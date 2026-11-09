@@ -552,3 +552,22 @@ describe.each(['driver', 'netlify'])('%s welcome delivery health', wrapper => {
   await expect(invoke()).resolves.toEqual(wrapper === 'driver' ? payload : undefined);
  });
 });
+
+describe('reply recheck failure', () => {
+  const replyRunId = '11111111-1111-4111-8111-111111111111';
+  const replyFailure = `unknown service=youtube operation=reply_recheck run=${replyRunId} causes=Error`;
+  const replyPayload = {
+    ok: true,
+    cronRunId: replyRunId,
+    results: { 'UC-replies': { fetched: 0, acted: 0, queued: 0, partial: false, skipped: false, dryRun: false, replySweepError: replyFailure } },
+    failureDiagnostics: [{ sweep: 'replySweepError', operation: 'reply_recheck', category: 'unknown', service: 'youtube', cronRunId: replyRunId, causes: [{ name: 'Error', category: 'unknown' }] }]
+  };
+
+  it('is listed in the tick output and pages the operator, as a failed sweep does', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => cronResponse(replyPayload)));
+    // tickOnce rejects on any operator problem, and a failed reply recheck is one: the scheduler's exit code is the alert.
+    await expect(tickOnce()).rejects.toThrow(`reply recheck failed: ${replyFailure}`);
+    const output = console.log.mock.calls.map((args) => args.join(' ')).join('\n');
+    expect(output).toContain(`replySweepError: ${replyFailure}`);
+  });
+});

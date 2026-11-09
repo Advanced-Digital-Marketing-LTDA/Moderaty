@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, lte, ne, sql } from 'drizzle-orm';
 import { maybeTriggerAutoTopUp } from '$lib/server/billing/autotopup';
 import { loadProtectedIdentities, loadProtectedAuthors, type ProtectedIdentities } from '$lib/server/allowlist';
 import { hasHumanClaim } from './human-claims';
+import { env } from '$env/dynamic/private';
 import { db } from '$lib/server/db';
 import { auditLog, channels, comments, moderationActions } from '$lib/server/db/schema';
+import { readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday, REPLY_WRITE_RESERVE_UNITS, YOUTUBE_UNIT_COST } from '$lib/server/quota';
 import { assertBeforeDeadline, DeadlineExceededError, RequestNotSentError } from '$lib/server/http';
 import {
 	CommentNotFoundError,
@@ -17,6 +19,7 @@ import {
 } from '$lib/server/youtube';
 import type { OutstandingAction, YoutubeAction } from './types';
 import { executeDecidedDispatch, executeHumanDispatch, reserveDecidedDispatch, reserveHumanDispatch } from './human-dispatch';
+import { isParkableWriteFailure, unresolvedIdentityReason, writeFailureReason } from './reply-write-failure';
 
 /** Thrown when account deletion deactivates (or removes) the channel mid-run. */
 export class ChannelDeactivatedError extends Error {}
@@ -31,6 +34,11 @@ export type ChannelIdentity = Pick<typeof channels.$inferSelect, 'userId' | 'ref
 type ChannelGuardHandle = Pick<typeof db, 'update'>;
 type ProtectionTransaction = Pick<typeof db, 'select' | 'update' | 'insert'>;
 type OutstandingState = 'pending' | 'dispatched' | 'cancelling';
+/** One run's reply bookkeeping: which action comments are replies, and how many reply rows it parked. */
+interface ReplyIsolation {
+	replyIds: ReadonlySet<string>;
+	parked: number;
+}
 
 /**
  * Atomically claims a short-lived channel write boundary. The no-op UPDATE is
@@ -414,6 +422,7 @@ async function applyOneModerationAction(
 	banAuthor: boolean,
 	accessToken: string,
 	deadline: number | undefined,
+	isolation: ReplyIsolation,
 	expected?: ChannelIdentity
 ): Promise<boolean> {
 	assertBeforeDeadline(deadline);
@@ -421,7 +430,10 @@ async function applyOneModerationAction(
 	try {
 		await setModerationStatus([action.commentId], status, banAuthor, accessToken, deadline);
 	} catch (error) {
-		if (!(error instanceof CommentNotFoundError)) throw error;
+		if (!(error instanceof CommentNotFoundError)) {
+			await parkOrRethrow([action], error, isolation, expected);
+			return false;
+		}
 		await completeMissingAction(action, expected);
 		return false;
 	}
@@ -441,6 +453,7 @@ async function applyModerationAction(
 	banAuthor: boolean,
 	accessToken: string,
 	deadline: number | undefined,
+	isolation: ReplyIsolation,
 	expected?: ChannelIdentity
 ): Promise<number> {
 	let acted = 0;
@@ -459,9 +472,74 @@ async function applyModerationAction(
 		const releasable = await convergeHolds(superseded, accessToken, deadline, expected);
 		await markSuperseded(superseded.filter((action) => releasable.has(action.commentId)), expected);
 		if (!applicable.length) continue;
-		acted += await applyModerationBatch(applicable, status, banAuthor, accessToken, deadline, expected);
+		acted += await applyModerationBatch(applicable, status, banAuthor, accessToken, deadline, isolation, expected);
 	}
 	return acted;
+}
+
+/**
+ * Parks reply action rows whose write was refused or never sent. A parked row
+ * is 'failed' and is never retried automatically; its comment returns to the
+ * review queue, and one audit row names the failure. Only rows this transaction
+ * moves are audited and counted, so a concurrent human decision never produces
+ * a phantom row.
+ */
+async function parkReplyRows(
+	actions: OutstandingAction[],
+	reasonFor: (action: OutstandingAction) => string,
+	isolation: ReplyIsolation,
+	expected?: ChannelIdentity
+): Promise<void> {
+	if (!actions.length) return;
+	const channelId = actions[0].channelId;
+	const byId = new Map(actions.map((action) => [action.commentId, action]));
+	const now = new Date().toISOString();
+	const parkedIds = await db.transaction(async (transaction) => {
+		await assertChannelActive(channelId, transaction, expected);
+		const moved = await transaction
+			.update(moderationActions)
+			.set({ state: 'failed', lastAttemptAt: now })
+			.where(and(inArray(moderationActions.commentId, [...byId.keys()]), eq(moderationActions.state, 'dispatched')))
+			.returning({ commentId: moderationActions.commentId });
+		const ids = moved.map((row) => row.commentId);
+		if (!ids.length) return ids;
+		// Back in the review queue: a decided status would hide the failed write from the owner. A human claim keeps its comment.
+		await transaction
+			.update(comments)
+			.set({ status: 'pending', decidedBy: 'none', matchedRuleId: null, aiScore: null })
+			.where(and(
+				inArray(comments.id, ids),
+				eq(comments.channelId, channelId),
+				ne(comments.status, 'restoring'),
+				isNull(comments.humanDispatchToken),
+				isNull(comments.humanDispatchState)
+			));
+		await transaction.insert(auditLog).values(ids.map((commentId) => ({
+			channelId,
+			commentId,
+			action: 'failed',
+			reason: reasonFor(byId.get(commentId) as OutstandingAction),
+			actor: 'system',
+			authorHandle: null,
+			createdAt: now
+		})));
+		return ids;
+	});
+	isolation.parked += parkedIds.length;
+}
+
+/**
+ * A write failed for a batch of action rows. Reply rows are parked, and the
+ * failure is logged with the channel, the comments and the status. Everything
+ * else rethrows exactly as before: top-level rows, quota and throttling, auth,
+ * deadline, deactivation and database errors. Batches are homogeneous by
+ * construction, so a reply batch is parked whole and never mixed with top-level rows.
+ */
+async function parkOrRethrow(actions: OutstandingAction[], error: unknown, isolation: ReplyIsolation, expected?: ChannelIdentity): Promise<void> {
+	if (!actions.every((action) => isolation.replyIds.has(action.commentId)) || !isParkableWriteFailure(error)) throw error;
+	const verb = actions[0].action;
+	console.error('reply %s write failed on channel %s for comment(s) %s', verb, actions[0].channelId, actions.map((action) => action.commentId).join(','), error);
+	await parkReplyRows(actions, () => writeFailureReason(verb, error), isolation, expected);
 }
 
 /**
@@ -476,19 +554,23 @@ async function applyModerationBatch(
 	banAuthor: boolean,
 	accessToken: string,
 	deadline: number | undefined,
+	isolation: ReplyIsolation,
 	expected?: ChannelIdentity
 ): Promise<number> {
 	try {
 		await setModerationStatus(applicable.map((action) => action.commentId), status, banAuthor, accessToken, deadline);
 	} catch (error) {
-		if (!(error instanceof CommentNotFoundError)) throw error;
+		if (!(error instanceof CommentNotFoundError)) {
+			await parkOrRethrow(applicable, error, isolation, expected);
+			return 0;
+		}
 		if (applicable.length === 1) {
 			await completeMissingAction(applicable[0], expected);
 			return 0;
 		}
 		let acted = 0;
 		for (const action of applicable) {
-			if (await applyOneModerationAction(action, status, banAuthor, accessToken, deadline, expected)) acted += 1;
+			if (await applyOneModerationAction(action, status, banAuthor, accessToken, deadline, isolation, expected)) acted += 1;
 		}
 		return acted;
 	}
@@ -523,14 +605,21 @@ async function guardPendingAction(
 	channelId: string,
 	authors: Map<string, string>,
 	protection: ProtectedIdentities,
-	transaction: ProtectionTransaction
+	transaction: ProtectionTransaction,
+	replyIds: ReadonlySet<string>,
+	unsent: OutstandingAction[]
 ): Promise<OutstandingAction | null> {
 	if (action.state === 'cancelling' || action.action === 'hold') return action;
 	const author = authors.get(action.commentId);
 	const handle = author ? protection.byChannelId.get(author) : undefined;
 	const uncertain = protection.unresolved || !author;
 	if (!handle && !uncertain) return action;
-	if (!handle && uncertain && action.state === 'dispatched') throw new Error('Protected identity is unavailable for a dispatched action; destructive retry deferred');
+	if (!handle && uncertain && action.state === 'dispatched') {
+		// A dispatched reply cannot be downgraded and must not be written: it is parked once the guard commits. Top-level rows still throw.
+		if (!replyIds.has(action.commentId)) throw new Error('Protected identity is unavailable for a dispatched action; destructive retry deferred');
+		unsent.push(action);
+		return null;
+	}
 	const current = await transaction.select().from(comments).where(and(eq(comments.id, action.commentId), eq(comments.channelId, channelId))).all();
 	// Human dispatch owns terminalization; retaining its row preserves reconciliation evidence.
 	if (!current[0] || hasHumanClaim(current[0]) || current[0].decidedBy === 'human') return null;
@@ -539,7 +628,7 @@ async function guardPendingAction(
 
 /** Revalidate pending destructive intents against current protection before claiming them.
  * Provider IDs are fetched outside the transaction and discarded after this sweep. */
-async function guardPendingProtection(actions: OutstandingAction[], accessToken: string, deadline: number | undefined, expected?: ChannelIdentity, previous?: ProtectedIdentities): Promise<OutstandingAction[]> {
+async function guardPendingProtection(actions: OutstandingAction[], accessToken: string, deadline: number | undefined, isolation: ReplyIsolation, expected?: ChannelIdentity, previous?: ProtectedIdentities): Promise<OutstandingAction[]> {
 	const pending = actions.filter(action => action.state !== 'cancelling' && action.action !== 'hold');
 	if (!pending.length) return actions;
 	const channelId = pending[0].channelId;
@@ -549,48 +638,94 @@ async function guardPendingProtection(actions: OutstandingAction[], accessToken:
 	const covered = previous?.observedAuthorIds && authorIds.every(id => previous.observedAuthorIds?.has(id));
 	const handles = configured.configured && !covered ? await fetchAuthorHandles(authorIds, accessToken, deadline) : new Map<string, string>();
 	const snapshot = covered ? previous : await loadProtectedAuthors(channelId, db, authorIds, handles, handle => resolveHandleChannelId(handle, accessToken, deadline), previous);
-	return db.transaction(async transaction => {
+	const unsent: OutstandingAction[] = [];
+	const result = await db.transaction(async transaction => {
 		await assertChannelActive(channelId, transaction, expected);
 		const protection = await loadProtectedIdentities(channelId, transaction, undefined, snapshot);
 		if (!protection.configured) return actions;
-		const result: OutstandingAction[] = [];
+		const kept: OutstandingAction[] = [];
 		for (const action of actions) {
-			const guarded = await guardPendingAction(action, channelId, authors, protection, transaction);
-			if (guarded) result.push(guarded);
+			const guarded = await guardPendingAction(action, channelId, authors, protection, transaction, isolation.replyIds, unsent);
+			if (guarded) kept.push(guarded);
 		}
-		return result;
+		return kept;
 	});
+	// Parked only after the guard commits: a rolled-back guard leaves these rows dispatched for the next run.
+	await parkReplyRows(unsent, (action) => unresolvedIdentityReason(action.action), isolation, expected);
+	return result;
 }
 
 async function applyYoutubeActions(
 	actions: OutstandingAction[],
 	accessToken: string,
 	deadline: number | undefined,
+	isolation: ReplyIsolation,
 	expected?: ChannelIdentity
 ): Promise<number> {
-	const selected = (action: YoutubeAction) => actions.filter((item) => item.action === action);
 	let acted = 0;
-	acted += await applyModerationAction(selected('hold'), 'heldForReview', false, accessToken, deadline, expected);
-	acted += await applyModerationAction(selected('reject'), 'rejected', false, accessToken, deadline, expected);
-	acted += await applyModerationAction(selected('ban'), 'rejected', true, accessToken, deadline, expected);
-	acted += await applyDeletes(selected('delete'), accessToken, deadline, expected);
+	// Top-level rows go first, then reply rows, and the two never share a YouTube request: a refused reply write must not fail its top-level neighbours.
+	for (const reply of [false, true]) {
+		const selected = (action: YoutubeAction) => actions.filter((item) => item.action === action && isolation.replyIds.has(item.commentId) === reply);
+		acted += await applyModerationAction(selected('hold'), 'heldForReview', false, accessToken, deadline, isolation, expected);
+		acted += await applyModerationAction(selected('reject'), 'rejected', false, accessToken, deadline, isolation, expected);
+		acted += await applyModerationAction(selected('ban'), 'rejected', true, accessToken, deadline, isolation, expected);
+		acted += await applyDeletes(selected('delete'), accessToken, deadline, isolation, expected);
+	}
 	return acted;
 }
 
 /** Dispatches, deletes, and completes a batch of delete actions (I3/I4-safe). */
-async function applyDeletes(actions: OutstandingAction[], accessToken: string, deadline: number | undefined, expected?: ChannelIdentity): Promise<number> {
+async function applyDeletes(actions: OutstandingAction[], accessToken: string, deadline: number | undefined, isolation: ReplyIsolation, expected?: ChannelIdentity): Promise<number> {
 	let acted = 0;
 	for (const action of actions) {
 		await markDispatched([action], expected);
 		assertBeforeDeadline(deadline);
 		await assertChannelActive(action.channelId, db, expected);
-		await deleteComment(action.commentId, accessToken, deadline);
+		try {
+			await deleteComment(action.commentId, accessToken, deadline);
+		} catch (error) {
+			await parkOrRethrow([action], error, isolation, expected);
+			continue;
+		}
 		acted += await completeActions([action], expected);
 	}
 	return acted;
 }
 
-async function processOutstandingActions(channelId: string, accessToken: string, deadline?: number, expected?: ChannelIdentity, protection?: ProtectedIdentities): Promise<number> {
+/**
+ * The pending rows this run may claim. Reply holds, rejects and bans go out in batches of 50, so a run claims at most
+ * REPLY_WRITE_RESERVE_UNITS of them, and reply deletes take what the day has beyond that reserve. With no ceiling, a quota
+ * refusal today, or less than a reserve left, no reply row is claimed: it stays pending for a later run. Top-level rows pass through.
+ */
+async function admitReplyWrites(channelId: string, pending: OutstandingAction[], replyIds: ReadonlySet<string>): Promise<OutstandingAction[]> {
+	if (!pending.some((action) => replyIds.has(action.commentId))) return pending;
+	const now = Date.now();
+	// Staged before the owner turned reply moderation off: those replies stay pending, and no reply is written.
+	const channel = await db.select({ since: channels.moderateRepliesSince }).from(channels).where(eq(channels.id, channelId)).get();
+	const ceiling = readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING);
+	const closed = !channel?.since || ceiling.kind === 'disabled' || (await readQuotaExhaustedToday(db, now));
+	const remaining = ceiling.kind === 'cap' && !closed ? ceiling.units - (await readYoutubeUnitsToday(db, now)) : 0;
+	const open = remaining >= REPLY_WRITE_RESERVE_UNITS;
+	let batchRows = REPLY_WRITE_RESERVE_UNITS; // two setModerationStatus calls of up to 50 ids each
+	let deleteRows = open ? Math.floor((remaining - REPLY_WRITE_RESERVE_UNITS) / YOUTUBE_UNIT_COST['comments.delete']) : 0;
+	const admitted: OutstandingAction[] = [];
+	for (const action of pending) {
+		if (!replyIds.has(action.commentId)) {
+			admitted.push(action);
+		} else if (action.action === 'delete') {
+			if (deleteRows > 0) {
+				deleteRows -= 1;
+				admitted.push(action);
+			}
+		} else if (open && batchRows > 0) {
+			batchRows -= 1;
+			admitted.push(action);
+		}
+	}
+	return admitted;
+}
+
+async function processOutstandingActions(channelId: string, accessToken: string, deadline?: number, expected?: ChannelIdentity, protection?: ProtectedIdentities): Promise<{ acted: number; replyActionFailures: number }> {
 	const actions = (await db
 		.select()
 		.from(moderationActions)
@@ -602,17 +737,19 @@ async function processOutstandingActions(channelId: string, accessToken: string,
 	// Human claims and unresolved corrective writes own their comment.
 	// A rescan may change its local status, but no newer staged enforcement
 	// can bypass the durable reservation while an older write may land.
-	const restoringIds = actions.length
-		? (
-				await db
-					.select({ id: comments.id })
-					.from(comments)
-					.where(and(eq(comments.channelId, channelId), or(eq(comments.status, 'restoring'),
-						isNotNull(comments.humanDispatchToken), isNotNull(comments.humanDispatchState))))
-					.all()
-			).map((row) => row.id)
+	// One read of the actions' comments serves both checks: the restoring/dispatch-owned state, and
+	// whether each action is a reply (a non-empty parent_id). It keeps the same number of reads as before.
+	const actionComments = actions.length
+		? await db
+				.select({ id: comments.id, parentId: comments.parentId, status: comments.status, humanDispatchToken: comments.humanDispatchToken, humanDispatchState: comments.humanDispatchState })
+				.from(comments)
+				.where(and(eq(comments.channelId, channelId), inArray(comments.id, actions.map((action) => action.commentId))))
+				.all()
 		: [];
-	const restoring = new Set(restoringIds);
+	const restoring = new Set(actionComments
+		.filter((row) => row.status === 'restoring' || Boolean(row.humanDispatchToken) || Boolean(row.humanDispatchState))
+		.map((row) => row.id));
+	const isolation: ReplyIsolation = { replyIds: new Set(actionComments.filter((row) => Boolean(row.parentId)).map((row) => row.id)), parked: 0 };
 	const cancelling = actions.filter((action) => action.state === 'cancelling' && !restoring.has(action.commentId));
 	// A cancelled action may already be live on YouTube — holds AND
 	// reject/ban/delete alike: converge the remote state (re-write the
@@ -626,14 +763,15 @@ async function processOutstandingActions(channelId: string, accessToken: string,
 	let guarded: OutstandingAction[];
 	let protectionFailure: unknown = null;
 	try {
-		guarded = await guardPendingProtection(actions.filter(action => !restoring.has(action.commentId)), accessToken, deadline, expected, protection);
+		guarded = await guardPendingProtection(actions.filter(action => !restoring.has(action.commentId)), accessToken, deadline, isolation, expected, protection);
 	} catch (error) {
 		if (error instanceof DeadlineExceededError || error instanceof ChannelDeactivatedError) throw error;
 		console.warn('protection revalidation failed; only non-destructive holds will be attempted');
 		protectionFailure = error;
 		guarded = actions.filter(action => action.action === 'hold' && !restoring.has(action.commentId));
 	}
-	const claimed = await claimPendingActions(guarded.filter((action) => action.state === 'pending' && !restoring.has(action.commentId)), expected);
+	const admitted = await admitReplyWrites(channelId, guarded.filter((action) => action.state === 'pending' && !restoring.has(action.commentId)), isolation.replyIds);
+	const claimed = await claimPendingActions(admitted, expected);
 	// Stryker disable next-line ArrayDeclaration: equivalent — applyYoutubeActions selects entries by their action field, so a foreign element in the array is never selected
 	const ready: OutstandingAction[] = [];
 	for (const action of guarded) {
@@ -650,9 +788,9 @@ async function processOutstandingActions(channelId: string, accessToken: string,
 			if (claimed.has(action.commentId)) ready.push(action);
 		}
 	}
-	const acted = await applyYoutubeActions(ready, accessToken, deadline, expected);
+	const acted = await applyYoutubeActions(ready, accessToken, deadline, isolation, expected);
 	if (protectionFailure) throw protectionFailure;
-	return acted;
+	return { acted, replyActionFailures: isolation.parked };
 }
 
 /**
@@ -707,7 +845,9 @@ export async function applyHumanIntent(
  * CONFLICTING dispatched row may still have its write in flight: completing
  * it would claim it landed before the human's write, which cannot be proven
  * — it stays 'cancelling' so the next sweep's corrective write is guaranteed
- * to land last (codex). A pending row never reached YouTube and supersedes;
+ * to land last (codex). A pending row never reached YouTube and supersedes; a
+ * failed (parked) reply row supersedes the same way, because the owner's
+ * decision replaces its attempt;
  * a cancelling row supersedes only when its outcome agrees, else its
  * corrective write stays outstanding for the same in-flight reason.
  */
@@ -776,7 +916,7 @@ export async function finalizeHumanIntent(
 		await transaction
 			.update(moderationActions)
 			.set({ state: 'superseded' })
-			.where(and(eq(moderationActions.commentId, commentId), eq(moderationActions.state, 'pending')));
+			.where(and(eq(moderationActions.commentId, commentId), inArray(moderationActions.state, ['pending', 'failed'])));
 		if (agreeing.length) {
 			await transaction
 				.update(moderationActions)
@@ -949,10 +1089,10 @@ export async function runEnforcement(
 	deferred: number,
 	expected?: ChannelIdentity,
 	protection?: ProtectedIdentities
-): Promise<{ acted: number; outOfCredits: boolean }> {
+): Promise<{ acted: number; outOfCredits: boolean; replyActionFailures: number }> {
 	// ... and again before any YouTube enforcement call.
 	await assertChannelActive(channelId, db, expected);
-	const acted = await processOutstandingActions(channelId, accessToken, deadline, expected, protection);
+	const { acted, replyActionFailures } = await processOutstandingActions(channelId, accessToken, deadline, expected, protection);
 	await reconcileRestoring(channelId, accessToken, deadline, expected);
 	if (orgId) {
 		await assertChannelActive(channelId, db, expected);
@@ -966,7 +1106,7 @@ export async function runEnforcement(
 		console.error(
 			`out of credits for org ${orgId ?? '(none)'}: ${deferred} comment(s) deferred — AI scoring paused until credits are topped up`
 		);
-		return { acted, outOfCredits: true };
+		return { acted, outOfCredits: true, replyActionFailures };
 	}
-	return { acted, outOfCredits: false };
+	return { acted, outOfCredits: false, replyActionFailures };
 }
