@@ -232,7 +232,7 @@
 			</div>
 			<p class="muted">Each comment your channel processes with AI scoring on a live run consumes one
 				credit — rule matches and protected handles are never charged. Comments processed by
-				the feedback digest are charged the same way. Payment is processed by
+				the feedback digest are charged the same way. When reply moderation is on for a channel, a reply the AI scores uses one credit, like a comment. Payment is processed by
 				Stripe; your card is saved so auto top-up can work if you enable it.</p>
 		{/if}
 	</div>

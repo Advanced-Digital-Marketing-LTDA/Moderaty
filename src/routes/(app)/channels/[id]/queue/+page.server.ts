@@ -24,6 +24,7 @@ export async function load({ params, locals }) {
 			id: comments.id,
 			text: comments.text,
 			publishedAt: comments.publishedAt,
+			parentId: comments.parentId,
 			holdState: moderationActions.state,
 			reason: moderationActions.reason
 		})
@@ -38,7 +39,11 @@ export async function load({ params, locals }) {
 		.all();
 	// Project only what the page renders — never serialize refreshTokenEnc (or
 	// any future secret column) or legacy author columns to the browser.
-	return { ch: { id: ch.id, title: ch.title }, pending };
+	return {
+		ch: { id: ch.id, title: ch.title },
+		// parentId only derives isReply; the row never carries it.
+		pending: pending.map(({ parentId, ...row }) => ({ ...row, isReply: parentId !== null }))
+	};
 }
 
 const SUCCESS_TEXT: Record<'approve' | 'reject' | 'delete' | 'ban', string> = {

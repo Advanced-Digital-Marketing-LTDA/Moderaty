@@ -121,3 +121,34 @@ describe('queue empty state and heading (SSR)', () => {
 		expect(body).not.toContain('Review queue —');
 	});
 });
+
+describe('queue reply labels (SSR)', () => {
+	// Each queue row opens with its row-wrap class; a row's chunk runs to the next one.
+	const rowWith = (body: string, text: string) => body.split('class="row-wrap').find((chunk) => chunk.includes(text)) ?? '';
+
+	it('tags a reply row with data-reply and leaves a top-level row untagged', () => {
+		const body = renderQueue({ pending: [{ ...PENDING[0], isReply: false }, { ...PENDING[1], isReply: true }] });
+		expect(body.match(/data-reply="true"/g)).toHaveLength(1);
+		expect(rowWith(body, 'borderline take two')).toContain('data-reply="true"');
+		expect(rowWith(body, 'borderline take one')).not.toContain('data-reply');
+	});
+
+	it('suffixes all four action names on a reply row with " (reply)"', () => {
+		const body = renderQueue({ pending: [{ ...PENDING[1], isReply: true }] });
+		expect(body).toContain('aria-label="Approve comment: borderline take two (reply)"');
+		expect(body).toContain('aria-label="Reject comment: borderline take two (reply)"');
+		expect(body).toContain('aria-label="Delete comment: borderline take two (reply)"');
+		expect(body).toContain('aria-label="Ban author of comment: borderline take two (reply)"');
+		expect(body.match(/ \(reply\)"/g)).toHaveLength(4);
+	});
+
+	it('keeps the exact pre-existing names on a top-level row, even beside a reply', () => {
+		const body = renderQueue({ pending: [{ ...PENDING[0], isReply: false }, { ...PENDING[1], isReply: true }] });
+		const top = rowWith(body, 'borderline take one');
+		expect(top).toContain('aria-label="Approve comment: borderline take one"');
+		expect(top).toContain('aria-label="Reject comment: borderline take one"');
+		expect(top).toContain('aria-label="Delete comment: borderline take one"');
+		expect(top).toContain('aria-label="Ban author of comment: borderline take one"');
+		expect(top).not.toContain('(reply)');
+	});
+});

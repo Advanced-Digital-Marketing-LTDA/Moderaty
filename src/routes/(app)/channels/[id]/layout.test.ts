@@ -1,10 +1,15 @@
-import { expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { error } from '@sveltejs/kit';
-import { TEST_OWNER, setupTestDb, testDb } from '$lib/server/testdb';
+import { TEST_OWNER, setupTestDb, testDb, wipeTables } from '$lib/server/testdb';
 import { eq } from 'drizzle-orm';
-import { auditLog, channels, comments } from '$lib/server/db/schema';
+import { auditLog, channels, comments, youtubeQuotaUsage } from '$lib/server/db/schema';
 
 import { load } from './+layout.server';
+
+const mocks = vi.hoisted(() => ({
+	env: { ...process.env, REPLY_SWEEP_QUOTA_CEILING: '1000000' } as Record<string, string | undefined>
+}));
+vi.mock('$env/dynamic/private', () => ({ env: mocks.env }));
 
 /** The layout load's resolved payload — pins the test data instead of `Record<string, any>`. */
 type LayoutData = Awaited<ReturnType<typeof load>>;
@@ -108,6 +113,32 @@ test('projects the tone and protection flags the overview page renders', async (
 	expect(data.ch).toMatchObject({ toneLevel: 2, protectLgbtqia: 1, protectWomen: 0, lastRunAt: '2026-07-30T00:00:00Z' });
 });
 
+test('projects the reply-check state the overview renders and never the reply page token', async () => {
+	await testDb().db.insert(channels).values({
+		id: 'UC1',
+		userId: OWNER.id,
+		orgId: 'org-1',
+		title: 'Mine',
+		refreshTokenEnc: 'enc',
+		moderateRepliesSince: '2026-11-01T00:00:00.000Z',
+		replySweepBoundary: '2026-10-29T00:00:00.000Z',
+		replySweepPageToken: 'secret-reply-token',
+		replySweepLastAt: '2026-11-07T09:00:00.000Z',
+		replySweepShortfall: 3
+	});
+
+	const data = (await loadLayout('UC1')) as LayoutData;
+
+	expect(data.ch).toMatchObject({
+		moderateRepliesSince: '2026-11-01T00:00:00.000Z',
+		replySweepBoundary: '2026-10-29T00:00:00.000Z',
+		replySweepLastAt: '2026-11-07T09:00:00.000Z',
+		replySweepShortfall: 3
+	});
+	expect(data.ch).not.toHaveProperty('replySweepPageToken');
+	expect(JSON.stringify(data)).not.toContain('secret-reply-token');
+});
+
 test('projects the active flag the paused banner and header read (cubic, PR #142)', async () => {
 	await seedChannel('UC1');
 	// Default seed is active; the paused payload must carry 0 explicitly —
@@ -164,6 +195,52 @@ test.each([
 	const data = (await loadLayout('UC1', OWNER, path)) as LayoutData;
 
 	expect(data.tab).toBe(tab);
+});
+
+describe('reply pause', () => {
+	const NOON = '2026-11-07T12:00:00.000Z';
+
+	beforeEach(async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(NOON));
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000000';
+		await wipeTables(['youtube_quota_usage']);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	test.each([
+		{ label: 'unset', ceiling: undefined, stamp: null, pause: 'paused-by-server' },
+		{ label: 'zero', ceiling: '0', stamp: null, pause: 'paused-by-server' },
+		{ label: 'malformed', ceiling: 'abc', stamp: null, pause: 'paused-by-server' },
+		{ label: 'unset, with today stamped', ceiling: undefined, stamp: { day: '2026-11-07', exhaustedAt: NOON }, pause: 'paused-by-server' },
+		{ label: 'set, with today stamped', ceiling: '1000000', stamp: { day: '2026-11-07', exhaustedAt: NOON }, pause: 'paused-quota-today' },
+		{ label: 'set, with yesterday stamped', ceiling: '1000000', stamp: { day: '2026-11-06', exhaustedAt: '2026-11-06T12:00:00.000Z' }, pause: null },
+		{ label: 'set, nothing stamped', ceiling: '1000000', stamp: null, pause: null }
+	])('the reply pause with the ceiling $label reads $pause', async ({ ceiling, stamp, pause }) => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = ceiling;
+		await seedChannel('UC1');
+		if (stamp !== null) await testDb().db.insert(youtubeQuotaUsage).values({ day: stamp.day, units: 0, exhaustedAt: stamp.exhaustedAt });
+
+		const data = (await loadLayout('UC1')) as LayoutData;
+
+		expect(data.replyPause).toBe(pause);
+	});
+
+	test.each([
+		{ label: 'at the ceiling', units: 1000, pause: 'paused-quota-today' },
+		{ label: 'one unit under the ceiling', units: 999, pause: null }
+	])('with the ceiling at 1000 and $units units used today, the reply pause is $pause ($label)', async ({ units, pause }) => {
+		mocks.env.REPLY_SWEEP_QUOTA_CEILING = '1000';
+		await seedChannel('UC1');
+		await testDb().db.insert(youtubeQuotaUsage).values({ day: '2026-11-07', units, exhaustedAt: null });
+
+		const data = (await loadLayout('UC1')) as LayoutData;
+
+		expect(data.replyPause).toBe(pause);
+	});
 });
 
 test('a database outage returns the maintenance payload without requiring a user', async () => {

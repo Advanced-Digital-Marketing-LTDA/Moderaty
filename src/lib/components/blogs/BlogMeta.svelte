@@ -2,17 +2,19 @@
 	import { BLOG_AUTHOR } from '$lib/blogs/author';
 	import { jsonLd } from '$lib/landing/json-ld';
 
-	let { title, description, path, origin, article = false }: {
+	let { title, description, path, origin, article = false, schema: customSchema }: {
 		title: string;
 		description: string;
 		path: string;
 		origin: string;
 		article?: boolean;
+		// Replaces the default CollectionPage/BlogPosting block, for pages with their own JSON-LD.
+		schema?: object;
 	} = $props();
 
 	let image = $derived(new URL('/og.png', origin).href);
 	let canonical = $derived(new URL(path, origin).href);
-	let schema = $derived({
+	let defaultSchema = $derived({
 		'@context': 'https://schema.org',
 		'@type': article ? 'BlogPosting' : 'CollectionPage',
 		...(article ? { headline: title, mainEntityOfPage: canonical } : { name: title }),
@@ -21,6 +23,7 @@
 		url: canonical,
 		inLanguage: 'en'
 	});
+	let schema = $derived(customSchema ?? defaultSchema);
 </script>
 
 <svelte:head>

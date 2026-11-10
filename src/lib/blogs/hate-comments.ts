@@ -5,8 +5,8 @@ export const HATE_COMMENTS = {
 } as const;
 
 // readingMinutes is the rendered article's word count at 200 words per minute,
-// rounded up; article-standards.test.ts recomputes it from the final text.
-export const HATE_COMMENTS_EDITION = { updated: '2026-10-20', readingMinutes: 9 } as const;
+// rounded up; public-pages.test.ts recomputes it from the final text.
+export const HATE_COMMENTS_EDITION = { updated: '2026-11-06', readingMinutes: 9 } as const;
 
 export const HATE_COMMENT_SECTIONS = {
 	summary: { id: 'summary', title: 'Summary' },

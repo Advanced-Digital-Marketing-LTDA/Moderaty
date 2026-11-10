@@ -77,6 +77,12 @@ async function loadAuthorHandles(
 	return { handles, handleLookupError };
 }
 
+/** The ids in `ids` that already have a comments row. Not scoped to a channel, as the scan's dedupe has always been. */
+export async function storedCommentIds(ids: string[]): Promise<Set<string>> {
+	const rows = await db.select({ id: comments.id }).from(comments).where(inArray(comments.id, ids)).all();
+	return new Set(rows.map((row) => row.id));
+}
+
 export async function prepareDecisionBatch(
 	channelId: string,
 	page: CommentPage,
@@ -121,18 +127,11 @@ const protectedIdSet = new Set(protectedIds);
 // preview. The within-batch dedupe below still applies. The DB query is
 // skipped in both no-consult cases (rescore, empty page).
 // Stryker disable ArrayDeclaration: equivalent — with an empty page there are no comments to consult existingIds for, so its contents are never read
-const storedIds =
+const existingIds =
 	!options.rescore && page.comments.length
-		? (
-				await db
-					.select({ id: comments.id })
-					.from(comments)
-					.where(inArray(comments.id, page.comments.map((comment) => comment.id)))
-					.all()
-			).map((comment) => comment.id)
-		: [];
+		? await storedCommentIds(page.comments.map((comment) => comment.id))
+		: new Set<string>();
 // Stryker restore ArrayDeclaration
-const existingIds = new Set(storedIds);
 const rulesForChannel = prepareRules(await db.select().from(rules).where(eq(rules.channelId, channelId)).all());
 // Dedupe three ways: against already-stored comments, within this batch,
 // and against comments this scan already staged (the scan_id marker). The

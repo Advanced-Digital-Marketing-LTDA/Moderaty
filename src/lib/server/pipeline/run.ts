@@ -14,7 +14,7 @@ import { fetchNewComments, refreshAccessToken, type CommentPage } from '$lib/ser
 import { assertChannelActive, ChannelDeactivatedError, runEnforcement } from './enforcement';
 import { decideNewComments } from './scoring';
 import { stageOrAuditDecisions } from './staging';
-import type { ChannelRunResult, RunChannelOptions } from './types';
+import type { ChannelRunResult, Decision, RunChannelOptions } from './types';
 
 /**
  * Creates an empty channel run result with no processed comments or actions.
@@ -23,6 +23,11 @@ import type { ChannelRunResult, RunChannelOptions } from './types';
  */
 function emptyResult(): ChannelRunResult {
 	return { fetched: 0, acted: 0, queued: 0, partial: false, skipped: true, dryRun: false };
+}
+
+/** The live result's reply-failure count: present only when a reply write was parked in this run. */
+function replyActionFailuresField(count: number): { replyActionFailures?: number } {
+	return count > 0 ? { replyActionFailures: count } : {};
 }
 
 /**
@@ -162,7 +167,7 @@ async function loadChannelForRun(
  * decisions are staged and BEFORE the cursor advances, so the next run
  * retries just the failed comments.
  */
-const decideAndStage = async (
+export const decideAndStage = async (
 	channelId: string,
 	page: CommentPage,
 	fetched: number,
@@ -173,10 +178,12 @@ const decideAndStage = async (
 		dryRun: boolean;
 		window: RunChannelOptions['window'];
 		rescan: { chargeScope: string | null; scanStamp: string } | undefined;
+		/** Reply recheck: reshapes the scored decisions before staging. It must keep the count (staged + deferred = scored). */
+		adjust?: (decisions: Decision[]) => Decision[];
 	}
 ): Promise<{ acted: number; queued: number; skipped: number; deferred: number; stagedCount: number; handleLookupError: boolean; protection: ProtectedIdentities }> => {
-	const { channel, accessToken, deadline, dryRun, window, rescan } = ctx;
-	const { decisions, failures, deferred, protectedIds, protection, handleLookupError } = await decideNewComments(channelId, page, {
+	const { channel, accessToken, deadline, dryRun, window, rescan, adjust } = ctx;
+	const { decisions: scoredDecisions, failures, deferred, protectedIds, protection, handleLookupError } = await decideNewComments(channelId, page, {
 		accessToken,
 		toneLevel: channel.toneLevel ?? TONE_LEVEL_OMNI_ONLY,
 		protections: {
@@ -203,6 +210,7 @@ const decideAndStage = async (
 		// Live runs consume credits (and gate AI on them); dry runs never do.
 		consumeCredits: !dryRun
 	});
+	const decisions = adjust ? adjust(scoredDecisions) : scoredDecisions;
 
 	// Deletion may have committed during the YouTube/AI calls above: re-check
 	// before any durable write (I3) so a deleted account gets no new rows.
@@ -277,17 +285,18 @@ export async function runChannel(
 
 		const enforcement = await runEnforcement(channelId, accessToken, deadline, channel.orgId, deferred, channel, staged.protection);
 		acted = enforcement.acted;
+		const replyFailures = replyActionFailuresField(enforcement.replyActionFailures);
 		if (enforcement.outOfCredits) {
 			console.warn(
 				`run ${channelId}: out of credits — ${deferred} comment(s) deferred, cursor parked; fetched=${fetched} skippedAlreadySeen=${skipped} rescan=${rescan !== undefined}`
 			);
-			return { fetched, acted, queued, partial: false, skipped: false, dryRun, outOfCredits: true, ...warning };
+			return { fetched, acted, queued, partial: false, skipped: false, dryRun, outOfCredits: true, ...warning, ...replyFailures };
 		}
 		const { complete, cursor: newCursor } = await persistResults(channelId, channel, page);
 		console.info(
 			`run ${channelId}: fetched=${fetched} skippedAlreadySeen=${skipped} staged=${staged.stagedCount} deferred=${deferred} acted=${acted} queued=${queued} rescan=${rescan !== undefined}; scan ${complete ? `complete — cursor now ${newCursor}` : `continues next run (boundary ${channel.cursor})`}`
 		);
-		return { fetched, acted, queued, partial: false, skipped: false, dryRun, ...warning };
+		return { fetched, acted, queued, partial: false, skipped: false, dryRun, ...warning, ...replyFailures };
 	} catch (error) {
 		if (error instanceof DeadlineExceededError) {
 			console.warn(`run ${channelId}: deadline reached — partial (fetched=${fetched})`);

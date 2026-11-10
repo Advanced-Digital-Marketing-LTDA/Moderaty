@@ -37,3 +37,7 @@ Migration `0050_feedback_clustering_recovery.sql` adds the nullable flag
 without backfilling historical rows. Apply and verify the migration before
 running code that reads it. Agent operations target the isolated dev database
 only; production migration and release remain human-operated.
+
+## Replies are excluded
+
+The feedback digest and the history scan use top-level comments only. Reply rows (`comments.parent_id` set) are excluded by `pendingStoredFeedback`, whose predicate is `parent_id IS NULL` (`isNull(comments.parentId)`). The digest batch, its per-100 cadence count and its remaining-count check all read through that predicate. The history scan's YouTube reads never request replies. Reply moderation is described in [reply moderation](reply-moderation.md).

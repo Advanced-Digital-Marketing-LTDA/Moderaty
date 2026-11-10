@@ -64,6 +64,10 @@ configured time between cron invocations:
 
 Per-channel history/dry-run-window work keeps its existing live rotation semantics.
 
+## Reply recheck
+
+The reply recheck is a second bounded unit inside the claim the live run already holds, not a separate claimed workload, so the at-most-one-workload rule above still holds. After `runChannel` finishes, the same claim and lease run one thread page for a channel with reply moderation on: at most 100 fresh replies and at most 10 reply lookup calls. It shares the tick's deadline and runs only after a live run that was not skipped, dry, partial, out of credits or unpaid. It does not run for dry-run or preview work, or while a history scan runs on the channel. Its outcome is reported in its own fields and never changes live health. See [reply moderation](reply-moderation.md).
+
 ## Migration and verification
 
 Apply `0064_cron_workload_fairness.sql` before starting this code. It adds only a
