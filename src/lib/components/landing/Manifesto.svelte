@@ -19,7 +19,7 @@
 				</p>
 				<p>
 					If you want AI to reply to your fans, use CommentShark. It's good at that. If you want
-					help moderating harmful top-level comments with your rules and a review queue, use us.
+					AI scoring for harmful top-level comments, with a review queue and optional rules, use us.
 				</p>
 			</div>
 		</Reveal>

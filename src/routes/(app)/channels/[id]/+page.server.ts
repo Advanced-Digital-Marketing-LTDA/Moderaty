@@ -3,10 +3,10 @@ import { channels } from '$lib/server/db/schema';
 import { decrypt } from '$lib/server/crypto';
 import { deleteChannelRecords } from '$lib/server/deletion';
 import { revokeGoogleToken } from '$lib/server/google';
-import { claimDryRun } from '$lib/server/dryRun';
+import { claimDryRunForOrg, refusalMessage, type DryRunClaimResult } from '$lib/server/billing/ingestion';
 import { historyAccessError } from '$lib/server/historyAccess';
 import { historyWindowBoundary, parseHistoryWindow } from '$lib/historyWindow';
-import { requireOrgRole } from '$lib/server/ownership';
+import { ownedChannel, requireOrgRole } from '$lib/server/ownership';
 import { runChannel } from '$lib/server/pipeline';
 import { requireUser } from '$lib/server/session';
 import { isToneLevel } from '$lib/toneLevels';
@@ -22,7 +22,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 // Each writable column accepts its insert type or a SQL fragment
 // (drizzle .set() supports both — a conditional CASE needs the latter).
 type WritableChannelValues = {
-	[K in 'toneLevel' | 'protectLgbtqia' | 'protectWomen' | 'active' | 'lastRunStatus' | 'lastRunError']?:
+	[K in 'toneLevel' | 'protectLgbtqia' | 'protectWomen' | 'active' | 'lastRunStatus' | 'lastRunError' | 'moderateRepliesSince' | 'replySweepBoundary' | 'replySweepPageToken' | 'replySweepLastAt' | 'replySweepShortfall']?:
 		| (typeof channels.$inferInsert)[K]
 		| SQL;
 };
@@ -101,7 +101,57 @@ export const actions = {
 		if (updated.length === 0) return fail(404, { scope: 'pause', channelId, error: 'channel not found' });
 		return { ok: true, scope: 'pause', channelId, paused: raw === 'true' };
 	},
-	analyzeHistory: async ({ request, locals }) => {
+	setModerateReplies: async ({ params, request, locals }) => {
+			const user = requireUser(locals);
+			// Reply checks spend the organization's credits on replies, so the owner decides.
+			requireOrgRole(user, 'owner');
+			// The exact-value guard analyzeHistory uses: an unset or misspelled DRY_RUN
+			// is a misconfiguration, never a silent live deployment.
+			if (env.DRY_RUN !== 'true' && env.DRY_RUN !== 'false') {
+				throw error(500, 'DRY_RUN must be set to exactly "true" or "false" — the deployment is misconfigured');
+			}
+			// Tenancy gate: another team's channel reads as "not found" before any write.
+			const channel = await ownedChannel(params.id, locals);
+			const f = await request.formData();
+			// Explicit target state, as in setPaused. The ticked box posts 'true' and its
+			// hidden fallback posts 'false'. get() returns the first value, so the
+			// checkbox must precede the fallback in the markup.
+			const raw = f.get('enabled');
+			if (raw !== 'true' && raw !== 'false') {
+				return fail(400, { scope: 'replies', channelId: params.id, error: 'enabled must be "true" or "false"' });
+			}
+			// The refusal analyzeHistory makes: no reply check can run under env dry-run
+			// (I8), and this write clears checkpoint columns in either direction.
+			if (env.DRY_RUN === 'true') {
+				return fail(409, {
+					scope: 'replies',
+					channelId: params.id,
+					error: 'This deployment runs in dry-run mode: reply moderation cannot run here. Set DRY_RUN=false to moderate.'
+				});
+			}
+			// Re-saving an enabled setting changes nothing. Clearing the checkpoint here would skip replies
+			// posted since the enable time, so the enable time and the pass in flight keep running.
+			if (raw === 'true' && channel.moderateRepliesSince !== null) {
+				return { ok: true, scope: 'replies', message: 'Reply moderation saved.' };
+			}
+			// Enabling stamps since and last check with one instant, the invariant
+			// replyCheckStatus reads. Both directions clear the checkpoint.
+			const now = new Date().toISOString();
+			const checkpointCleared = { replySweepBoundary: null, replySweepPageToken: null, replySweepShortfall: null };
+			const values =
+				raw === 'true'
+					? { moderateRepliesSince: now, replySweepLastAt: now, ...checkpointCleared }
+					: { moderateRepliesSince: null, replySweepLastAt: null, ...checkpointCleared };
+			try {
+				const updated = await updateOwnChannel(user.orgId, params.id, values);
+				if (updated.length === 0) return fail(404, { scope: 'replies', channelId: params.id, error: 'channel not found' });
+			} catch (e) {
+				console.error('setModerateReplies failed for channel:', params.id, e);
+				return fail(502, { scope: 'replies', channelId: params.id, error: 'Reply moderation could not be saved — try again.' });
+			}
+			return { ok: true, scope: 'replies', message: 'Reply moderation saved.' };
+		},
+		analyzeHistory: async ({ request, locals }) => {
 		const user = requireUser(locals);
 		// runChannel accepts exactly 'true'/'false' for DRY_RUN; anything else
 		// (unset, misspelled) would pass the env-dry check below, reset the scan
@@ -215,21 +265,24 @@ export const actions = {
 		// rows and reads as "not found". The lease self-expires if this
 		// request dies mid-preview. Burning the allowance on a failed attempt
 		// is deliberate — cheap retry abuse would otherwise be unlimited.
-		let claim: Awaited<ReturnType<typeof claimDryRun>>;
+		let claim: DryRunClaimResult;
 		try {
-			claim = await claimDryRun(channelId, user.orgId, 'moderation');
+			claim = await claimDryRunForOrg(channelId, user.orgId, 'moderation');
 		} catch (cause) {
 			console.error('dry-run claim failed for channel:', channelId, cause);
 			return fail(500, { scope: 'dryRun', channelId, error: 'The dry run could not be started. Check the server log and try again.' });
 		}
-		if ('status' in claim) return fail(claim.status, { scope: 'dryRun', channelId, error: claim.error });
+		if ('status' in claim) return fail(claim.status, { scope: 'dryRun', channelId, error: refusalMessage(claim) });
 		// First page synchronously (one page, hard 20 s ceiling); a window with
 		// more pages drains one page per cron invocation afterwards. The run
 		// writes nothing durable except dry-run audit rows (I8).
 		try {
+			const capped = claim.orgFreeRun === true;
+			// An unpaid org's free run is one page and plants no drain (the cap); other previews keep their first-page-then-drain behavior.
 			const result = await runChannel(channelId, {
 				deadline: Date.now() + 20_000,
 				forceDryRun: true,
+				...(capped ? { maxPages: 1 } : {}),
 				window: { boundary, pageToken: null },
 				// Bind execution to the row that claimed the allowance — a
 				// delete/reconnect under the same channel id must abort the
@@ -247,19 +300,19 @@ export const actions = {
 			// claimed the channel mid-run, the drain state belongs to cron now
 			// and a 0-row update leaves it untouched.
 			const stillOurs = and(eq(channels.id, channelId), eq(channels.leaseExpiresAt, claim.lease));
-			const background = !result.skipped && result.windowComplete !== true;
-			if (result.windowComplete === true) {
+			const background = !capped && !result.skipped && result.windowComplete !== true;
+			if (!capped && result.windowComplete === true) {
 				await db
 					.update(channels)
 					.set({ dryRunBoundary: null, dryRunPageToken: null })
 					.where(stillOurs);
-			} else if (!result.skipped) {
+			} else if (!capped && !result.skipped) {
 				await db
 					.update(channels)
 					.set({ dryRunBoundary: boundary, dryRunPageToken: result.windowNextPageToken ?? null })
 					.where(stillOurs);
 			}
-			return { ok: true as const, scope: 'dryRun', channelId, months, dryRunUsed: true, ...result, background };
+			return { ok: true as const, scope: 'dryRun', channelId, months, dryRunUsed: true, ...result, background, capped };
 		} catch (e) {
 			// Loud server-side, generic client-side — never return raw
 			// YouTube/OpenAI error detail to the browser. attempted:true tells

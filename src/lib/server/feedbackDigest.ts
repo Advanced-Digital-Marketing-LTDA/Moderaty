@@ -21,6 +21,7 @@ import { clusterClassifiedClaims } from '$lib/server/feedbackCluster';
 import { groupFeedback } from '$lib/server/feedbackGroup';
 import { DeadlineExceededError, assertBeforeDeadline } from '$lib/server/http';
 import { consumeCreditsBulk, orgIsMetered, type LedgerHandle } from '$lib/server/billing/ledger';
+import { ingestionBlock } from '$lib/server/billing/ingestion';
 import { channelMatchesClaim, type DryRunClaim } from '$lib/server/dryRun';
 import { resolveOpenAiKey } from '$lib/server/openaiKey';
 
@@ -348,7 +349,7 @@ async function historyCoveredIds(
 			db
 				.select({ id: comments.id })
 				.from(comments)
-				.where(and(eq(comments.channelId, channelId), inArray(comments.id, ids), isNotNull(comments.feedbackDigestedAt)))
+				.where(and(eq(comments.channelId, channelId), inArray(comments.id, ids), isNotNull(comments.feedbackDigestedAt), isNull(comments.parentId)))
 				.all(),
 			db
 				.select({ id: feedbackHistoryComments.id })
@@ -718,6 +719,10 @@ async function digestGateResult(
 	}
 	if (!channel.active) return { status: 'skipped', reason: 'inactive' };
 	if (channel.feedbackEnabled !== 1) return { status: 'skipped', reason: 'disabled' };
+		if (channel.orgId !== null && (await ingestionBlock(channel.orgId)) === 'unpaid') {
+			console.warn(`feedback digest for ${channelId} deferred: org ${channel.orgId} is unpaid; no fetch or AI`);
+			return { status: 'deferred', reason: 'unpaid' };
+		}
 	if (!force && !(await digestDue(channel))) return { status: 'skipped', reason: 'cadence' };
 	return null;
 }

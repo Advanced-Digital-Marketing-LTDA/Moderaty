@@ -197,3 +197,23 @@ test('operation context preserves the original cause, result and exactly one att
 	expect(describeCronFailure(failure, 'auto top-up sweep', runId)).toMatchObject({ operation: 'auto_topup.lifetime_candidates', category: 'dns', service: 'database' });
 	expect(await withDiagnosticOperation('auto_topup.lifetime_candidates', async () => 7)).toBe(7);
 });
+
+test('describeCronFailure gives the reply recheck its own sweep, operation and service', () => {
+	expect(describeCronFailure(new Error('boom'), 'reply recheck', runId)).toMatchObject({
+		sweep: 'replySweepError', operation: 'reply_recheck', service: 'youtube', category: 'unknown', cronRunId: runId
+	});
+	expect(formatCronFailure(describeCronFailure(new Error('boom'), 'reply recheck', runId)))
+		.toBe(`unknown service=youtube operation=reply_recheck run=${runId} causes=Error`);
+});
+
+test('a reply recheck report is one sanitized entry, and the thrown message reaches neither the entry nor the log', () => {
+	const log = vi.spyOn(console, 'error').mockImplementation(vi.fn());
+	onTestFinished(log.mockRestore);
+	const diagnostics = new CronDiagnostics();
+	const summary = diagnostics.report('reply recheck', new Error('boom test-secret'));
+	expect(summary).toBe(`unknown service=youtube operation=reply_recheck run=${diagnostics.cronRunId} causes=Error`);
+	expect(diagnostics.failures).toEqual([expect.objectContaining({
+		sweep: 'replySweepError', operation: 'reply_recheck', service: 'youtube', category: 'unknown', cronRunId: diagnostics.cronRunId
+	})]);
+	expect(JSON.stringify([diagnostics.failures, log.mock.calls])).not.toContain('test-secret');
+});

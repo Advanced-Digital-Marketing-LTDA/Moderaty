@@ -519,6 +519,27 @@
       "when": 1791570822667,
       "tag": "0073_protected_handles_rollout_compatibility",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "6",
+      "when": 1793820409517,
+      "tag": "0074_free_dry_run_used_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "6",
+      "when": 1794065337893,
+      "tag": "0075_reply_moderation_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "6",
+      "when": 1794074874532,
+      "tag": "0076_youtube_quota_usage",
+      "breakpoints": true
     }
   ]
 }

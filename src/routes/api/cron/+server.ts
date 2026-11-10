@@ -15,6 +15,11 @@ import { retryContactNotifications } from '$lib/server/contactNotification';
 import { generateFeedbackDigest, runFeedbackPreview } from '$lib/server/feedbackDigest';
 import { sweepZeroCreditAccounts, ZERO_CREDIT_SWEEP_BATCH } from '$lib/server/zeroCredits';
 import { runChannel, type ChannelRunResult } from '$lib/server/pipeline';
+import { ChannelDeactivatedError } from '$lib/server/pipeline/enforcement';
+import { runReplySweep, type ReplySweepResult } from '$lib/server/pipeline/replySweep';
+import { decrypt } from '$lib/server/crypto';
+import { refreshAccessToken } from '$lib/server/youtube';
+import { flushYoutubeUnits } from '$lib/server/quota';
 import type { RequestHandler } from './$types';
 
 const CONTACT_NOTIFICATION_BUDGET_MS = 5 * 1000;
@@ -266,15 +271,68 @@ async function runDueDigest(channel: typeof channels.$inferSelect, deadline: num
 	}
 }
 
+/** A reply recheck's report for one channel, merged into that channel's `results` entry. Absent when the recheck was not called. */
+type ReplyRecheck = {
+	replySweep?: Omit<ReplySweepResult, 'enforcementError'> | { status: 'partial'; reason: 'deactivated' };
+	replySweepError?: string;
+};
+
+/** A live run may be followed by a reply recheck only when it finished a real, paid, non-dry pass. */
+function liveRunAllowsRecheck(live: ChannelRunResult): boolean {
+	return !live.skipped && !live.dryRun && !live.partial && !live.outOfCredits && !live.unpaid;
+}
+
+/**
+ * The reply recheck is a second bounded unit (I10) under the claim the live run already holds: it takes
+ * no claim or lease of its own and shares the tick deadline. Its outcome goes in its own fields and never
+ * writes run health (lastRunStatus, lastRunError, lastSuccessAt), and a failure here never masks the live
+ * verdict or stops the digest. Only a channel with reply moderation off skips the call; every other gate,
+ * including the time left and a running history scan, is the sweep's own and is reported with its reason.
+ */
+async function runReplyRecheck(
+	channel: typeof channels.$inferSelect,
+	live: ChannelRunResult,
+	deadline: number,
+	diagnostics: CronDiagnostics
+): Promise<ReplyRecheck> {
+	if (!liveRunAllowsRecheck(live)) return {};
+	try {
+		// A fresh read after the live run: the setting and the stored token are as they stand now.
+		const fresh = await db.select().from(channels).where(eq(channels.id, channel.id)).get();
+		if (!fresh || fresh.moderateRepliesSince === null) return {};
+		// enforcementError is raw provider text: it is classified here and never returned to the caller.
+		const { enforcementError, ...replySweep } = await runReplySweep(
+			fresh,
+			() => refreshAccessToken(decrypt(fresh.refreshTokenEnc), deadline),
+			deadline
+		);
+		if (enforcementError === undefined) return { replySweep };
+		console.error(`cron: reply recheck enforcement failed for channel ${channel.id}`);
+		return { replySweep, replySweepError: diagnostics.report('reply recheck', new Error(enforcementError)) };
+	} catch (cause) {
+		if (cause instanceof ChannelDeactivatedError) {
+			console.info(`cron: reply recheck stopped for channel ${channel.id}: channel deactivated`);
+			return { replySweep: { status: 'partial', reason: 'deactivated' } };
+		}
+		console.error(`cron: reply recheck failed for channel ${channel.id}`);
+		return { replySweepError: diagnostics.report('reply recheck', cause) };
+	}
+}
+
+/**
+ * One claimed channel's tick, in order: the live run, the reply recheck, the dry-run drain and the digest.
+ * The recheck and the live run share the one claim and lease taken before the live run (I10).
+ */
 async function runClaimedChannel(
 	channel: typeof channels.$inferSelect,
 	deadline: number,
 	diagnostics: CronDiagnostics
-): Promise<{ result: ChannelRunResult; dryRunWindow: unknown; digest: unknown }> {
+): Promise<{ result: ChannelRunResult; replyRecheck: ReplyRecheck; dryRunWindow: unknown; digest: unknown }> {
 	const result = await runChannel(channel.id, { deadline, maxPages: 1 });
+	const replyRecheck = await runReplyRecheck(channel, result, deadline, diagnostics);
 	const dryRunWindow = await drainDryRunWindow(channel, deadline, diagnostics);
 	const digest = await runDueDigest(channel, deadline, diagnostics);
-	return { result, dryRunWindow, digest };
+	return { result, replyRecheck, dryRunWindow, digest };
 }
 
 const orZero = (value: number | null | undefined): number => value ?? 0;
@@ -402,7 +460,7 @@ const runCronSweeps = async (dryRun: boolean, deadline: number, startedAt: numbe
 	return base;
 };
 
-type RunCategory = 'token' | 'quota' | 'scoring' | 'timeout' | 'credits' | 'handles' | 'error';
+type RunCategory = 'token' | 'quota' | 'scoring' | 'timeout' | 'credits' | 'handles' | 'unpaid' | 'error';
 
 /**
  * Runs the claimed channel and writes its bookkeeping row. The run's health
@@ -423,14 +481,15 @@ const runAndRecord = async (
 	let status = 200;
 	const runStartedAt = Date.now();
 	try {
-		const { result, dryRunWindow, digest } = await runClaimedChannel(channel, deadline, diagnostics);
-		if (result.dryRun || result.stoppedReason === 'deactivated' || result.skipped) runHealth = 'none';
+		const { result, replyRecheck, dryRunWindow, digest } = await runClaimedChannel(channel, deadline, diagnostics);
+		if (result.unpaid) runHealth = { status: 'failed', error: 'unpaid' };
+			else if (result.dryRun || result.stoppedReason === 'deactivated' || result.skipped) runHealth = 'none';
 		else if (result.outOfCredits) runHealth = { status: 'failed', error: 'credits' };
 		else if (result.partial) runHealth = { status: 'failed', error: 'timeout' };
 		else if (result.handleLookupError) runHealth = { status: 'failed', error: 'handles' };
 		const health = typeof runHealth === 'string' ? runHealth : `failed:${runHealth.error}`;
 		console.info(`cron: channel ${channel.id} finished in ${Date.now() - runStartedAt}ms — health=${health}`);
-		body = { ...base, results: { [channel.id]: result }, dryRunWindow, digest };
+		body = { ...base, results: { [channel.id]: { ...result, ...replyRecheck } }, dryRunWindow, digest };
 	} catch (cause) {
 		const category = categorizeRunFailure(cause);
 		runHealth = { status: 'failed', error: category };
@@ -481,11 +540,10 @@ const runAndRecord = async (
 	return { body, status };
 };
 
-export const GET: RequestHandler = async ({ url, request }) => {
+const runCronTick = async (diagnostics: CronDiagnostics, flushQuota: () => Promise<string | null>) => {
 	// Captured at handler start so the DB prelude consumes the same budget.
 	const startedAt = Date.now();
 	const deadline = startedAt + RUN_BUDGET_MS;
-	authorizeCron(url, request);
 	// Validate BEFORE any sweep or claim: an invalid value must fail loudly
 	// at the entry, not silently run the sweeps live (runChannel re-checks,
 	// but by then retention writes would already have landed).
@@ -493,11 +551,20 @@ export const GET: RequestHandler = async ({ url, request }) => {
 		throw error(500, 'DRY_RUN must be true or false');
 	}
 	const dryRun = env.DRY_RUN === 'true';
-	const diagnostics = new CronDiagnostics();
 	// Snapshot at serialization: failures can arrive after the sweeps finish.
-	const respond = (body: Record<string, unknown>, status = 200) => json({
-		...body, cronRunId: diagnostics.cronRunId, failureDiagnostics: diagnostics.failures
-	}, { status });
+	// Set when the complimentary list could not be read. Unpaid orgs are excluded
+	// from the pick, so the tick must say so: ok:false, like a failed sweep.
+	let complimentaryListFailed = false;
+	const respond = async (body: Record<string, unknown>, status = 200) => {
+		// Flushed before the snapshot below, so a failed flush appears in both quotaFlushError and failureDiagnostics.
+		const quotaFlushError = await flushQuota();
+		return json({
+			...body,
+			...(complimentaryListFailed ? { ok: false, complimentaryAccessError: true } : {}),
+			...(quotaFlushError ? { quotaFlushError } : {}),
+			cronRunId: diagnostics.cronRunId, failureDiagnostics: diagnostics.failures
+		}, { status });
+	};
 	console.info(`cron: tick start (dryRun=${dryRun}, run=${diagnostics.cronRunId})`);
 	const base = await runCronSweeps(dryRun, deadline, startedAt, diagnostics);
 	const nowIso = new Date().toISOString();
@@ -522,7 +589,10 @@ export const GET: RequestHandler = async ({ url, request }) => {
 	}
 	const afterCleanup = { ...base, ...(feedbackPreviewSweepError ? { ok: false, feedbackPreviewSweepError } : {}) };
 	try {
-		workload = await claimCronWorkload(deadline);
+		workload = await claimCronWorkload(deadline, (cause) => {
+			complimentaryListFailed = true;
+			diagnostics.report('complimentary access list', cause);
+		});
 	} catch (cause) {
 		// A transaction failure rolls back the lease and turn together. Fail
 		// loudly rather than guessing which workload another tick owns.
@@ -569,4 +639,39 @@ export const GET: RequestHandler = async ({ url, request }) => {
 	);
 	const { body, status } = await runAndRecord(workload, deadline, withPreview, diagnostics);
 	return respond(body, status);
+};
+
+/**
+ * Flushes this invocation's YouTube units at most once. The response path flushes before it serializes, so a failure
+ * reaches the payload; GET's finally covers a tick that throws first. A dry run writes nothing durable (I8), so its
+ * units are dropped with the invocation. A failed write is logged and never changes a channel's run health.
+ */
+function quotaFlusher(diagnostics: CronDiagnostics): () => Promise<string | null> {
+	let flushed: Promise<string | null> | null = null;
+	return () => {
+		flushed ??= flushQuotaUnits(diagnostics);
+		return flushed;
+	};
+}
+
+async function flushQuotaUnits(diagnostics: CronDiagnostics): Promise<string | null> {
+	if (env.DRY_RUN === 'true') return null;
+	try {
+		await flushYoutubeUnits(db);
+		return null;
+	} catch (cause) {
+		return diagnostics.report('youtube quota flush', cause);
+	}
+}
+
+export const GET: RequestHandler = async (event) => {
+	// Before the try: a rejected request must not reach the quota flush in finally.
+	authorizeCron(event.url, event.request);
+	const diagnostics = new CronDiagnostics();
+	const flushQuota = quotaFlusher(diagnostics);
+	try {
+		return await runCronTick(diagnostics, flushQuota);
+	} finally {
+		await flushQuota();
+	}
 };

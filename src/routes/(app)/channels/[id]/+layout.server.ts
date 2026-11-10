@@ -1,6 +1,10 @@
 import { isHttpError } from '@sveltejs/kit';
 
+import { env } from '$env/dynamic/private';
+import type { ReplyPause } from '$lib/replyCheckStatus';
 import { banCountsByChannel, commentCountsByChannel } from '$lib/server/channelStats';
+import { db } from '$lib/server/db';
+import { readQuotaExhaustedToday, readReplyCeiling, readYoutubeUnitsToday } from '$lib/server/quota';
 import { ownedChannel } from '$lib/server/ownership';
 import { requireUser } from '$lib/server/session';
 
@@ -13,6 +17,20 @@ function tabFromPath(pathname: string): ChannelTab {
 	if (pathname.endsWith('/feedback')) return 'feedback';
 	if (pathname.endsWith('/log')) return 'log';
 	return 'overview';
+}
+
+/**
+ * The reply recheck's pause for this load: a disabled quota ceiling pauses reply checks by the server. A day a quota
+ * refusal stamped, or a day whose units have reached the ceiling, pauses them until the Pacific day rolls over. Reads only.
+ */
+async function replyPauseNow(): Promise<ReplyPause | null> {
+	const ceiling = readReplyCeiling(env.REPLY_SWEEP_QUOTA_CEILING);
+	if (ceiling.kind === 'disabled') return 'paused-by-server';
+	const now = Date.now();
+	if (await readQuotaExhaustedToday(db, now)) return 'paused-quota-today';
+	// The same comparison the recheck's own quota gate makes, so the owner's status matches what the recheck does.
+	if ((await readYoutubeUnitsToday(db, now)) >= ceiling.units) return 'paused-quota-today';
+	return null;
 }
 
 /** Outage payload: no identity, no counts — the layout renders its own error state. */
@@ -31,13 +49,19 @@ function maintenancePayload(channelId: string, tab: ChannelTab) {
 			active: 1,
 			scanning: false,
 			dryRunScanning: false,
-			moderationDryRunUsed: false
+			moderationDryRunUsed: false,
+			// Same shape as the loaded channel, so the overview's reply status type-checks on both arms.
+			moderateRepliesSince: null,
+			replySweepBoundary: null,
+			replySweepLastAt: null,
+			replySweepShortfall: null
 		},
 		pending: 0,
 		banned: 0,
 		tab,
 		maintenance: true,
-		orgRole: null
+		orgRole: null,
+		replyPause: null
 	};
 }
 
@@ -61,6 +85,7 @@ export async function load({ params, locals, url }) {
 		]);
 		const pending = stats.find((s) => s.status === 'pending')?.n ?? 0;
 		const banned = bans[0]?.n ?? 0;
+		const replyPause = await replyPauseNow();
 		// Project only what the header/tabs/overview render — never serialize
 		// refreshTokenEnc (or any future secret column) to the browser. The
 		// continuation token is internal drain state; only its presence leaks,
@@ -78,9 +103,15 @@ export async function load({ params, locals, url }) {
 			active: row.active,
 			scanning: row.nextPageToken !== null,
 			dryRunScanning: row.dryRunBoundary !== null,
-			moderationDryRunUsed: row.moderationDryRunUsedAt !== null
+			moderationDryRunUsed: row.moderationDryRunUsedAt !== null,
+			// The reply recheck's status line: enable time, pass start, last check, shortfall.
+			// The continuation token stays server-side, as the drain tokens above do.
+			moderateRepliesSince: row.moderateRepliesSince,
+			replySweepBoundary: row.replySweepBoundary,
+			replySweepLastAt: row.replySweepLastAt,
+			replySweepShortfall: row.replySweepShortfall
 		};
-		return { ch, pending, banned, tab, maintenance: false, orgRole: user.orgRole };
+		return { ch, pending, banned, tab, maintenance: false, orgRole: user.orgRole, replyPause };
 	} catch (e) {
 		// A deliberate HttpError (401 signed out, 404 cross-tenant) is NOT an
 		// outage — fail loudly, same as the dashboard load.

@@ -4,7 +4,7 @@
 	import { SPAM_COMMENTS } from '$lib/blogs/spam-comments';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
-	const description = 'Practical advice for YouTube creators on hate comments, spam and scams, useful criticism, and channel moderation.';
+	const description = 'Practical advice for YouTube creators on hate comments, spam and scams, useful criticism, and AI-assisted channel moderation, with custom rules as an option.';
 </script>
 
 <BlogMeta title="YouTube comment moderation blog" {description} path="/blogs/" origin={data.siteOrigin} />

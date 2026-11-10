@@ -117,6 +117,8 @@ export const organizations = sqliteTable('organizations', {
 	// rail; the ledger itself is provider-agnostic (a future MercadoPago
 	// provider reuses it). Columns are nullable until the contract migration.
 	creditsRemaining: integer('credits_remaining'),
+	// Unpaid hosted orgs' one-time free dry run, org-wide and for life (billing/ingestion.ts). Null = unspent; funded and complimentary orgs never set it.
+	freeDryRunUsedAt: text('free_dry_run_used_at'),
 	stripeCustomerId: text('stripe_customer_id'), // Stripe Customer for this org
 	stripeDefaultPmId: text('stripe_default_pm_id'), // card saved for off-session auto top-up
 	autoTopupEnabled: integer('auto_topup_enabled'),
@@ -334,6 +336,11 @@ export const channels = sqliteTable('channels', {
 	feedbackHistoryBoundary: text('feedback_history_boundary'),
 	feedbackHistoryPageToken: text('feedback_history_page_token'),
 	feedbackHistoryScanId: text('feedback_history_scan_id'), // per-request nonce planted with feedback_history_boundary — the history run's billing scope (see history_scan_id)
+	moderateRepliesSince: text('moderate_replies_since'), // ISO; NULL = reply moderation off. Only replies posted after this are moderated
+	replySweepBoundary: text('reply_sweep_boundary'), // ISO start of the reply recheck pass in flight; NULL = no pass in flight
+	replySweepPageToken: text('reply_sweep_page_token'), // YouTube continuation token for the reply recheck's next page
+	replySweepLastAt: text('reply_sweep_last_at'), // ISO of the last reply recheck tick; NULL = never run
+	replySweepShortfall: integer('reply_sweep_shortfall'), // replies the last recheck could not cover; shown to the owner
 	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
 }, (table) => [
 	index('channels_user_id_idx').on(table.userId),
@@ -410,6 +417,7 @@ export const comments = sqliteTable('comments', {
 	// reprocesses rather than skips). Billing-independent — rule/allowlist
 	// and unmetered verdicts stamp it too (codex).
 	scanId: text('scan_id'),
+	parentId: text('parent_id'), // a reply's top-level comment id; NULL = top-level comment
 	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
 }, (table) => [
 	index('comments_channel_digested_idx').on(table.channelId, table.feedbackDigestedAt),
@@ -428,7 +436,7 @@ export const moderationActions = sqliteTable('moderation_actions', {
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
 	reason: text('reason').notNull(),
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
-	state: text('state').notNull(), // 'pending' | 'dispatched' | 'cancelling' | 'completed' | 'superseded' ('manual_review' legacy)
+	state: text('state').notNull(), // 'pending' | 'dispatched' | 'cancelling' | 'completed' | 'superseded' | 'failed' (reply write refused or never sent; parked, not retried) ('manual_review' legacy)
 	lastAttemptAt: text('last_attempt_at'),
 	lastManualRetryAt: text('last_manual_retry_at'),
 	// Normalized commenter handle, 30-day TTL (same retention as audit_log):
@@ -808,3 +816,11 @@ export const contactSubmissions = sqliteTable('contact_submissions', {
 	// frees the slot for a fresh submission.
 	uniqueIndex('contact_submissions_pending_email_unique').on(table.email).where(sql`${table.status} = 'pending'`)
 ]);
+
+// Global YouTube Data API units per Pacific day (one row per day, shared by every channel).
+// Units are flushed by the cron tick; exhausted_at records the day a quota refusal stopped reply checks.
+export const youtubeQuotaUsage = sqliteTable('youtube_quota_usage', {
+	day: text('day').primaryKey(), // YYYY-MM-DD in America/Los_Angeles
+	units: integer('units').notNull().default(0),
+	exhaustedAt: text('exhausted_at') // ISO instant of the first quota refusal that day; null = none
+});

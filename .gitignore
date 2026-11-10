@@ -49,7 +49,6 @@ reports/
 reasonix.toml
 .reasonix
 .aimax
-.codacy
 # Ignore .agents contents (installed skill copies, hooks state, tooling).
 # A bare `.agents` would exclude the directory itself and make re-including
 # anything under it impossible.

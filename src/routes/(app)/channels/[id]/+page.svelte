@@ -4,6 +4,8 @@
 	import { autoRefresh } from '$lib/auto-refresh.svelte';
 	import { armIntentRelease } from '$lib/intentRelease';
 	import SensitivitySwitch from '$lib/SensitivitySwitch.svelte';
+	import { replyCheckShortfall, replyCheckStatus } from '$lib/replyCheckStatus';
+	import { relativeTime } from '$lib/relative-time';
 
 	let { data, form } = $props();
 
@@ -11,6 +13,9 @@
 	autoRefresh();
 
 	const ch = $derived(data.ch);
+	// Read at render time from the same row the owner's checkbox mirrors.
+	const replyState = $derived(replyCheckStatus(ch, new Date().toISOString(), data.replyPause));
+	const replyShortfall = $derived(replyCheckShortfall(ch));
 	const dryRunForm = $derived(form as { scope?: string; attempted?: boolean; dryRunUsed?: boolean } | null | undefined);
 	const moderationPreviewUsed = $derived(
 		ch.moderationDryRunUsed ||
@@ -196,6 +201,53 @@
 {#if form?.scope === 'protections' && form?.error}
 	<p class="error-box" role="alert">{form.error}</p>
 {/if}
+<section class="protections reply-moderation" aria-labelledby="reply-moderation-title">
+	<h2 id="reply-moderation-title" class="sensitivity-title">Reply moderation</h2>
+	<p class="muted">
+		When on, Moderaty checks replies posted after you turn this on, in threads whose top-level comment was posted in the last 3 days, about once an hour. Each check covers at most 100 new replies. Each reply is scored on its own text, without the comment it answers, and each AI-scored reply uses one credit, like a comment. Your own replies are never checked. History scans, dry runs and the feedback digest leave replies out.
+	</p>
+	<p
+		class="reply-status"
+		role="status"
+		data-state={replyState}
+		data-shortfall={replyShortfall > 0 ? replyShortfall : undefined}
+	>
+		{#if replyState === 'off'}
+			Reply moderation is off. Replies on this channel are not checked.
+		{:else if replyState === 'first-check-pending'}
+			First check pending. It runs on a later run, at least an hour after you turn this on.
+		{:else if replyState === 'in-progress'}
+			Checking replies now. Busy threads can take several runs.
+		{:else if replyState === 'stale'}
+			The last check stalled before it finished. It restarts on a later run.
+		{:else if replyState === 'paused-by-server'}
+			Reply checks are paused by a server setting. Top-level comments are still moderated.
+		{:else if replyState === 'paused-quota-today'}
+			YouTube refused a reply check for quota today, so reply checks wait until midnight Pacific time.
+		{:else if replyState === 'last-check' && ch.replySweepLastAt}
+			Last check {relativeTime(ch.replySweepLastAt)}.
+		{:else}
+			Reply check status is unavailable for this channel.
+		{/if}
+		{#if replyShortfall > 0}
+			{replyShortfall} {replyShortfall === 1 ? 'reply' : 'replies'} in busy threads could not be checked in the last pass.
+		{/if}
+	</p>
+	{#if data.orgRole === 'owner'}
+		<form method="POST" action="?/setModerateReplies">
+			<label class="protection-toggle" for="moderate-replies-{ch.id}">
+				<input id="moderate-replies-{ch.id}" type="checkbox" name="enabled" value="true" checked={replyState !== 'off'} />
+				Check replies on {ch.title}
+			</label>
+			<!-- Sent when the box is unticked. It must follow the checkbox: the action reads the first value. -->
+			<input type="hidden" name="enabled" value="false" />
+			<button class="btn secondary small" type="submit" aria-label="Save reply moderation setting for {ch.title}">Save reply setting</button>
+		</form>
+	{/if}
+	{#if form?.scope === 'replies' && form?.error}
+		<p class="error-box" role="alert">{form.error}</p>
+	{/if}
+</section>
 {#if ch.active !== 0}
 	<!-- Scan controls are meaningless while paused: the cron claim is gated
 		on active=1 and runChannel short-circuits inactive channels, so the
@@ -282,6 +334,7 @@
 				{form.acted} would be acted on, {form.queued} would go to the review queue.
 				{#if form.partial}Partial — the 20 s preview limit was hit; see the audit log for what completed. {/if}
 				{#if form.background}The remaining pages in this window will continue in the background. {/if}
+				{#if form.capped}This free preview scored the newest 100 comments. Buy credits or subscribe on the Usage page to preview the full window. {/if}
 				<a href="/channels/{ch.id}/log">See the audit log</a>.
 			</p>
 		{/if}

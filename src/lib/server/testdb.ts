@@ -3,12 +3,12 @@ import { readFileSync } from 'node:fs';
 // Never imported by app code — tests only.
 
 import { createClient, type Client, type InStatement } from '@libsql/client';
-import { getTableName, is } from 'drizzle-orm';
+import { eq, getTableName, is } from 'drizzle-orm';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { beforeAll, beforeEach, vi } from 'vitest';
 import * as schema from './db/schema';
-import { consents, users } from './db/schema';
+import { consents, organizations, users } from './db/schema';
 import { LIFETIME_SLOT_LIMIT } from './billing/plans';
 
 export function statementSql(statement: InStatement): string {
@@ -153,6 +153,11 @@ export function postForm(fields: Record<string, string>, url = 'http://localhost
 	return new Request(url, { method: 'POST', body: form });
 }
 
+/** The org's one-time free dry run stamp: null = unspent, undefined = no such org. */
+export async function freeDryRunStampOf(orgId: string): Promise<string | null | undefined> {
+	return (await testDb().db.select({ stamp: organizations.freeDryRunUsedAt }).from(organizations).where(eq(organizations.id, orgId)).get())?.stamp;
+}
+
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Re-exported so test files can take fixtures and db helpers from one place;
@@ -243,6 +248,11 @@ export async function createTestDb(): Promise<TestDb> {
 			feedback_history_boundary TEXT,
 			feedback_history_page_token TEXT,
 			feedback_history_scan_id TEXT,
+			moderate_replies_since TEXT,
+			reply_sweep_boundary TEXT,
+			reply_sweep_page_token TEXT,
+			reply_sweep_last_at TEXT,
+			reply_sweep_shortfall INTEGER,
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 			CONSTRAINT channels_org_requires_owner CHECK (org_id IS NOT NULL OR user_id IS NULL)
 		)`,
@@ -278,6 +288,7 @@ export async function createTestDb(): Promise<TestDb> {
 			ai_score TEXT,
 			feedback_digested_at TEXT,
 			scan_id TEXT,
+			parent_id TEXT,
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 		)`,
 		`CREATE INDEX comments_channel_digested_idx ON comments (channel_id, feedback_digested_at)`,
@@ -348,6 +359,7 @@ export async function createTestDb(): Promise<TestDb> {
 			stripe_subscription_last_event_id TEXT,
 			stripe_customer_last_event_created INTEGER,
 			stripe_customer_last_event_id TEXT,
+				free_dry_run_used_at TEXT,
 			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 		)`,
 		`CREATE UNIQUE INDEX organizations_stripe_customer_id_unique ON organizations (stripe_customer_id) WHERE stripe_customer_id IS NOT NULL`,
@@ -606,7 +618,12 @@ export async function createTestDb(): Promise<TestDb> {
 			published_at TEXT NOT NULL,
 			scan_id TEXT
 		)`,
-		`CREATE INDEX feedback_history_comments_channel_idx ON feedback_history_comments (channel_id)`
+		`CREATE INDEX feedback_history_comments_channel_idx ON feedback_history_comments (channel_id)`,
+		`CREATE TABLE youtube_quota_usage (
+			day TEXT PRIMARY KEY NOT NULL,
+			units INTEGER NOT NULL DEFAULT 0,
+			exhausted_at TEXT
+		)`
 	]);
 	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0062_hosted_welcome_email.sql', import.meta.url), 'utf8'));
 	await client.executeMultiple(readFileSync(new URL('../../../drizzle/0063_welcome_campaign_pacing.sql', import.meta.url), 'utf8'));

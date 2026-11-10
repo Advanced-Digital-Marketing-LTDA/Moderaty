@@ -2,6 +2,7 @@
 	import EmptyState from '$lib/EmptyState.svelte';
 	import { autoRefresh } from '$lib/auto-refresh.svelte';
 	import { relativeTime } from '$lib/relative-time';
+	import ReplyTag from '$lib/ReplyTag.svelte';
 
 	let { data, form } = $props();
 
@@ -108,6 +109,7 @@
 						<td class="muted" data-label="Time" title={e.createdAt}>{relativeTime(e.createdAt)}</td>
 						<td data-label="Action"><span class={badgeClass(e.action)}>{e.action}</span></td>
 						<td class="muted" data-label="Comment">
+								{#if e.isReply}<ReplyTag /> {/if}
 							{#if e.text}
 								{e.text}
 								<br /><small>{e.commentId}</small>

@@ -10,7 +10,7 @@
 	let { data }: { data: PageData } = $props();
 
 	const description =
-		'Learn how Moderaty checks published YouTube comments with your rules, AI scoring, human review, moderation history, optional feedback digests, and hosted or self-hosted plans.';
+		'Learn how Moderaty checks published YouTube comments with AI scoring, optional rules, human review, moderation history, optional feedback digests, and hosted or self-hosted plans.';
 	const sourceReadme =
 		'https://github.com/Advanced-Digital-Marketing-LTDA/Moderaty/blob/main/README.md#what-it-does';
 
@@ -24,7 +24,7 @@
 		{
 			question: 'Which comments does Moderaty scan?',
 			answer:
-				'Moderaty scans published top-level comments on connected, active YouTube channels. It does not scan live chat, and it does not run a separate sweep of comments YouTube has already held or marked as spam.',
+				'Moderaty scans published top-level comments on connected, active YouTube channels. Live chat moderation is coming soon. Until then, it does not scan live chat, and it does not run a separate sweep of comments YouTube has already held or marked as spam.',
 			link: '/#scope',
 			linkText: 'See the published coverage details.'
 		},
@@ -92,8 +92,8 @@
 		<p class="eyebrow">Comment protection for YouTube creators</p>
 		<h1>How Moderaty works: trolls, meet your rulebook.</h1>
 		<p class="hero-copy">
-			Moderaty checks published top-level comments on connected, active channels. Your protected handles
-			and rules come before AI scoring. Borderline results wait for a person, and the audit log records
+			Moderaty checks published top-level comments on connected, active channels. AI scoring checks the comments your rules leave, and custom rules are optional. Protected handles
+			skip both rules and AI scoring. Borderline results wait for a person, and the audit log records
 			what happened.
 		</p>
 		<div class="hero-links">
@@ -101,7 +101,7 @@
 			<a class="button-secondary" href="/pricing">Compare hosting plans</a>
 		</div>
 		<p class="scope-note">
-			Moderaty does not scan replies, live chat, or a separate queue of comments YouTube has already held or
+			Live chat moderation is coming soon. Moderaty does not scan replies, live chat, or a separate queue of comments YouTube has already held or
 			marked as spam. <a href="/#scope">Check the current coverage and access details.</a>
 		</p>
 	</header>
@@ -116,16 +116,16 @@
 	</nav>
 
 	<section class="section page-width" id="rules" aria-labelledby="rules-title">
-		<p class="eyebrow">01 / Rules first</p>
+		<p class="eyebrow">01 / Optional rules</p>
 		<div class="section-grid">
 			<div>
-				<h2 id="rules-title">Your rules swing first.</h2>
+				<h2 id="rules-title">Your rules swing first, if you add any.</h2>
 				<p>
-					Set keyword, regex, or user rules for the comments on a connected channel. Each matching rule can
+					Keyword, regex, and user rules are optional. They run before AI scoring, and each matching rule can
 					hold, reject, delete, or ban. Protected handles bypass both rule matching and AI scoring.
 				</p>
 				<p>
-					<a href="/#how-it-works">The public workflow overview</a> shows this rules-first order. The
+					<a href="/#how-it-works">The public workflow overview</a> shows this order. The
 					<a href={sourceReadme} target="_blank" rel="noopener">product README</a> lists the rule types and
 					actions.
 				</p>
@@ -145,12 +145,12 @@
 		<p class="eyebrow">02 / AI scores what rules leave open</p>
 		<div class="section-grid">
 			<div>
-				<h2 id="ai-title">A score helps route the comment.</h2>
+				<h2 id="ai-title">The AI mops up what your rules leave.</h2>
 				<p>
 					When no rule decides the outcome, Moderaty screens for prompt-injection attempts and sends eligible
 					comments to OpenAI moderation. The model scores toxicity across 13 categories, and the score helps
-					decide what happens next. Depending on the result and your channel settings, a comment can remain
-					published, go to review, or receive an automatic moderation action. A score is a moderation signal,
+					decide what happens next. Low scores stay published unless the optional tone pass flags them, middle scores go to review, and high scores from the main AI check
+					delete the comment. The very highest scores also ban the author on YouTube. A score is a moderation signal,
 					not proof that a viewer broke your policy.
 				</p>
 				<p>
@@ -211,7 +211,7 @@
 				<p>
 					Turn on the optional, read-only digest to group recurring questions, corrections, substantive
 					criticism, and viewer requests from scanned top-level comments. Run it weekly, after 100 new
-					comments, or when you ask for it.
+					comments, or when you ask for it. Abusive wording stays hidden in the digest unless you choose to reveal it.
 				</p>
 				<p>
 					The digest does not reply to viewers, post comments, or change moderation decisions. Its history

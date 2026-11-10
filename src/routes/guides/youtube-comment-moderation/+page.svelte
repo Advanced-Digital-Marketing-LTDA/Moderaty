@@ -105,6 +105,7 @@
 
 	<h3 id="audience-feedback" tabindex="-1">Use recurring questions as audience feedback</h3>
 	<p>Keep a note of recurring questions during review. Several viewers struggling with the same explanation may give you a useful follow-up topic. That feedback still comes from people who chose to comment, so check other audience evidence before treating it as broad demand.</p>
+		<p>Moderaty’s feedback digest can group recurring questions for you. It is opt-in per channel and read-only: it never replies, never posts, and never changes a moderation decision. It draws on the same classification allowance as moderation scoring.</p>
 
 	<h2 id="test-automation" tabindex="-1">Test automated moderation with comments from your channel</h2>
 	<p>Before relying on automation, I’d compare its decisions with a small sample labeled according to my channel rules. The sample should include acceptable comments alongside spam and abuse.</p>
@@ -115,8 +116,9 @@
 	<h2 id="choose-a-tool" tabindex="-1">Decide whether another moderation tool fills a gap</h2>
 	<p>YouTube Studio may cover the work your channel needs. Before connecting another service, I check which comments it can reach and what Google permissions it requests. I also want a clear route for uncertain cases and a record of completed actions.</p>
 	<p>A tool that scans published comments may leave replies or YouTube’s Held queue for you to manage. Check its coverage against the work you want help with, along with its current price and retention terms.</p>
-	<p>Moderaty scans published top-level comments on connected, active channels. It applies custom rules before AI scoring, sends uncertain cases and scoring failures to a review queue, and records completed actions.</p>
-	<p>Its coverage excludes live chat and a separate sweep of comments YouTube already holds. Moderaty doesn’t write replies under your name. A comment may remain visible until YouTube confirms a requested hold. Deleted comments cannot be restored. <a href="/#scope">Review Moderaty’s coverage and controls</a>.</p>
+	<p>Moderaty scans published top-level comments on connected, active channels. Its AI scoring rates each comment that no rule or protected handle decides for toxicity, and it screens for prompt-injection attempts. Uncertain cases and scoring failures go to a review queue, and Moderaty also records completed actions.</p>
+		<p>Custom rules are optional. When you add one, it runs before the AI scoring.</p>
+	<p>Live chat moderation is coming soon. Until then, its coverage excludes live chat and a separate sweep of comments YouTube already holds. Moderaty doesn’t write replies under your name. A comment may remain visible until YouTube confirms a requested hold. Deleted comments cannot be restored. <a href="/#scope">Review Moderaty’s coverage and controls</a>.</p>
 	<p>Start with a <a href="/#moderation-preview">moderation preview</a> and compare the proposed decisions with your rules before enabling actions. A preview can re-score comments from earlier moderation runs without changing them on YouTube. Check the comments it would keep as carefully as those it would remove.</p>
 
 	<h2 id="frequently-asked-questions" tabindex="-1">Common YouTube comment moderation questions</h2>
@@ -125,7 +127,7 @@
 	<h3>Why can’t I turn comments on for a video?</h3>
 	<p>YouTube restricts comment settings in some situations. Comments are off on videos designated as made for kids, private videos don’t allow comments, and supervised accounts have restrictions. Check the video and account conditions in <a href="https://support.google.com/youtube/answer/9482556?hl=en" target="_blank" rel="noopener">YouTube’s settings instructions</a>.</p>
 	<h3>Does this setup cover live chat?</h3>
-	<p>Live chat has its own moderation workflow. Review those controls before a stream; some channel settings, such as blocked words, can affect comments and chat. <a href="https://support.google.com/youtube/answer/9826490?hl=en" target="_blank" rel="noopener">YouTube’s live chat moderation guide</a> covers the available tools.</p>
+	<p>Moderaty’s live chat moderation is coming soon. Live chat has its own moderation workflow. Review those controls before a stream; some channel settings, such as blocked words, can affect comments and chat. <a href="https://support.google.com/youtube/answer/9826490?hl=en" target="_blank" rel="noopener">YouTube’s live chat moderation guide</a> covers the available tools.</p>
 
 	<h2 id="first-check" tabindex="-1">A practical first check</h2>
 	<p>Before adding another rule or service, my first check would be a sample of Held and Published comments. Note the useful contributions a filter caught and the unwanted comments it missed, then change one setting at a time.</p>

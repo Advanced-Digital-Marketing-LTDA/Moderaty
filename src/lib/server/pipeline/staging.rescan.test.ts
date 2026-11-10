@@ -1,3 +1,8 @@
+vi.mock('$env/dynamic/private', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$env/dynamic/private')>();
+	return { env: { ...actual.env, UNLIMITED_ACCESS_EMAILS: '', MODERATY_DEPLOYMENT: 'official-hosted' } };
+});
+
 // Real-DB coverage for stageDecisions' rescan mode: the mock-db pipeline
 // suites record write INTENT, but only SQLite can prove the upsert actually
 // replaces a stored row, that a completed action re-pends, and that the

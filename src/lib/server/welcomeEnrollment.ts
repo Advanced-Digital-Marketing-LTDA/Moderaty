@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { domainToASCII, domainToUnicode } from 'node:url';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
+import { deploymentMode } from './deploymentMode';
 import { db } from './db';
 import { users, welcomeEmails } from './db/schema';
 import { isBareAddress } from './protonMail';
@@ -17,9 +18,7 @@ export type Account = Pick<typeof users.$inferSelect, 'id' | 'email' | 'googleSu
 
 /** Deliberate deployment declaration; free/unsubscribed users are included. */
 export function isOfficialHosted(): boolean {
-	const value = env.MODERATY_DEPLOYMENT;
-	if (value && value !== COHORT && value !== 'self-hosted') throw new Error('MODERATY_DEPLOYMENT must be official-hosted or self-hosted');
-	return value === COHORT;
+	return deploymentMode() === COHORT;
 }
 export function sendingEnabled(): boolean {
 	if (env.WELCOME_EMAIL_ENABLED && !['true', 'false'].includes(env.WELCOME_EMAIL_ENABLED)) throw new Error('WELCOME_EMAIL_ENABLED must be true or false');

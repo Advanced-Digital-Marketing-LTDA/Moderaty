@@ -227,8 +227,30 @@ test('a canonical page fails loudly when APP_URL is missing instead of emitting 
 });
 
 test('every sitemap page is either canonicalised by the layout or by its own route', () => {
-	const selfManaged = ['/', '/blogs/', '/blogs/how-to-deal-with-hate-comments-on-youtube/', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube/', '/guides/', '/guides/youtube-comment-moderation/', '/guides/youtube-comment-moderation-settings/', '/guides/comment-review-routine/'];
+	const selfManaged = ['/', '/blogs/', '/blogs/how-to-deal-with-hate-comments-on-youtube/', '/blogs/how-to-stop-spam-and-scam-comments-on-youtube/', '/guides/', '/guides/youtube-comment-moderation/', '/guides/youtube-comment-moderation-settings/', '/guides/comment-review-routine/', '/tools/youtube-money-calculator/'];
 	for (const path of PUBLIC_PAGES) {
 		expect(canonicalUrl(path) !== null || selfManaged.includes(path)).toBe(true);
 	}
+});
+
+test.each(['/demo/dashboard', '/demo/channel', '/demo/channel/queue', '/demo/channel/rules', '/demo/channel/log'])(
+	'isNoIndexRoute marks the demo page %s as internal',
+	(routeId) => {
+		expect(isNoIndexRoute(routeId)).toBe(true);
+	}
+);
+
+test('a public route whose name merely starts with "demo" stays indexable', () => {
+	expect(isNoIndexRoute('/demonstration')).toBe(false);
+});
+
+test('demo pages never appear in the sitemap, llms.txt or the public page list', () => {
+	expect(PUBLIC_PAGES.some((path) => path.startsWith('/demo'))).toBe(false);
+	expect(sitemapXml()).not.toContain('/demo');
+	expect(llmsTxt()).not.toContain('/demo');
+});
+
+test('the calculator owns its canonical, so the layout does not add a second one', () => {
+	expect(canonicalUrl('/tools/youtube-money-calculator/')).toBeNull();
+	expect(canonicalUrl('/tools/youtube-money-calculator')).toBeNull();
 });

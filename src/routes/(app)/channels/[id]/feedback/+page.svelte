@@ -125,7 +125,10 @@
 {#if data.maintenance || data.digests === undefined}
 	<Skeleton rows={3} />
 {:else}
-	{#if form?.scope !== 'reveal' && form?.error}
+	{#if data.ingestionPaused && data.settings.enabled}
+			<div class="error-box" role="alert">Feedback digests are paused: this organization has no credits or subscription. Buy credits or subscribe on the <a href="/usage">Usage page</a>.</div>
+		{/if}
+		{#if form?.scope !== 'reveal' && form?.error}
 		<div class="error-box" role="alert">
 			{form.error}
 			{#if form && 'historyAccess' in form && form.historyAccess === 'purchase'}
@@ -167,7 +170,7 @@
 			<p class="card-title">Feedback digest is off for this channel.</p>
 			<p class="muted">
 				Turn it on below and Moderaty will group your comments into recurring questions, criticism, corrections,
-				and requests — without ever showing you the abusive wording.
+				and requests. Abusive wording stays hidden unless you choose to reveal it.
 			</p>
 		</div>
 	{/if}

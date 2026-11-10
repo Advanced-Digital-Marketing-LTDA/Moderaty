@@ -48,6 +48,10 @@ export interface ChannelRunResult {
 	 * hit zero: rule/allowlist decisions still staged, AI-dependent comments
 	 * deferred, the cursor parked so they are retried after a top-up. */
 	outOfCredits?: boolean;
+	/** The org is unpaid on the hosted deployment: a live run ingested nothing (no fetch, no AI). */
+	unpaid?: true;
+	/** Reply action rows this live run parked because their YouTube write was refused or never sent. Present only when at least one was. */
+	replyActionFailures?: number;
 }
 
 export interface Decision {

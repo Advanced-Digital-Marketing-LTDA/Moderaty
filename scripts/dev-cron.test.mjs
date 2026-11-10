@@ -388,6 +388,20 @@ describe('dev cron tick', () => {
 		for (const run of [tickOnce, netlifyCron]) await expect(run()).rejects.toThrow(expected);
 	});
 
+	it('names the complimentary access list failure instead of the generic ok:false problem', async () => {
+		const payload = {
+			ok: false, complimentaryAccessError: true, results: {},
+			failureDiagnostics: [{ sweep: 'complimentaryAccessError', operation: 'complimentary_access', category: 'unknown', cronRunId: '11111111-1111-4111-8111-111111111111', causes: [] }]
+		};
+		vi.stubGlobal('fetch', vi.fn(async () => cronResponse(payload)));
+
+		const error = await tickOnce().catch((cause) => cause);
+		expect(error).toBeInstanceOf(Error);
+		expect(error.message).toContain('complimentaryAccessError: ');
+		expect(error.message).toContain('operation=complimentary_access');
+		expect(error.message).not.toContain('ok:false with no sweep error detail');
+	});
+
 	it('an out-of-credits channel result on a 200 is a healthy tick', async () => {
 		const payload = { ok: true, results: { UC1: { fetched: 2, outOfCredits: true } } };
 		vi.stubGlobal('fetch', vi.fn(async () => cronResponse(payload)));
@@ -537,4 +551,23 @@ describe.each(['driver', 'netlify'])('%s welcome delivery health', wrapper => {
   vi.stubGlobal('fetch', vi.fn(async () => cronResponse(payload)));
   await expect(invoke()).resolves.toEqual(wrapper === 'driver' ? payload : undefined);
  });
+});
+
+describe('reply recheck failure', () => {
+  const replyRunId = '11111111-1111-4111-8111-111111111111';
+  const replyFailure = `unknown service=youtube operation=reply_recheck run=${replyRunId} causes=Error`;
+  const replyPayload = {
+    ok: true,
+    cronRunId: replyRunId,
+    results: { 'UC-replies': { fetched: 0, acted: 0, queued: 0, partial: false, skipped: false, dryRun: false, replySweepError: replyFailure } },
+    failureDiagnostics: [{ sweep: 'replySweepError', operation: 'reply_recheck', category: 'unknown', service: 'youtube', cronRunId: replyRunId, causes: [{ name: 'Error', category: 'unknown' }] }]
+  };
+
+  it('is listed in the tick output and pages the operator, as a failed sweep does', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => cronResponse(replyPayload)));
+    // tickOnce rejects on any operator problem, and a failed reply recheck is one: the scheduler's exit code is the alert.
+    await expect(tickOnce()).rejects.toThrow(`reply recheck failed: ${replyFailure}`);
+    const output = console.log.mock.calls.map((args) => args.join(' ')).join('\n');
+    expect(output).toContain(`replySweepError: ${replyFailure}`);
+  });
 });

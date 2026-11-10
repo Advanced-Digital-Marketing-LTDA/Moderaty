@@ -110,6 +110,7 @@ async function auditPageMetadata(channelId: string, page: (typeof auditLog.$infe
 	const statusById = new Map<string, string>();
 	const validClaims = new Map<string, string>();
 	const dispatchIds = new Set<string>();
+	const replyIds = new Set<string>();
 	if (page.length) {
 		const commentIds = [...new Set(page.map((row) => row.commentId))];
 		const latest = await db.all<{ commentId: string; latestId: number }>(sql`
@@ -125,7 +126,7 @@ async function auditPageMetadata(channelId: string, page: (typeof auditLog.$infe
 		// Comment status gates Undo the same way the handler does: offering it
 		// on a comment the handler would reject is a guaranteed-404 button.
 		const statusRows = await db
-			.select({ id: comments.id, status: comments.status, boundId: auditLog.id, action: auditLog.action,
+			.select({ id: comments.id, status: comments.status, parentId: comments.parentId, boundId: auditLog.id, action: auditLog.action,
 				humanDispatchToken: comments.humanDispatchToken, humanDispatchState: comments.humanDispatchState })
 			.from(comments)
 			.leftJoin(auditLog, boundAuditJoin())
@@ -135,9 +136,10 @@ async function auditPageMetadata(channelId: string, page: (typeof auditLog.$infe
 			statusById.set(row.id, row.status);
 			if (row.boundId !== null && row.action !== null && humanFinalStatus(row.action)) validClaims.set(row.id, row.action);
 			if (row.humanDispatchToken !== null || row.humanDispatchState !== null) dispatchIds.add(row.id);
+			if (row.parentId !== null) replyIds.add(row.id);
 		}
 	}
-	return { latestIds, statusById, validClaims, dispatchIds };
+	return { latestIds, statusById, validClaims, dispatchIds, replyIds };
 }
 
 export async function load({ params, locals, url }) {
@@ -168,11 +170,13 @@ export async function load({ params, locals, url }) {
 		.all();
 	const hasMore = rows.length > PAGE_SIZE;
 	const page = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
-	const { latestIds, statusById, validClaims, dispatchIds } = await auditPageMetadata(params.id, page);
+	const { latestIds, statusById, validClaims, dispatchIds, replyIds } = await auditPageMetadata(params.id, page);
 	const entries = page.map((entry) => ({
 		...entry,
 		undoable: dispatchIds.has(entry.commentId) || (statusById.get(entry.commentId) === 'restoring' && validClaims.get(entry.commentId) !== 'restore')
-			? null : undoableFor(entry.id === latestIds.get(entry.commentId), entry.action, statusById.get(entry.commentId))
+			? null : undoableFor(entry.id === latestIds.get(entry.commentId), entry.action, statusById.get(entry.commentId)),
+		// Dry-run rows never carry the tag: a manual dry-run action updates a stored reply's comments row.
+		isReply: entry.action !== 'dry-run' && replyIds.has(entry.commentId)
 	}));
 	const last = page.at(-1);
 	const nextCursor = hasMore && last ? `${last.createdAt}|${last.id}` : null;

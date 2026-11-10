@@ -68,14 +68,15 @@ async function expectAllActions404(fields: Record<string, string>) {
 	}
 }
 
-async function seedComment(id: string, channelId: string, status = 'pending') {
+async function seedComment(id: string, channelId: string, status = 'pending', parentId: string | null = null) {
 	await testDb().db.insert(comments).values({
 		id,
 		channelId,
 		text: 'hello',
 		publishedAt: '2026-01-01T00:00:00Z',
 		status,
-		decidedBy: 'ai'
+		decidedBy: 'ai',
+		parentId
 	});
 }
 
@@ -478,6 +479,25 @@ test('a connector detached between the remote write and finalize keeps the claim
 		errorSpy.mockRestore();
 	}
 	expect((await commentRow('c1'))?.status).toBe('restoring'); // claim kept for reconcile
+});
+
+test('a reply row approves and rejects through the same claim, write and audit as a top-level row', async () => {
+	mocks.env.DRY_RUN = 'false';
+	await seedComment('reply-1', 'UC1', 'pending', 'top-1');
+	await seedComment('reply-2', 'UC1', 'pending', 'top-1');
+
+	expect(await act('approve', { commentId: 'reply-1' })).toMatchObject({ success: 'Approved — recorded in audit log.' });
+	expect(await act('reject', { commentId: 'reply-2' })).toMatchObject({ success: 'Rejected — recorded in audit log.' });
+
+	expect(mocks.setModerationStatus).toHaveBeenCalledTimes(2);
+	expect(mocks.setModerationStatus).toHaveBeenNthCalledWith(1, ['reply-1'], 'published', false, 'access-token', undefined, true);
+	expect(mocks.setModerationStatus).toHaveBeenNthCalledWith(2, ['reply-2'], 'rejected', false, 'access-token', undefined, true);
+	expect(await commentRow('reply-1')).toMatchObject({ status: 'approved', decidedBy: 'human', parentId: 'top-1' });
+	expect(await commentRow('reply-2')).toMatchObject({ status: 'rejected', decidedBy: 'human', parentId: 'top-1' });
+	expect(await auditRows()).toMatchObject([
+		{ commentId: 'reply-1', action: 'approve', actor: 'user' },
+		{ commentId: 'reply-2', action: 'reject', actor: 'user' }
+	]);
 });
 
 test('load surfaces the real hold state per queued comment', async () => {

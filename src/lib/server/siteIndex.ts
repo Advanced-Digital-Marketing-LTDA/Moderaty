@@ -6,6 +6,7 @@ import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 import { GUIDES_INDEX } from '$lib/blogs/guides-index';
 import { COMMENT_SETTINGS_GUIDE } from '$lib/blogs/comment-settings-guide';
 import { COMMENT_REVIEW_ROUTINE } from '$lib/blogs/comment-review-routine';
+import { YOUTUBE_MONEY_CALCULATOR } from '$lib/tools/youtube-money-content';
 
 // The crawlable surface: marketing, legal, public utility and editorial
 // pages. Everything else — the (app) console, OAuth/consent/invite/verify
@@ -26,11 +27,12 @@ export const PUBLIC_PAGES = [
 	GUIDES_INDEX.path,
 	MODERATION_GUIDE.path,
 	COMMENT_SETTINGS_GUIDE.path,
-	COMMENT_REVIEW_ROUTINE.path
+	COMMENT_REVIEW_ROUTINE.path,
+	YOUTUBE_MONEY_CALCULATOR.path
 ] as const;
 
 // Pages whose own route renders <link rel="canonical">; the root layout covers the rest.
-const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path, GUIDES_INDEX.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path, COMMENT_REVIEW_ROUTINE.path];
+const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path, GUIDES_INDEX.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path, COMMENT_REVIEW_ROUTINE.path, YOUTUBE_MONEY_CALCULATOR.path];
 const LAYOUT_CANONICAL_PAGES = PUBLIC_PAGES.filter((path) => !SELF_CANONICAL_PAGES.includes(path));
 
 // Runtime-rendered editorial and legal pages need the configured origin, not a session or DB.
@@ -43,19 +45,21 @@ export const PUBLIC_BLOG_ROUTE_IDS = [
 	MODERATION_GUIDE.path.slice(0, -1),
 	COMMENT_SETTINGS_GUIDE.path.slice(0, -1),
 	COMMENT_REVIEW_ROUTINE.path.slice(0, -1),
+	YOUTUBE_MONEY_CALCULATOR.path.slice(0, -1),
 	'/privacy',
 	'/terms',
 	'/dpa'
 ];
 
 // Route ids that must never appear in a search index: the authenticated
-// (app) console, single-use flow pages, and every API endpoint. Keyed on
+// (app) console, the screenshot-only /demo pages, single-use flow pages,
+// and every API endpoint. Keyed on
 // route.id (not the URL) so trailing-slash variants and param routes match.
 // The header these drive (X-Robots-Tag, set in hooks.server.ts) also marks
 // the 302 an anonymous crawler gets from an auth-gated page, where a <meta>
 // tag could never exist.
 const NOINDEX_ROUTES = ['/consent', '/connect-channel', '/logout', '/account-deleted', '/contact/verify'];
-const NOINDEX_PREFIXES = ['/(app)/', '/api/', '/invite/'];
+const NOINDEX_PREFIXES = ['/(app)/', '/api/', '/invite/', '/demo/'];
 
 export function isNoIndexRoute(routeId: string | null | undefined): boolean {
 	if (!routeId) return false;
@@ -140,10 +144,10 @@ export function llmsTxt(): string {
 		'',
 		'> Comment protection for YouTube creators. Moderaty checks published top-level',
 		'> comments on connected, active channels in background batches. Protected handles',
-		'> and rules run before AI screening and scoring. Uncertain results and scoring',
+		'> and optional rules run before AI screening and scoring. Uncertain results and scoring',
 		'> failures require review. If a check runs out of time, unfinished comments retry',
 		'> on a later check instead. Replies are outside the current scanning scope.',
-		'> Live chat and separate sweeps of YouTube-held or spam comments are also outside',
+		'> Live chat moderation is coming soon. Until it ships, live chat is outside this scope. Separate sweeps of YouTube-held or spam comments are also outside',
 		'> this scope. An optional read-only feedback digest groups recurring viewer feedback.',
 		'> Moderaty is source-available under PolyForm Shield License 1.0.0.',
 		'',
@@ -161,6 +165,7 @@ export function llmsTxt(): string {
 		`- [${MODERATION_GUIDE.title}](${link(MODERATION_GUIDE.path)}) — choosing actions, settings and a review workflow`,
 		`- [${COMMENT_SETTINGS_GUIDE.title}](${link(COMMENT_SETTINGS_GUIDE.path)}) — video comment settings and Community viewer-post controls`,
 		`- [${COMMENT_REVIEW_ROUTINE.title}](${link(COMMENT_REVIEW_ROUTINE.path)}) — a timed routine for held and published comments`,
+		`- [${YOUTUBE_MONEY_CALCULATOR.title}](${link(YOUTUBE_MONEY_CALCULATOR.path)}) — free estimate from your views and your own RPM`,
 		'',
 		'## Legal',
 		'',
