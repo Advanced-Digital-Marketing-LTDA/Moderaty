@@ -56,7 +56,7 @@ test('before any submit the result area shows a prompt and no error or numbers',
 test('the last-updated date is visible', () => {
 	const { body } = rendered();
 	expect(body).toContain(`datetime="${YOUTUBE_MONEY_EDITION.updated}"`);
-	expect(body).toContain('9 November 2026');
+	expect(body).toContain('10 November 2026');
 });
 
 test('the niche table is labelled as CPM with its source and date, and lists every row', () => {
