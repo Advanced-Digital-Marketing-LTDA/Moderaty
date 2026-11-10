@@ -1,8 +1,9 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
+import appOptions from './sveltekit.options.js';
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	plugins: [sveltekit(appOptions)],
 	test: {
 		environment: 'node',
 		// The fast-check property suite (`safeRegexArb always passes validateRule`

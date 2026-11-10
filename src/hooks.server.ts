@@ -1,4 +1,4 @@
-import type { Handle, HandleServerError } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
 import { randomUUID } from 'node:crypto';
 
 import { isHttpError, isRedirect, json } from '@sveltejs/kit';
@@ -87,7 +87,7 @@ export const handle: Handle = async (input) => {
 			return correlate(new Response(null, { status: error_.status, headers: { location: error_.location } }), event);
 		}
 		const status = isHttpError(error_) ? error_.status : 500;
-		const body = isHttpError(error_) ? error_.body : await handleError({ error: error_, event, status, message: 'Internal Error' }) ?? { message: 'Internal Error' };
+		const body = isHttpError(error_) ? error_.body : await handleError({ kind: 'unknown', error: error_, event }) ?? { message: 'Internal Error' };
 		if (event.request?.method === 'POST' && event.request.headers.get('x-sveltekit-action') === 'true') {
 			return correlate(json({ type: 'error', error: body }, { status }), event);
 		}
@@ -207,7 +207,8 @@ const handleRequest: Handle = async ({ event, resolve }) => {
  * the abort-shaped subset to a warn line that still names the request.
  * The request-signal check keeps OUR in-flight aborts (fetch timeouts
  * inside actions) on the error path: only a dead connection downgrades.
- * Redirects and deliberate HttpErrors never reach this hook.
+ * Redirects never reach this hook. Deliberate error(...) responses arrive as
+ * kind 'app' and are returned unlogged.
  */
 function isAbortLike(error: unknown): boolean {
 	try {
@@ -224,16 +225,22 @@ function isAbortLike(error: unknown): boolean {
 	}
 }
 
-export const handleError: HandleServerError = ({ error, event, status, message }) => {
+export const handleError: HandleServerError = ({ kind, error, event }) => {
+	// A deliberate error(...) from a route is that route's own answer, not a defect:
+	// return it unchanged and log nothing.
+	if (kind === 'app') return error;
+	const requestId = event.locals?.requestId;
+	const message = kind === 'framework' ? error.message : 'Internal Error';
 	if (event.request.signal.aborted && isAbortLike(error)) {
-		emitOperationalEvent({ type: 'request_disconnected', severity: 'warn', category: 'client_disconnect', route: event.route.id, requestId: event.locals?.requestId });
-	} else if (status === 404) {
-		// Framework 404s (unmatched routes, missing data requests) land here as
-		// SvelteKitError — scanner noise, not a defect. Keep at warn level.
-		emitOperationalEvent({ type: 'request_not_found', severity: 'warn', category: 'not_found', route: event.route.id, requestId: event.locals?.requestId });
-	} else {
-		emitOperationalEvent({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', route: event.route.id, requestId: event.locals?.requestId, diagnosticError: error });
-		return { message, supportReference: event.locals?.requestId };
+		emitOperationalEvent({ type: 'request_disconnected', severity: 'warn', category: 'client_disconnect', route: event.route.id, requestId });
+		return { message };
 	}
-	return { message };
+	if (kind === 'framework' && error.status === 404) {
+		// Framework 404s (unmatched routes, missing data requests) are scanner noise,
+		// not a defect. Keep at warn level.
+		emitOperationalEvent({ type: 'request_not_found', severity: 'warn', category: 'not_found', route: event.route.id, requestId });
+		return { message };
+	}
+	emitOperationalEvent({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', route: event.route.id, requestId, diagnosticError: error });
+	return { message, supportReference: requestId };
 };

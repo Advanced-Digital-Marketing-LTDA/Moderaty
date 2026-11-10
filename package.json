@@ -28,9 +28,9 @@
 		"@playwright/test": "1.64.0",
 		"@stryker-mutator/core": "9.6.1",
 		"@stryker-mutator/vitest-runner": "9.6.1",
-		"@sveltejs/adapter-netlify": "6.0.4",
-		"@sveltejs/adapter-node": "5.5.7",
-		"@sveltejs/kit": "2.70.2",
+		"@sveltejs/adapter-netlify": "7.0.1",
+		"@sveltejs/adapter-node": "6.0.1",
+		"@sveltejs/kit": "3.1.1",
 		"@sveltejs/vite-plugin-svelte": "7.2.0",
 		"@typescript-eslint/parser": "8.71.1",
 		"dotenv-cli": "11.0.0",
@@ -38,7 +38,7 @@
 		"ecc-agentshield": "1.6.0",
 		"eslint": "10.14.0",
 		"fast-check": "4.9.0",
-		"svelte": "5.56.8",
+		"svelte": "5.57.3",
 		"svelte-check": "4.7.4",
 		"typescript": "6.0.3",
 		"vite": "8.3.5",
@@ -46,7 +46,7 @@
 	},
 	"dependencies": {
 		"@libsql/client": "0.17.4",
-		"@openai/guardrails": "0.2.1",
+		"@openai/guardrails": "0.3.0",
 		"drizzle-orm": "0.45.2",
 		"nodemailer": "10.1.4",
 		"recheck": "4.5.0",
@@ -59,7 +59,7 @@
 		"typed-rest-client": {
 			"qs": "^6.15.3"
 		},
-		"cookie": "0.7.0"
+		"cookie": "2.0.2"
 	},
 	"allowScripts": {
 		"esbuild@0.25.12": true,

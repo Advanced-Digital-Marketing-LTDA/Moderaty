@@ -1,12 +1,12 @@
 // Test-only launcher: no production route or authentication bypass is added.
-import { createServer } from 'vite';
+import { createServer, loadEnv } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
-import appConfig from '../../svelte.config.js';
+import appOptions from '../../sveltekit.options.js';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, realpath } from 'node:fs/promises';
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { authorChannels, banKeyword, channelId, commentPage } from './youtube-fixtures.mjs';
 
@@ -17,14 +17,18 @@ const root = process.cwd();
 const isolatedEnvDirectory = join(resolve(process.env.MODERATY_E2E_DIRECTORY), 'empty-env');
 await mkdir(isolatedEnvDirectory);
 const databaseUrl = `file:${join(resolve(process.env.MODERATY_E2E_DIRECTORY), 'disposable.db')}`;
-Object.assign(process.env, {
+const syntheticEnv = {
 	TURSO_DATABASE_URL: databaseUrl, DRY_RUN: 'false', MODERATY_DEPLOYMENT: 'self-hosted',
 	// The public pages build canonical URLs from APP_URL; it is never fetched.
 	APP_URL: 'https://moderaty.invalid',
 	ENCRYPTION_KEY: randomBytes(32).toString('hex'),
 	GOOGLE_CLIENT_ID: 'synthetic-client', GOOGLE_CLIENT_SECRET: randomBytes(32).toString('hex'),
 	OPENAI_API_KEY: `synthetic-${randomBytes(32).toString('hex')}`
-});
+};
+// SvelteKit 3's dev server takes $env/dynamic/private only from dotenv files in
+// env.dir, not from process.env, so the synthetic values are written there.
+await writeFile(join(isolatedEnvDirectory, '.env'), Object.entries(syntheticEnv).map(([key, value]) => `${key}=${value}`).join('\n') + '\n');
+Object.assign(process.env, syntheticEnv);
 
 const requests = [];
 const blockedRequests = [];
@@ -72,11 +76,10 @@ const applied = await client.execute('SELECT COUNT(*) AS n FROM __drizzle_migrat
 if (Number(applied.rows[0].n) !== journal.entries.length) throw new Error('Disposable database migration verification failed');
 client.close();
 
-const { kit: kitConfig, ...svelteConfig } = appConfig;
 const vite = await createServer({
 	configFile: false,
 	envDir: false,
-	plugins: [sveltekit({ ...svelteConfig, ...kitConfig, env: { ...kitConfig.env, dir: isolatedEnvDirectory } })],
+	plugins: [sveltekit({ ...appOptions, env: { dir: isolatedEnvDirectory } })],
 	server: {
 		fs: { allow: [root, await realpath(join(root, 'src')), await realpath(join(root, 'node_modules'))] },
 		host: '127.0.0.1', port: 0, strictPort: false,
@@ -84,9 +87,25 @@ const vite = await createServer({
 	}
 });
 await vite.listen();
-const { env: privateEnv } = await vite.ssrLoadModule('$env/dynamic/private');
-if (privateEnv.MODERATY_DOTENV_POISON || vite.config.env.VITE_MODERATY_DOTENV_POISON || privateEnv.TURSO_DATABASE_URL !== databaseUrl) {
-	throw new Error('E2E dotenv isolation failed');
+// Kit 3 reads the env directory from the SvelteKit setup plugin's resolved options.
+// Check that directory itself, so the leak check covers what the app reads.
+const setupPlugin = vite.config.plugins.find((plugin) => plugin.name === 'vite-plugin-sveltekit-setup');
+if (!setupPlugin) throw new Error('E2E cannot find the SvelteKit setup plugin');
+const appEnvDirectory = resolve(setupPlugin.api.options.env.dir);
+const leaksProjectDotenv = (directory) => {
+	const loaded = loadEnv(vite.config.mode, directory, '');
+	return Boolean(loaded.MODERATY_DOTENV_POISON || loaded.VITE_MODERATY_DOTENV_POISON);
+};
+const envDirIsolated = appEnvDirectory === resolve(isolatedEnvDirectory);
+const leaked = leaksProjectDotenv(appEnvDirectory);
+const databaseMatches = loadEnv(vite.config.mode, appEnvDirectory, '').TURSO_DATABASE_URL === databaseUrl;
+if (!envDirIsolated || leaked || !databaseMatches) {
+	throw new Error(`E2E dotenv isolation failed (envDirIsolated=${envDirIsolated}, leaked=${leaked}, databaseMatches=${databaseMatches})`);
+}
+// Self-test: the project root holds the poisoned .env, so the same check must see it.
+// If pointing the app at that directory would pass, the leak check cannot fail.
+if (!leaksProjectDotenv(root)) {
+	throw new Error('E2E isolation self-test failed: the project .env poison is not visible, so the leak check cannot fail');
 }
 const { db } = await vite.ssrLoadModule('/src/lib/server/db/index.ts');
 const schema = await vite.ssrLoadModule('/src/lib/server/db/schema.ts');

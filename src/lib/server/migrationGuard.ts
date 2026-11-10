@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { building } from '$app/environment';
+import { building } from '$app/env';
 import { sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import journal from '../../../drizzle/meta/_journal.json';

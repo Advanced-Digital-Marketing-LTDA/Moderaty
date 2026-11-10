@@ -44,5 +44,5 @@ export function GET({
 		prompt: 'consent select_account',
 		state
 	});
-	throw redirect(302, `https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+	throw redirect(302, `https://accounts.google.com/o/oauth2/v2/auth?${params}`, { external: true });
 }
