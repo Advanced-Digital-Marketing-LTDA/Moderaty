@@ -87,7 +87,7 @@ export const handle: Handle = async (input) => {
 			return correlate(new Response(null, { status: error_.status, headers: { location: error_.location } }), event);
 		}
 		const status = isHttpError(error_) ? error_.status : 500;
-		const body = isHttpError(error_) ? error_.body : await handleError({ kind: 'unknown', error: error_, event }) ?? { message: 'Internal Error' };
+		const body = isHttpError(error_) ? error_.body : { status, ...(await handleError({ kind: 'unknown', error: error_, event }) ?? { message: 'Internal Error' }) };
 		if (event.request?.method === 'POST' && event.request.headers.get('x-sveltekit-action') === 'true') {
 			return correlate(json({ type: 'error', error: body }, { status }), event);
 		}

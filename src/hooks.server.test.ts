@@ -660,7 +660,7 @@ test('unexpected resolve errors retain a generic outcome and correlated event ev
 	const response = await handle({ event, resolve: async () => { throw hostile; } } as never);
 	expect(response.status).toBe(500);
 	const body = await response.json();
-	expect(body).toEqual({ message: 'Internal Error', supportReference: response.headers.get('x-request-id') });
+	expect(body).toEqual({ status: 500, message: 'Internal Error', supportReference: response.headers.get('x-request-id') });
 	expect(JSON.parse(errorLog.mock.calls[0][0])).toMatchObject({ requestId: response.headers.get('x-request-id'), type: 'unexpected_server_error', category: 'unexpected' });
 	expect(JSON.stringify(errorLog.mock.calls)).not.toContain('synthetic-private-value');
 });
@@ -832,7 +832,7 @@ test.each([503, 500])('enhanced form hook failures return usable ActionResults (
 		type: 'error',
 		error: status === 503
 			? { status: 503, message: 'Deployment requires migrations' }
-			: { message: 'Internal Error', supportReference: response.headers.get('x-request-id') }
+			: { status: 500, message: 'Internal Error', supportReference: response.headers.get('x-request-id') }
 	});
 	expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
 	expect(JSON.stringify(result)).not.toContain('synthetic-private-value');
