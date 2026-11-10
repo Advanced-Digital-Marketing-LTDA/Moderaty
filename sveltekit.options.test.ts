@@ -65,3 +65,23 @@ describe('published component comments', () => {
 		expect(js.code).toContain('reveal');
 	});
 });
+
+describe('vite.config.ts wiring', () => {
+	// Kit 3 only honours these options if vite.config.ts hands them to sveltekit(); the
+	// tests above import the options module directly and would not notice if it did not.
+	it('passes sveltekit.options.js to the sveltekit() plugin', async () => {
+		vi.stubEnv('MODERATY_ADAPTER', 'node');
+		vi.resetModules();
+		const { default: viteConfig } = await import('./vite.config.ts?role=wiring');
+		// sveltekit() returns a promise of plugins.
+		const registered = await Promise.all([(viteConfig as { plugins?: unknown[] }).plugins ?? []].flat(Infinity));
+		type ResolvedOptions = { adapter: { name: string }; alias: Record<string, string>; compilerOptions: { preserveComments: boolean } };
+		const plugins = registered.flat(Infinity) as { name?: string; api?: { options: ResolvedOptions } }[];
+		const options = plugins.find((plugin) => plugin?.name === 'vite-plugin-sveltekit-setup')?.api?.options;
+		expect(options, 'the SvelteKit setup plugin is registered').toBeDefined();
+		expect(options!.adapter.name).toBe('@sveltejs/adapter-node');
+		expect(options!.alias).toEqual({ $lib: 'src/lib' });
+		expect(options!.compilerOptions.preserveComments).toBe(false);
+	});
+});
+
