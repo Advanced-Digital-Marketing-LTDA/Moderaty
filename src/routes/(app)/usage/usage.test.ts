@@ -26,6 +26,8 @@ vi.mock('$lib/server/stripe/client', () => ({
 		paymentMethods: { retrieve: mocks.paymentMethodsRetrieve }
 	})
 }));
+// Spy mode keeps the real checkout by default; one test stubs the provider response.
+vi.mock('$lib/server/mercadopago/checkout', { spy: true });
 vi.mock('$env/dynamic/private', () => ({
 	env: {
 		APP_URL: 'http://localhost:5173',
@@ -42,6 +44,7 @@ vi.mock('$env/dynamic/private', () => ({
 }));
 
 import { env } from '$env/dynamic/private';
+import { createMercadoPagoCreditCheckout } from '$lib/server/mercadopago/checkout';
 
 import { render } from 'svelte/server';
 
@@ -794,6 +797,20 @@ describe('usage buy action', () => {
 			else env.MERCADOPAGO_WEBHOOK_SECRET = priorSecret;
 			errorSpy.mockRestore();
 		}
+	});
+
+	test('an owner starts a Mercado Pago checkout and is redirected to the provider', async () => {
+		// Kit 3 rejects an absolute URL unless redirect() is told it is external. Without
+		// that, the action's catch would turn a successful checkout into a 400.
+		await seedOrg();
+		const location = 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=1';
+		vi.mocked(createMercadoPagoCreditCheckout).mockResolvedValueOnce(location);
+
+		await expect(
+			actions.buyMercadoPago({ request: postForm({ bundle: 'credits_100' }), locals: { user: OWNER } } as never)
+		).rejects.toMatchObject({ status: 303, location });
+
+		expect(createMercadoPagoCreditCheckout).toHaveBeenCalledWith('org-1', expect.objectContaining({ orgId: 'org-1' }), 'credits_100', '');
 	});
 });
 
