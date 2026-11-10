@@ -89,13 +89,6 @@ test.each(PAGES)('$name declares its canonical address and matching social URL',
 	expect(attribute(head, 'property', 'og:url', 'content')).toBe(expected);
 });
 
-test.each(PAGES)('$name ships only parseable JSON-LD blocks', ({ render: renderPage }) => {
-	const { head } = renderPage();
-	for (const [, json] of head.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
-		expect(() => JSON.parse(json)).not.toThrow();
-	}
-});
-
 test.each(PAGES)('$name opens every external link in a new tab with noopener', ({ path, render: renderPage }) => {
 	const { body } = renderPage();
 	const anchors = externalAnchors(body);

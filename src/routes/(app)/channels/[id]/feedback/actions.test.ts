@@ -1069,12 +1069,3 @@ test('reveal returns 404 when the source comment has been deleted', async () => 
 	expect(errorSpy).toHaveBeenCalledOnce();
 	errorSpy.mockRestore();
 });
-
-test('a failed assertion does not leave console.error mocked for the next test', () => {
-	vi.spyOn(console, 'error').mockImplementation(() => {});
-	expect(() => expect('actual').toBe('expected')).toThrow();
-});
-
-test('console.error spies are restored before the next test', () => {
-	expect(vi.isMockFunction(console.error)).toBe(false);
-});

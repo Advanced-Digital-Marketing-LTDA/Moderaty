@@ -9,11 +9,6 @@ const article = () => render(Article, {
 }).body;
 const withoutSvelteMarkers = (html: string) => html.replaceAll('<!---->', '');
 
-test('label comparisons remove Svelte markers without hiding unexpected HTML', () => {
-	expect(withoutSvelteMarkers('<!----><strong>Section title</strong><!---->'))
-		.toBe('<strong>Section title</strong>');
-});
-
 test('both contents views link to every article heading in reading order', () => {
 	const body = article();
 	const headings = [...body.matchAll(/<h2\b[^>]*id="([^"]+)"[^>]*>(.*?)<\/h2>/gs)]

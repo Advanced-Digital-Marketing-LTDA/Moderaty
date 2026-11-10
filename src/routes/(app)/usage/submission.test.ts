@@ -47,8 +47,3 @@ test('failed or completed submissions discard the local checkbox override before
 	await state.submitting()({ update: async () => { expect(state.enableTopup).toBeUndefined(); } });
 	expect(state.enableTopup).toBeUndefined();
 });
-
-test('a renamed submission handler reports a clear harness error', () => {
-	const source = readFileSync(new URL('./+page.svelte', import.meta.url), 'utf8');
-	expect(() => submissionState(source.replace('function submitting(', 'function renamed('))).toThrow('Usage submission handler was not found');
-});

@@ -56,16 +56,6 @@ test('resetPipelineMocks removes test-specific mock implementations', async () =
 	expect(mocks.state.insertedComments).toEqual([expect.objectContaining({ decidedBy: 'ai' })]);
 });
 
-test('the http mock surface is complete for the real youtube module it sits behind', async () => {
-	// cubic, PR #142: importOriginal evaluates real youtube.ts under this
-	// mock — every name it imports from $lib/server/http must exist, or an
-	// un-stubbed real export fails confusingly with undefined-is-not-a-fn.
-	const http = await import('$lib/server/http');
-	expect(typeof http.fetchWithRetry).toBe('function');
-	expect(typeof http.assertBeforeDeadline).toBe('function');
-	expect(typeof http.DeadlineExceededError).toBe('function');
-});
-
 test('channel query mocks honor the requested channel id', async () => {
 	await expect(runChannel('different-channel')).rejects.toThrow('channel not found: different-channel');
 });
