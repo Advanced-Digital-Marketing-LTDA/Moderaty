@@ -37,3 +37,14 @@ test('rejects backslash return paths — browsers resolve /\\evil.example as pro
 	const response = await POST({ request: new Request('https://moderaty.example/api/locale', { method: 'POST', body: form }), cookies: cookies() } as never);
 	expect(response.status).toBe(400);
 });
+
+test.each(['/\t/evil.example', '/\u0000/x', '/path\u007f'])(
+	'rejects control characters in return paths (browsers strip a TAB, so /<TAB>/evil.example is protocol-relative): %j',
+	async (returnTo) => {
+		const form = new FormData();
+		form.set('locale', 'en');
+		form.set('returnTo', returnTo);
+		const response = await POST({ request: new Request('https://moderaty.example/api/locale', { method: 'POST', body: form }), cookies: cookies() } as never);
+		expect(response.status).toBe(400);
+	}
+);
