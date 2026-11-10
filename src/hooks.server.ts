@@ -225,25 +225,34 @@ function isAbortLike(error: unknown): boolean {
 	}
 }
 
-export const handleError: HandleServerError = ({ kind, error, event }) => {
+type ErrorInput = Parameters<HandleServerError>[0];
+
+// Safe text for the user: kit's own message for framework errors, generic otherwise.
+const messageFor = ({ kind, error }: ErrorInput): string => (kind === 'framework' ? error.message : 'Internal Error');
+
+// Framework 404s (unmatched routes, missing data requests) are scanner noise, not a defect.
+const isFrameworkNotFound = ({ kind, error }: ErrorInput): boolean => kind === 'framework' && error.status === 404;
+
+// Kit 3 hands framework errors over as plain { status, message } objects. Give the
+// diagnostics a real Error carrying the status so the event keeps its kind and cause.
+const diagnosticFor = ({ kind, error }: ErrorInput): unknown =>
+	kind === 'framework' ? Object.assign(new Error(error.message), { httpStatus: error.status }) : error;
+
+export const handleError: HandleServerError = (input) => {
+	const { kind, error, event } = input;
 	// A deliberate error(...) from a route is that route's own answer, not a defect:
 	// return it unchanged and log nothing.
 	if (kind === 'app') return error;
 	const requestId = event.locals?.requestId;
-	const message = kind === 'framework' ? error.message : 'Internal Error';
+	const message = messageFor(input);
 	if (event.request.signal.aborted && isAbortLike(error)) {
 		emitOperationalEvent({ type: 'request_disconnected', severity: 'warn', category: 'client_disconnect', route: event.route.id, requestId });
 		return { message };
 	}
-	if (kind === 'framework' && error.status === 404) {
-		// Framework 404s (unmatched routes, missing data requests) are scanner noise,
-		// not a defect. Keep at warn level.
+	if (isFrameworkNotFound(input)) {
 		emitOperationalEvent({ type: 'request_not_found', severity: 'warn', category: 'not_found', route: event.route.id, requestId });
 		return { message };
 	}
-	// Kit 3 hands framework errors over as plain { status, message } objects. Give the
-	// diagnostics a real Error carrying the status so the event keeps its kind and cause.
-	const diagnosticError = kind === 'framework' ? Object.assign(new Error(error.message), { httpStatus: error.status }) : error;
-	emitOperationalEvent({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', route: event.route.id, requestId, diagnosticError });
+	emitOperationalEvent({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', route: event.route.id, requestId, diagnosticError: diagnosticFor(input) });
 	return { message, supportReference: requestId };
 };

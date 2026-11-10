@@ -45,26 +45,40 @@ function namesRead(text: string, identifier: string): { names: string[]; compute
 	return { names, computed: new RegExp(`${own}\\[\\s*(?!['"])`).test(text) };
 }
 
+type FileScan = { names: string[]; problems: string[] };
+
+function envModuleScan(file: string, text: string): FileScan {
+	const result: FileScan = { names: [], problems: [] };
+	if (!text.includes(ENV_MODULE)) return result;
+	for (const identifier of envIdentifiers(text)) {
+		const { names, computed } = namesRead(text, identifier);
+		result.names.push(...names);
+		if (computed && !COMPUTED_LOOKUP_FILES.includes(file)) {
+			result.problems.push(`${file}: computed env lookup; list the file in COMPUTED_LOOKUP_FILES and its names in a price table`);
+		}
+	}
+	return result;
+}
+
+function priceTableNames(file: string, text: string): string[] {
+	if (!PRICE_TABLES.includes(file)) return [];
+	return [...text.matchAll(/'((?:STRIPE|MERCADOPAGO)_PRICE_[A-Z0-9_]+)'/g)].map((match) => match[1]);
+}
+
+function scanFile(file: string, text: string): FileScan {
+	const fromModule = envModuleScan(file, text);
+	const unsupported = UNSUPPORTED_ENV_MODULES.test(text) ? [`${file}: imports an env module this guard does not scan`] : [];
+	return { names: [...fromModule.names, ...priceTableNames(file, text)], problems: [...unsupported, ...fromModule.problems] };
+}
+
 function scan(): { uses: Map<string, Set<string>>; problems: string[] } {
 	const uses = new Map<string, Set<string>>();
 	const problems: string[] = [];
-	const add = (name: string, file: string) => uses.set(name, (uses.get(name) ?? new Set<string>()).add(file));
 	for (const absolute of sourceFiles(srcDirectory)) {
 		const file = relative(srcDirectory, absolute);
-		const text = readFileSync(absolute, 'utf8');
-		if (UNSUPPORTED_ENV_MODULES.test(text)) problems.push(`${file}: imports an env module this guard does not scan`);
-		if (text.includes(ENV_MODULE)) {
-			for (const identifier of envIdentifiers(text)) {
-				const { names, computed } = namesRead(text, identifier);
-				for (const name of names) add(name, file);
-				if (computed && !COMPUTED_LOOKUP_FILES.includes(file)) {
-					problems.push(`${file}: computed env lookup; list the file in COMPUTED_LOOKUP_FILES and its names in a price table`);
-				}
-			}
-		}
-		if (PRICE_TABLES.includes(file)) {
-			for (const match of text.matchAll(/'((?:STRIPE|MERCADOPAGO)_PRICE_[A-Z0-9_]+)'/g)) add(match[1], file);
-		}
+		const result = scanFile(file, readFileSync(absolute, 'utf8'));
+		problems.push(...result.problems);
+		for (const name of result.names) uses.set(name, (uses.get(name) ?? new Set<string>()).add(file));
 	}
 	return { uses, problems };
 }
