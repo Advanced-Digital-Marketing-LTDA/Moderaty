@@ -154,7 +154,7 @@ test('act fails loudly on another channel comment and changes nothing', async ()
 
 test('a 404 on an unknown pending comment names the problem', async () => {
 	await expect(act('approve', { commentId: 'nope' })).rejects.toThrowError(
-		expect.objectContaining({ status: 404, body: { message: 'pending comment not found in this channel' } })
+		expect.objectContaining({ status: 404, body: { status: 404, message: 'pending comment not found in this channel' } })
 	);
 });
 

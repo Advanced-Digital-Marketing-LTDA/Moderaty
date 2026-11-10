@@ -97,7 +97,7 @@ test('login start fails loudly with 500 when GOOGLE_CLIENT_ID is not configured'
 	mocks.env.GOOGLE_CLIENT_ID = undefined;
 	try {
 		expect(() => startLogin({ cookies: makeCookies() } as never)).toThrow(
-			expect.objectContaining({ status: 500, body: { message: 'GOOGLE_CLIENT_ID is not configured' } })
+			expect.objectContaining({ status: 500, body: { status: 500, message: 'GOOGLE_CLIENT_ID is not configured' } })
 		);
 	} finally {
 		mocks.env.GOOGLE_CLIENT_ID = 'client-id';
@@ -108,7 +108,7 @@ test('login start fails loudly with 500 when APP_URL is not configured', () => {
 	mocks.env.APP_URL = undefined;
 	try {
 		expect(() => startLogin({ cookies: makeCookies() } as never)).toThrow(
-			expect.objectContaining({ status: 500, body: { message: 'APP_URL is not configured' } })
+			expect.objectContaining({ status: 500, body: { status: 500, message: 'APP_URL is not configured' } })
 		);
 	} finally {
 		mocks.env.APP_URL = 'http://localhost:5173';

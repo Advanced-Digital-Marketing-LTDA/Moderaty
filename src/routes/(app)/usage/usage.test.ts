@@ -795,6 +795,38 @@ describe('usage buy action', () => {
 			errorSpy.mockRestore();
 		}
 	});
+
+	test('an owner starts a Mercado Pago checkout and is redirected to the provider', async () => {
+		// Only the provider's HTTP call is stubbed; the real checkout runs (bundle price,
+		// attempt row, init_point host check). Kit 3 rejects an absolute URL unless
+		// redirect() is told it is external, which the action's catch would otherwise
+		// turn into a 400.
+		await seedOrg();
+		const keys = ['MERCADOPAGO_WEBHOOK_SECRET', 'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_PRICE_CREDITS_500_BRL_CENTS'] as const;
+		const prior = Object.fromEntries(keys.map((key) => [key, env[key]]));
+		Object.assign(env, { MERCADOPAGO_WEBHOOK_SECRET: 'webhook-test', MERCADOPAGO_ACCESS_TOKEN: 'mp-token', MERCADOPAGO_PRICE_CREDITS_500_BRL_CENTS: '2500' });
+		const location = 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=pref_1';
+		const provider = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			new Response(JSON.stringify({ id: 'pref_1', init_point: location }), { status: 201, headers: { 'Content-Type': 'application/json' } })
+		);
+		try {
+			await expect(
+				actions.buyMercadoPago({ request: postForm({ bundle: 'credits_500' }), locals: { user: OWNER } } as never)
+			).rejects.toMatchObject({ status: 303, location });
+
+			expect(new URL(String(provider.mock.calls[0][0])).pathname).toBe('/checkout/preferences');
+			expect(provider.mock.calls[0][1]?.headers).toMatchObject({ Authorization: 'Bearer mp-token' });
+			const attempts = await testDb().db.select().from(mercadoPagoCheckoutAttempts);
+			expect(attempts).toHaveLength(1);
+			expect(attempts[0]).toMatchObject({ orgId: 'org-1', bundleId: 'credits_500', status: 'open', initPoint: location, preferenceId: 'pref_1' });
+		} finally {
+			provider.mockRestore();
+			for (const key of keys) {
+				if (prior[key] === undefined) delete (env as Record<string, unknown>)[key];
+				else (env as Record<string, unknown>)[key] = prior[key];
+			}
+		}
+	});
 });
 
 describe('usage buyTest action', () => {

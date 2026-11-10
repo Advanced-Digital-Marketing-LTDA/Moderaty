@@ -27,5 +27,5 @@ export function GET({ cookies }: { cookies: Cookies }) {
 		scope: 'openid email profile',
 		state
 	});
-	throw redirect(302, `https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+	throw redirect(302, `https://accounts.google.com/o/oauth2/v2/auth?${params}`, { external: true });
 }

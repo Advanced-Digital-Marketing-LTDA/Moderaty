@@ -5,8 +5,10 @@ import { cookieSecure } from '$lib/server/oauthState';
 
 function safeReturnTo(value: FormDataEntryValue | null): string {
 	// A backslash makes browsers resolve '/\evil.example' as protocol-relative
-	// ('//evil.example') — an open redirect (codex).
-	if (typeof value !== 'string' || value === '' || !value.startsWith('/') || value.startsWith('//') || value.includes('\\') || /[\r\n]/.test(value)) {
+	// ('//evil.example') — an open redirect (codex). Browsers also strip TAB, CR and LF
+	// from a URL, so '/<TAB>/evil.example' is protocol-relative too: reject every
+	// control character.
+	if (typeof value !== 'string' || value === '' || !value.startsWith('/') || value.startsWith('//') || value.includes('\\') || /[\u0000-\u001f\u007f]/.test(value)) {
 		throw new Error('locale return path is invalid');
 	}
 	return value;

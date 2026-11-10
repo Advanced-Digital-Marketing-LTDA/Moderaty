@@ -1,7 +1,7 @@
 <!-- Moderaty — YouTube Comment Auto-Moderation Tool -->
 
 <script lang="ts">
-	import { building } from '$app/environment';
+	import { building } from '$app/env';
 	import { page } from '$app/state';
 	import type { Locale } from '$lib/i18n/locale';
 	import { t } from '$lib/i18n/messages';

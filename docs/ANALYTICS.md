@@ -30,7 +30,7 @@ or database credential is returned to a browser.
 Invalid enabled settings return a generic 503 and a bounded server diagnostic.
 Every response is `Cache-Control: no-store`; the endpoint is never prerendered
 and bypasses session/database checks. Keep the existing CDN `/api/*` cache bypass.
-Browser claims support configured aliases even when adapter-node pins `ORIGIN`.
+Browser claims support configured aliases when the server's origin differs from the browser hostname (for example a proxy that rewrites `Host`).
 The browser independently validates settings and its actual hostname before
 collection, so copied configuration cannot activate a fork.
 

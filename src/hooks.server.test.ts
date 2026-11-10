@@ -477,12 +477,7 @@ test('a client that disconnects mid-request logs a warn line, not a fake 500', a
 	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 	const err = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-	const result = await handleError({
-		error: new Error('aborted'),
-		event: abortedRequestEvent(true) as never,
-		status: 500,
-		message: 'Internal Error'
-	});
+	const result = await handleError({ kind: 'unknown', error: new Error('aborted'), event: abortedRequestEvent(true) as never });
 
 	expect(JSON.parse(warn.mock.calls[0][0])).toMatchObject({ type: 'request_disconnected', severity: 'warn', category: 'client_disconnect', route: '/(app)/channels/[id]/feedback' });
 	expect(err).not.toHaveBeenCalled();
@@ -494,12 +489,7 @@ test('a real unexpected error emits a loud safe category instead of the raw stac
 	const err = vi.spyOn(console, 'error').mockImplementation(() => {});
 	const boom = new TypeError('db exploded');
 
-	const result = await handleError({
-		error: boom,
-		event: abortedRequestEvent(false) as never,
-		status: 500,
-		message: 'Internal Error'
-	});
+	const result = await handleError({ kind: 'unknown', error: boom, event: abortedRequestEvent(false) as never });
 
 	expect(JSON.parse(err.mock.calls[0][0])).toMatchObject({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', route: '/(app)/channels/[id]/feedback' });
 	expect(JSON.parse(err.mock.calls[0][0])).toMatchObject({ errorKind: 'TypeError', errorFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) });
@@ -516,16 +506,59 @@ test('a framework 404 logs a short warn line, not an error with a stack', async 
 	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 	const err = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-	const result = await handleError({
-		error: new Error('Not found: /wp-admin'),
-		event: abortedRequestEvent(false) as never,
-		status: 404,
-		message: 'Not Found'
-	});
+	const result = await handleError({ kind: 'framework', error: { status: 404, message: 'Not Found' }, event: abortedRequestEvent(false) as never });
 
 	expect(JSON.parse(warn.mock.calls[0][0])).toMatchObject({ type: 'request_not_found', severity: 'warn', category: 'not_found' });
 	expect(err).not.toHaveBeenCalled();
 	expect(result).toEqual({ message: 'Not Found' });
+});
+
+test('a deliberate error() response passes through unlogged', async () => {
+	// Kind 'app' is the route's own answer (error(403|409|...)). Kit 2 never sent
+	// these to this hook, so logging them would bury real defects.
+	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+	const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+	const result = await handleError({
+		kind: 'app',
+		error: { status: 403, message: 'Channel not found' },
+		event: abortedRequestEvent(false) as never
+	});
+
+	expect(err).not.toHaveBeenCalled();
+	expect(warn).not.toHaveBeenCalled();
+	expect(result).toEqual({ status: 403, message: 'Channel not found' });
+});
+
+test('a non-404 framework error still logs as an unexpected server error', async () => {
+	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+	const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+	const result = await handleError({
+		kind: 'framework',
+		error: { status: 405, message: 'Method Not Allowed' },
+		event: abortedRequestEvent(false) as never
+	});
+
+	expect(JSON.parse(err.mock.calls[0][0])).toMatchObject({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', errorKind: 'Error', errorCauses: [{ kind: 'Error', code: null, httpStatus: 405 }] });
+	expect(warn).not.toHaveBeenCalled();
+	expect(result).toEqual({ message: 'Method Not Allowed', supportReference: '7d70bcd5-3d71-4a32-9d25-5bbf322de95c' });
+});
+
+test('an unknown error that carries status 404 is not demoted to a warn line', async () => {
+	// Only SvelteKit's own 404 (kind "framework") is scanner noise. An HTTP client error
+	// thrown by our code (for example an upstream 404) is a real defect.
+	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+	const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+	await handleError({
+		kind: 'unknown',
+		error: Object.assign(new Error('upstream not found'), { status: 404 }),
+		event: abortedRequestEvent(false) as never
+	});
+
+	expect(JSON.parse(err.mock.calls[0][0])).toMatchObject({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected' });
+	expect(warn).not.toHaveBeenCalled();
 });
 
 test('an abort-shaped error on a live connection still logs as a 500', async () => {
@@ -535,12 +568,7 @@ test('an abort-shaped error on a live connection still logs as a 500', async () 
 	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 	const err = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-	await handleError({
-		error: new Error('aborted'),
-		event: abortedRequestEvent(false) as never,
-		status: 500,
-		message: 'Internal Error'
-	});
+	await handleError({ kind: 'unknown', error: new Error('aborted'), event: abortedRequestEvent(false) as never });
 
 	expect(err).toHaveBeenCalled();
 	expect(warn).not.toHaveBeenCalled();
@@ -616,7 +644,7 @@ test.each([['migration', 503], ['session', 500]])('deliberate %s failures retain
 	const resolve = vi.fn();
 	const response = await handle({ event, resolve } as never);
 	expect(response.status).toBe(status);
-	expect(await response.json()).toEqual({ message: 'Controlled failure' });
+	expect(await response.json()).toEqual({ status, message: 'Controlled failure' });
 	expect(response.headers.get('x-request-id')).toBe((event.locals as Record<string, unknown>).requestId);
 	expect(response.headers.get('x-robots-tag')).toBe('noindex');
 	expect(event.locals.dbDown).toBeUndefined();
@@ -648,7 +676,7 @@ test('unexpected resolve errors retain a generic outcome and correlated event ev
 	const response = await handle({ event, resolve: async () => { throw hostile; } } as never);
 	expect(response.status).toBe(500);
 	const body = await response.json();
-	expect(body).toEqual({ message: 'Internal Error', supportReference: response.headers.get('x-request-id') });
+	expect(body).toEqual({ status: 500, message: 'Internal Error', supportReference: response.headers.get('x-request-id') });
 	expect(JSON.parse(errorLog.mock.calls[0][0])).toMatchObject({ requestId: response.headers.get('x-request-id'), type: 'unexpected_server_error', category: 'unexpected' });
 	expect(JSON.stringify(errorLog.mock.calls)).not.toContain('synthetic-private-value');
 });
@@ -723,7 +751,7 @@ test.each(['*/*', 'application/*', 'application/json;q=0.8, text/html;q=0.2', 'a
 	const response = await handle({ event, resolve: vi.fn() } as never);
 	expect(response.status).toBe(503);
 	expect(response.headers.get('content-type')).toBe('application/json');
-	expect(await response.json()).toEqual({ message: 'Controlled failure' });
+	expect(await response.json()).toEqual({ status: 503, message: 'Controlled failure' });
 });
 
 test('data requests keep controlled errors as JSON despite an HTML Accept header', async () => {
@@ -733,7 +761,7 @@ test('data requests keep controlled errors as JSON despite an HTML Accept header
 	const event = { ...makeEvent(), isDataRequest: true, request: new Request('http://localhost/', { headers: { accept: 'text/html' } }) };
 	const response = await handle({ event, resolve: vi.fn() } as never);
 	expect(response.status).toBe(503);
-	expect(await response.json()).toEqual({ message: 'Controlled failure' });
+	expect(await response.json()).toEqual({ status: 503, message: 'Controlled failure' });
 	expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
 });
 
@@ -819,8 +847,8 @@ test.each([503, 500])('enhanced form hook failures return usable ActionResults (
 	expect(result).toEqual({
 		type: 'error',
 		error: status === 503
-			? { message: 'Deployment requires migrations' }
-			: { message: 'Internal Error', supportReference: response.headers.get('x-request-id') }
+			? { status: 503, message: 'Deployment requires migrations' }
+			: { status: 500, message: 'Internal Error', supportReference: response.headers.get('x-request-id') }
 	});
 	expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
 	expect(JSON.stringify(result)).not.toContain('synthetic-private-value');

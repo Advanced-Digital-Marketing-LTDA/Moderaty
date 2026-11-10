@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onDestroy, onMount } from 'svelte';
@@ -10,9 +10,9 @@
 	let unavailable = $state(false);
 	let failureGeneration = 0;
 	let pending: AbortController | undefined;
-	const publicUrl = $derived(browser ? analyticsPageUrl(page.url) : null);
+	const publicUrl = $derived(browser ? analyticsPageUrl(new URL(page.url.href)) : null);
 	const eligible = $derived(publicUrl !== null);
-	let safeDocument = $state(browser && isAnalyticsPage(page.url));
+	let safeDocument = $state(browser && isAnalyticsPage(new URL(page.url.href)));
 	const client = browser ? createAnalyticsClient({ onFailure: () => { failureGeneration++; unavailable = true; } }) : undefined;
 
 	beforeNavigate((navigation) => {

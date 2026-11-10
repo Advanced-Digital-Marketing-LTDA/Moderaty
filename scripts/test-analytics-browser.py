@@ -26,7 +26,10 @@ def server(mode, **settings):
     env = os.environ.copy()
     for key in ['ANALYTICS_ENABLED', 'UMAMI_URL', 'UMAMI_WEBSITE_ID', 'ANALYTICS_ALLOWED_HOSTNAMES']:
         env.pop(key, None)
-    env.update({'PORT': str(port), 'HOST': '127.0.0.1', 'ORIGIN': f'http://127.0.0.1:{port}',
+    # adapter-node 6 ignores ORIGIN: it takes the origin from Host and assumes https.
+    # The browser sends x-forwarded-proto: http (see fixture) so the server origin equals
+    # the browser's Origin, which SvelteKit 3's CSRF check compares for POSTs.
+    env.update({'PORT': str(port), 'HOST': '127.0.0.1', 'PROTOCOL_HEADER': 'x-forwarded-proto',
                 'TURSO_DATABASE_URL': 'file:' + str(Path(FIXTURE) / 'fixture.db'), 'TURSO_AUTH_TOKEN': '',
                 'ANALYTICS_ENABLED': 'true', 'UMAMI_URL': CONFIG['umamiUrl'], 'UMAMI_WEBSITE_ID': WEBSITE,
                 'ANALYTICS_ALLOWED_HOSTNAMES': 'localhost,127.0.0.1'})
@@ -61,7 +64,7 @@ def server(mode, **settings):
 
 @contextlib.contextmanager
 def fixture(browser, base, init=None, fail: bool | str = False):
-    context = browser.new_context(viewport={'width': 1400, 'height': 900})
+    context = browser.new_context(viewport={'width': 1400, 'height': 900}, extra_http_headers={'x-forwarded-proto': 'http'})
     events, config_requests, reports, google, errors = [], [], [], [], []
     context.route('**/*', lambda route: intercept(route, base, (events, config_requests, reports, google), fail))
     if init:

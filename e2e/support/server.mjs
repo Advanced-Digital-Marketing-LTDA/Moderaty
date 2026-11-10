@@ -1,7 +1,7 @@
 // Test-only launcher: no production route or authentication bypass is added.
-import { createServer } from 'vite';
+import { createServer, loadEnv } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
-import appConfig from '../../svelte.config.js';
+import appOptions from '../../sveltekit.options.js';
 import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
@@ -17,14 +17,18 @@ const root = process.cwd();
 const isolatedEnvDirectory = join(resolve(process.env.MODERATY_E2E_DIRECTORY), 'empty-env');
 await mkdir(isolatedEnvDirectory);
 const databaseUrl = `file:${join(resolve(process.env.MODERATY_E2E_DIRECTORY), 'disposable.db')}`;
-Object.assign(process.env, {
+const syntheticEnv = {
 	TURSO_DATABASE_URL: databaseUrl, DRY_RUN: 'false', MODERATY_DEPLOYMENT: 'self-hosted',
 	// The public pages build canonical URLs from APP_URL; it is never fetched.
 	APP_URL: 'https://moderaty.invalid',
 	ENCRYPTION_KEY: randomBytes(32).toString('hex'),
 	GOOGLE_CLIENT_ID: 'synthetic-client', GOOGLE_CLIENT_SECRET: randomBytes(32).toString('hex'),
 	OPENAI_API_KEY: `synthetic-${randomBytes(32).toString('hex')}`
-});
+};
+// The dev server builds its env with vite.loadEnv(mode, env.dir, ''), which merges
+// process.env over the dotenv files in env.dir, so the synthetic values reach the
+// app through process.env while the isolated env.dir stays empty.
+Object.assign(process.env, syntheticEnv);
 
 const requests = [];
 const blockedRequests = [];
@@ -72,11 +76,10 @@ const applied = await client.execute('SELECT COUNT(*) AS n FROM __drizzle_migrat
 if (Number(applied.rows[0].n) !== journal.entries.length) throw new Error('Disposable database migration verification failed');
 client.close();
 
-const { kit: kitConfig, ...svelteConfig } = appConfig;
 const vite = await createServer({
 	configFile: false,
 	envDir: false,
-	plugins: [sveltekit({ ...svelteConfig, ...kitConfig, env: { ...kitConfig.env, dir: isolatedEnvDirectory } })],
+	plugins: [sveltekit({ ...appOptions, env: { dir: isolatedEnvDirectory } })],
 	server: {
 		fs: { allow: [root, await realpath(join(root, 'src')), await realpath(join(root, 'node_modules'))] },
 		host: '127.0.0.1', port: 0, strictPort: false,
@@ -84,10 +87,33 @@ const vite = await createServer({
 	}
 });
 await vite.listen();
-const { env: privateEnv } = await vite.ssrLoadModule('$env/dynamic/private');
-if (privateEnv.MODERATY_DOTENV_POISON || vite.config.env.VITE_MODERATY_DOTENV_POISON || privateEnv.TURSO_DATABASE_URL !== databaseUrl) {
-	throw new Error('E2E dotenv isolation failed');
+// Kit 3 reads dotenv files from the env directory in the SvelteKit setup plugin's
+// resolved options. The poison names are undeclared in src/env.ts, so they cannot
+// be observed through $env/dynamic/private; check that directory itself instead,
+// so the leak check covers exactly what the app reads.
+const setupPlugin = vite.config.plugins.find((plugin) => plugin.name === 'vite-plugin-sveltekit-setup');
+if (!setupPlugin) throw new Error('E2E cannot find the SvelteKit setup plugin');
+const appEnvDirectory = resolve(setupPlugin.api.options.env.dir);
+const leaksProjectDotenv = (directory) => {
+	const loaded = loadEnv(vite.config.mode, directory, '');
+	return Boolean(loaded.MODERATY_DOTENV_POISON || loaded.VITE_MODERATY_DOTENV_POISON);
+};
+const envDirIsolated = appEnvDirectory === resolve(isolatedEnvDirectory);
+const leaked = leaksProjectDotenv(appEnvDirectory);
+if (!envDirIsolated || leaked) {
+	throw new Error(`E2E dotenv isolation failed (envDirIsolated=${envDirIsolated}, leaked=${leaked})`);
 }
+// Self-test: the project root holds the poisoned .env, so the same check must see it.
+// If pointing the app at that directory would pass, the leak check cannot fail.
+if (!leaksProjectDotenv(root)) {
+	throw new Error('E2E isolation self-test failed: the project .env poison is not visible, so the leak check cannot fail');
+}
+// What the app resolves must be the launcher's disposable database, and no credential the
+// launcher does not set may be present: a shell export or dotenv leak would show up here.
+const { env: privateEnv } = await vite.ssrLoadModule('$env/dynamic/private');
+if (privateEnv.TURSO_DATABASE_URL !== databaseUrl) throw new Error('E2E app does not resolve the disposable database');
+const unexpectedCredentials = ['TURSO_AUTH_TOKEN', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'CRON_SECRET', 'PROTON_SMTP_TOKEN', 'MERCADOPAGO_ACCESS_TOKEN'].filter((name) => privateEnv[name] !== undefined);
+if (unexpectedCredentials.length > 0) throw new Error(`E2E app sees credentials the launcher did not set: ${unexpectedCredentials.join(', ')}`);
 const { db } = await vite.ssrLoadModule('/src/lib/server/db/index.ts');
 const schema = await vite.ssrLoadModule('/src/lib/server/db/schema.ts');
 const { encrypt } = await vite.ssrLoadModule('/src/lib/server/crypto.ts');

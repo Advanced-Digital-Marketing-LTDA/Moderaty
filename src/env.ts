@@ -1,0 +1,53 @@
+import { defineEnvVars } from '@sveltejs/kit/env';
+
+// SvelteKit 3 exposes through $env/dynamic/private only the names declared here,
+// so every private variable the app reads is listed. Each is optional: the schema
+// returns the value unchanged, so an unset variable stays undefined.
+const optional = { schema: (value: string | undefined) => value };
+
+export const variables = defineEnvVars({
+	ANALYTICS_ALLOWED_HOSTNAMES: optional,
+	ANALYTICS_ENABLED: optional,
+	APP_URL: optional,
+	CONTEXT: optional,
+	CRON_SECRET: optional,
+	DEMO_PAGES_ENABLED: optional,
+	DRY_RUN: optional,
+	ENCRYPTION_KEY: optional,
+	FC_NUM_RUNS: optional,
+	GOOGLE_CLIENT_ID: optional,
+	GOOGLE_CLIENT_SECRET: optional,
+	MERCADOPAGO_ACCESS_TOKEN: optional,
+	MERCADOPAGO_ENVIRONMENT: optional,
+	MERCADOPAGO_PRICE_CREDITS_100_BRL_CENTS: optional,
+	MERCADOPAGO_PRICE_CREDITS_500_BRL_CENTS: optional,
+	MERCADOPAGO_PRICE_CREDITS_2000_BRL_CENTS: optional,
+	MERCADOPAGO_WEBHOOK_SECRET: optional,
+	MODERATY_DEPLOYMENT: optional,
+	MODERATY_ENVIRONMENT: optional,
+	MODERATY_RELEASE: optional,
+	NODE_ENV: optional,
+	OPENAI_API_KEY: optional,
+	OPENAI_FEEDBACK_CLUSTER_MODEL: optional,
+	OPENAI_FEEDBACK_MODEL: optional,
+	OPENAI_JAILBREAK_MODEL: optional,
+	OPENAI_TONE_MODEL: optional,
+	PROTON_FROM_NAME: optional,
+	PROTON_SMTP_TOKEN: optional,
+	PROTON_SMTP_USERNAME: optional,
+	REPLY_SWEEP_QUOTA_CEILING: optional,
+	STRIPE_PRICE_CREDITS_100: optional,
+	STRIPE_PRICE_CREDITS_500: optional,
+	STRIPE_PRICE_CREDITS_2000: optional,
+	STRIPE_PRICE_HOSTED_MONTHLY: optional,
+	STRIPE_PRICE_LIFETIME: optional,
+	STRIPE_SECRET_KEY: optional,
+	STRIPE_TEST_PRODUCT: optional,
+	STRIPE_WEBHOOK_SECRET: optional,
+	TURSO_AUTH_TOKEN: optional,
+	TURSO_DATABASE_URL: optional,
+	UMAMI_URL: optional,
+	UMAMI_WEBSITE_ID: optional,
+	UNLIMITED_ACCESS_EMAILS: optional,
+	WELCOME_EMAIL_ENABLED: optional
+});

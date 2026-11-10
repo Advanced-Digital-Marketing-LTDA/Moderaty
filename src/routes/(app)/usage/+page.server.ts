@@ -104,7 +104,7 @@ async function savedCardLabel(pmId: string): Promise<{ label: string } | null> {
  */
 async function checkoutRedirect(create: () => Promise<string>, orgId: string) {
 	try {
-		throw redirect(303, await create());
+		throw redirect(303, await create(), { external: true });
 	} catch (error) {
 		// SvelteKit's redirect() is a function that THROWS a Redirect — detect
 		// it with isRedirect, never instanceof.
@@ -385,7 +385,7 @@ export const actions: Actions = {
 		const attemptId = String(form.get('attempt_id') ?? '');
 		try {
 			const url = await createMercadoPagoCreditCheckout(user.orgId, user, bundleId, attemptId);
-			throw redirect(303, url);
+			throw redirect(303, url, { external: true });
 		} catch (cause) {
 			if (isRedirect(cause) || isHttpError(cause)) throw cause;
 			console.error('usage: Mercado Pago checkout failed for org %s:', user.orgId, cause);
@@ -506,7 +506,7 @@ export const actions: Actions = {
 			if (!portalUrl || portalUrl.protocol !== 'https:') {
 				throw new Error(`stripe returned no usable portal URL for customer ${customer}`);
 			}
-			throw redirect(303, portalUrl.toString());
+			throw redirect(303, portalUrl.toString(), { external: true });
 		} catch (error) {
 			// The thrown redirect is the success path — never flatten it into a
 			// 400 (same guard as buy/buyPlan); auth HttpErrors pass through too.

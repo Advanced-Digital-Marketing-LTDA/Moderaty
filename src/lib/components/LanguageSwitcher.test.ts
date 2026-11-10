@@ -1,7 +1,7 @@
 import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
 
-// SSR render: $app/environment's `browser` is false here, which is exactly
+// SSR render: $app/env's `browser` is false here, which is exactly
 // the case that used to drop the query string from the return path.
 vi.mock('$app/state', () => ({
 	page: { url: new URL('https://moderaty.example/consent?state=abc123') }

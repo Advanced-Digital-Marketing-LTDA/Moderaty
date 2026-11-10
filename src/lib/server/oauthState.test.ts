@@ -40,7 +40,7 @@ test('derives Secure from APP_URL and fails loudly when it is missing', () => {
 
 	delete mocks.env.APP_URL;
 	expect(() => cookieSecure()).toThrowError(
-		expect.objectContaining({ status: 500, body: { message: 'APP_URL is not configured' } })
+		expect.objectContaining({ status: 500, body: { status: 500, message: 'APP_URL is not configured' } })
 	);
 });
 
@@ -52,7 +52,7 @@ test('fails loudly when APP_URL is http in the production deployment — auth co
 	mocks.env.APP_URL = 'http://moderaty.example';
 	mocks.env.CONTEXT = 'production';
 	expect(() => cookieSecure()).toThrowError(
-		expect.objectContaining({ status: 500, body: { message: 'APP_URL must be https in the production deployment' } })
+		expect.objectContaining({ status: 500, body: { status: 500, message: 'APP_URL must be https in the production deployment' } })
 	);
 
 	// Same http APP_URL outside production stays allowed (local dev needs it).
@@ -64,7 +64,7 @@ test('fails loudly when APP_URL is http in the production deployment — auth co
 	// http APP_URL must fail loudly there too (CodeRabbit 3738037962).
 	mocks.env.NODE_ENV = 'production';
 	expect(() => cookieSecure()).toThrowError(
-		expect.objectContaining({ status: 500, body: { message: 'APP_URL must be https in the production deployment' } })
+		expect.objectContaining({ status: 500, body: { status: 500, message: 'APP_URL must be https in the production deployment' } })
 	);
 	delete mocks.env.NODE_ENV;
 

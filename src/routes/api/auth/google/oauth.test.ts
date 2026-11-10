@@ -167,7 +167,7 @@ test('auth start fails loudly with 500 when GOOGLE_CLIENT_ID is not configured',
 	expect(() => startAuth({ cookies: makeCookies() } as never)).toThrowError(
 		expect.objectContaining({
 			status: 500,
-			body: { message: 'GOOGLE_CLIENT_ID is not configured' }
+			body: { status: 500, message: 'GOOGLE_CLIENT_ID is not configured' }
 		})
 	);
 });
@@ -177,7 +177,7 @@ test('auth start fails loudly with 500 when APP_URL is not configured', () => {
 	expect(() => startAuth({ cookies: makeCookies() } as never)).toThrowError(
 		expect.objectContaining({
 			status: 500,
-			body: { message: 'APP_URL is not configured' }
+			body: { status: 500, message: 'APP_URL is not configured' }
 		})
 	);
 });

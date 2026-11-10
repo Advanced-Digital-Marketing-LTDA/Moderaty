@@ -32,7 +32,7 @@ export const test = base.extend<{ app: App }>({
 		// their real files. Symlinks serve the unchanged application source.
 		const project = join(directory, 'project');
 		await mkdir(project);
-		for (const name of ['src', 'static', 'drizzle', 'node_modules', 'package.json', 'package-lock.json', 'svelte.config.js', 'vite.config.ts', 'tsconfig.json']) {
+		for (const name of ['src', 'static', 'drizzle', 'node_modules', 'package.json', 'package-lock.json', 'sveltekit.options.js', 'vite.config.ts', 'tsconfig.json']) {
 			await symlink(join(process.cwd(), name), join(project, name));
 		}
 		for (const name of ['.env', '.env.local', '.env.development', '.env.development.local']) {

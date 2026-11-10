@@ -5,7 +5,7 @@ import journal from '../../../drizzle/meta/_journal.json';
 // Flippable so one test can run the guard as it behaves during `vite build`
 // (prerender has no database) while every other test runs it as runtime code.
 const environmentMock = vi.hoisted(() => ({ building: false }));
-vi.mock('$app/environment', () => ({
+vi.mock('$app/env', () => ({
 	get building() {
 		return environmentMock.building;
 	}
