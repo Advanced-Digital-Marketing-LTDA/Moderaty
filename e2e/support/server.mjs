@@ -6,7 +6,7 @@ import { createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { authorChannels, banKeyword, channelId, commentPage } from './youtube-fixtures.mjs';
 
@@ -25,9 +25,9 @@ const syntheticEnv = {
 	GOOGLE_CLIENT_ID: 'synthetic-client', GOOGLE_CLIENT_SECRET: randomBytes(32).toString('hex'),
 	OPENAI_API_KEY: `synthetic-${randomBytes(32).toString('hex')}`
 };
-// SvelteKit 3's dev server takes $env/dynamic/private only from dotenv files in
-// env.dir, not from process.env, so the synthetic values are written there.
-await writeFile(join(isolatedEnvDirectory, '.env'), Object.entries(syntheticEnv).map(([key, value]) => `${key}=${value}`).join('\n') + '\n');
+// The dev server builds its env with vite.loadEnv(mode, env.dir, ''), which merges
+// process.env over the dotenv files in env.dir, so the synthetic values reach the
+// app through process.env while the isolated env.dir stays empty.
 Object.assign(process.env, syntheticEnv);
 
 const requests = [];
@@ -87,8 +87,10 @@ const vite = await createServer({
 	}
 });
 await vite.listen();
-// Kit 3 reads the env directory from the SvelteKit setup plugin's resolved options.
-// Check that directory itself, so the leak check covers what the app reads.
+// Kit 3 reads dotenv files from the env directory in the SvelteKit setup plugin's
+// resolved options. The poison names are undeclared in src/env.ts, so they cannot
+// be observed through $env/dynamic/private; check that directory itself instead,
+// so the leak check covers exactly what the app reads.
 const setupPlugin = vite.config.plugins.find((plugin) => plugin.name === 'vite-plugin-sveltekit-setup');
 if (!setupPlugin) throw new Error('E2E cannot find the SvelteKit setup plugin');
 const appEnvDirectory = resolve(setupPlugin.api.options.env.dir);
@@ -98,9 +100,8 @@ const leaksProjectDotenv = (directory) => {
 };
 const envDirIsolated = appEnvDirectory === resolve(isolatedEnvDirectory);
 const leaked = leaksProjectDotenv(appEnvDirectory);
-const databaseMatches = loadEnv(vite.config.mode, appEnvDirectory, '').TURSO_DATABASE_URL === databaseUrl;
-if (!envDirIsolated || leaked || !databaseMatches) {
-	throw new Error(`E2E dotenv isolation failed (envDirIsolated=${envDirIsolated}, leaked=${leaked}, databaseMatches=${databaseMatches})`);
+if (!envDirIsolated || leaked) {
+	throw new Error(`E2E dotenv isolation failed (envDirIsolated=${envDirIsolated}, leaked=${leaked})`);
 }
 // Self-test: the project root holds the poisoned .env, so the same check must see it.
 // If pointing the app at that directory would pass, the leak check cannot fail.
