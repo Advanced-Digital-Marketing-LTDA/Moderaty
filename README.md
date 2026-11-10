@@ -52,7 +52,7 @@ later run.
 
 ## Repository overview
 
-Moderaty is a SvelteKit 2 application using Svelte 5, TypeScript, and a
+Moderaty is a SvelteKit 3 application using Svelte 5, TypeScript, and a
 **dual deploy adapter** (the choice is the build-time `MODERATY_ADAPTER` env):
 the default Netlify adapter, or adapter-node for the self-hosted Coolify
 target (see `DEPLOY.md` and `docs/COOLIFY.md`). Server code
@@ -132,7 +132,7 @@ Copy [.env.example](.env.example) and provide these values as appropriate:
 | --- | --- |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client credentials |
 | `APP_URL` | Canonical app URL used for OAuth redirects |
-| `ORIGIN` | adapter-node (Coolify) only — the public origin behind the CDN |
+| `PROTOCOL_HEADER`, `HOST_HEADER` | adapter-node (Coolify) only, optional — set only if the proxy rewrites the scheme or `Host`; the old `ORIGIN` variable is ignored |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Local SQLite or production Turso connection |
 | `OPENAI_API_KEY` | AI moderation, tone scoring, and feedback digests |
 | `OPENAI_JAILBREAK_MODEL`, `OPENAI_TONE_MODEL` | Optional prompt-injection and tone models; default to `gpt-6-luna` |

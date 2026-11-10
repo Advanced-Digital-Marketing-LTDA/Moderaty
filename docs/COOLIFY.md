@@ -2,7 +2,7 @@
 
 Status: scaffolding implemented and repo-side verified (2026-08-18:
 adapter builds, migrate gate against dev Turso, node-server smoke test, and
-the §8 doc/`ORIGIN` claims all confirmed); cutover (§7) is pending and
+the §8 doc claims confirmed; the `ORIGIN` claim is superseded by adapter-node 6, see §8); cutover (§7) is pending and
 human-only.
 Sources for every platform claim: [`docs/coolify-research.md`](coolify-research.md).
 
@@ -50,7 +50,8 @@ Requirements met by this design:
 
 | File | Purpose |
 | --- | --- |
-| `svelte.config.js` | Dual adapter: `MODERATY_ADAPTER=node` → adapter-node; unset → adapter-netlify; any other value fails the build loudly. Netlify builds unchanged. Guarded by `svelte.config.test.ts`. |
+| `sveltekit.options.js` | Dual adapter: `MODERATY_ADAPTER=node` → adapter-node; unset → adapter-netlify; any other value fails the build loudly. Netlify builds unchanged. Passed to the `sveltekit()` plugin in `vite.config.ts` (SvelteKit 3 no longer reads `svelte.config.js`). Guarded by `sveltekit.options.test.ts`. |
+| `src/env.ts` | Declares every private env var the app reads. SvelteKit 3 exposes only declared names through `$env/dynamic/private`; an undeclared name reads as `undefined`. Add new variables here — `src/env.test.ts` fails when one is missing. |
 | `Dockerfile` | Multi-stage (node:24-alpine): `npm ci --ignore-scripts` (docker:S6505) → migrate+verify gate (TURSO_* arrive as **BuildKit secret mounts** — `--secret id=KEY,env=KEY` with Coolify's "Use Docker Build Secrets", never ARG/ENV, docker:S6472) → `MODERATY_ADAPTER=node` build → runtime stage with prod deps only, `scripts/` included for the in-container cron command, unprivileged `app` user, `PORT=3000`, `HEALTHCHECK /api/health`. |
 | `.dockerignore` | Keeps `drizzle/` + `scripts/` in the build context (migrations run in-build); excludes `.env`, `node_modules`, `build`, worktrees. |
 | `scripts/dev-cron.mjs` | Now also the container scheduler: Coolify Scheduled Task runs `APP_URL=http://127.0.0.1:3000 node scripts/dev-cron.mjs --once` every minute (localhost, so the tick never leaves the container). |
@@ -85,7 +86,7 @@ One-time setup (human, in the Coolify dashboard):
    | `ENCRYPTION_KEY` | production value | dev value | `crypto.randomBytes(32).toString('hex')` per env |
    | `CRON_SECRET` | production value | dev value | any long random string |
    | `APP_URL` | `https://<public-domain>` | `https://<dev-domain>` | drives OAuth `redirect_uri` + Secure cookies |
-   | `ORIGIN` | `https://<public-domain>` | `https://<dev-domain>` | adapter-node URL generation — pins origin behind the proxy |
+   | `ORIGIN` | _do not set_ | _do not set_ | ignored by adapter-node 6 — the origin comes from the `Host` header (scheme defaults to `https`); set `PROTOCOL_HEADER`/`HOST_HEADER` only if the proxy rewrites them |
    | `DRY_RUN` | `true` → `false` after verification | `true` | I8 |
    | `DEMO_PAGES_ENABLED` | never set | optional `true` for screenshots | screenshot-only `/demo/*` pages with fictional data; noindex, never in the sitemap; refused on the production domain and the production Google client |
    | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | production | dev | Stripe is live on this branch |
@@ -109,7 +110,7 @@ One-time setup (human, in the Coolify dashboard):
    retention and actual-proxy browser acceptance are complete. Public pages read
    settings from the no-store `/api/analytics` endpoint. No tracking script, Google request or GTM fallback is installed.
    DNT, GPC and the public footer's Audience measurement preference suppress
-   collection. Exact browser hostname checks protect forks and pinned-ORIGIN
+   collection. Exact browser hostname checks protect forks and configured
    aliases. See [ANALYTICS.md](ANALYTICS.md) for the service setup, strict payload
    policy, operator checklist and rollback procedure.
 
@@ -372,12 +373,12 @@ record changes remain human-only.
   payloads; the API lists "Scheduled tasks on app/service") — only the exact
   dashboard tab location is undocumented, so locate it in your Coolify
   version at setup.
-- `X-Forwarded-Proto` behind the proxy was not verified; `ORIGIN` (§3.4) removes
-  the dependency. **Verified 2026-08-18 against adapter-node source**: the
-  built handler calls `parse_origin(env('ORIGIN', undefined))` at startup —
-  a set `ORIGIN` is validated and used verbatim for URL generation, and an
-  invalid value throws at boot (fail-loud). Confirm at gate 4 rather than
-  assume.
+- `ORIGIN` no longer applies. **Verified 2026-11-10 against adapter-node 6.0.1 source and a built-server smoke test**: the handler does not read
+  `ORIGIN`. It builds the request origin from the `Host` header (or `HOST_HEADER`) and assumes `https` unless `PROTOCOL_HEADER` names a header.
+  SvelteKit 3's CSRF check compares a form POST's `Origin` header with that origin, so a proxy that rewrites `Host` or the scheme makes every
+  form POST fail with 403 "Cross-site POST form submissions are forbidden". Deploy to `moderaty-dev` first, submit a form (the language
+  switcher) and expect a 303. If it is a 403, set `PROTOCOL_HEADER=x-forwarded-proto` and `HOST_HEADER=x-forwarded-host` on the Coolify app
+  (safe only when the proxy overwrites those headers).
 - Turso embedded replicas on the Coolify server are a possible future
   optimization (persistent disk) — out of scope; do not paper over
   availability with silent fallbacks (DEPLOY.md §7).

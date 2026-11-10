@@ -88,7 +88,7 @@ Category line: "Comment protection for YouTube creators."
   rows without staging comments or sending YouTube writes.
 - Comment text is never stored longer than 500 characters. Top-level comments
   only; reply moderation is an explicit non-goal.
-- Stack: SvelteKit 2 + Svelte 5 + TypeScript; adapter-netlify is the default,
+- Stack: SvelteKit 3 + Svelte 5 + TypeScript; adapter-netlify is the default,
   and adapter-node is selected at build time for Coolify. Drizzle ORM over
   libSQL (`file:local.db` dev, Turso prod). Approved dependencies only; no auth
   libraries, no googleapis/OpenAI SDKs, no CSS frameworks, no zod.

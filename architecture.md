@@ -11,7 +11,7 @@ tags: [architecture]
 
 ## Topology
 
-Moderaty is a SvelteKit 2 / Svelte 5 / TypeScript app. Netlify is the default build adapter; `MODERATY_ADAPTER=node` selects adapter-node for Coolify. Request hooks resolve sessions, while account-entry and app-layout flows enforce current legal consent. Channel routes use the organization-aware `ownedChannel` gate. These module edges are inferred from current imports; no clean application/persistence layer is enforced, and some routes query Drizzle directly or import pipeline actions.
+Moderaty is a SvelteKit 3 / Svelte 5 / TypeScript app. Netlify is the default build adapter; `MODERATY_ADAPTER=node` selects adapter-node for Coolify. Request hooks resolve sessions, while account-entry and app-layout flows enforce current legal consent. Channel routes use the organization-aware `ownedChannel` gate. These module edges are inferred from current imports; no clean application/persistence layer is enforced, and some routes query Drizzle directly or import pipeline actions.
 
 Netlify, Coolify, and local cron drivers call `/api/cron`. `cronWorkload` selects and leases bounded work; `runChannel` coordinates YouTube fetch, decision/scoring, transactional staging and ledger updates, external enforcement, and reconciliation. The related boundaries are [moderation-pipeline](src/lib/server/pipeline/SPEC.md) and [billing-boundary](src/lib/server/billing/SPEC.md); [persistence-boundary](src/lib/server/db/SPEC.md) owns the persistence and migration contract. Stripe owns subscription and lifetime entitlements; Stripe and Mercado Pago both use the organization-scoped prepaid-credit ledger.
 

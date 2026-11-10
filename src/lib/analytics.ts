@@ -19,7 +19,7 @@ export function readMarketingClick(event: MouseEvent) {
 	return link ? parseMarketingClick(link.getAttribute('data-moderaty-event'), link.getAttribute('data-moderaty-placement')) : null;
 }
 
-/** Exact browser claim; supports aliases with adapter-node's pinned ORIGIN. */
+/** Exact browser claim; supports aliases when the server origin differs from the browser hostname. */
 function configurationUrl(): string {
 	const url = new URL('/api/analytics', window.location.origin);
 	url.searchParams.set('hostname', window.location.hostname);
