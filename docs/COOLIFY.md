@@ -379,6 +379,8 @@ record changes remain human-only.
   form POST fail with 403 "Cross-site POST form submissions are forbidden". Deploy to `moderaty-dev` first, submit a form (the language
   switcher) and expect a 303. If it is a 403, set `PROTOCOL_HEADER=x-forwarded-proto` and `HOST_HEADER=x-forwarded-host` on the Coolify app
   (safe only when the proxy overwrites those headers).
+  An app that still has `ORIGIN` set gets no boot error now (adapter-node 5 threw on an invalid value),
+  so delete the variable on `moderaty-dev` and `moderaty-prod` when upgrading.
 - Turso embedded replicas on the Coolify server are a possible future
   optimization (persistent disk) — out of scope; do not paper over
   availability with silent fallbacks (DEPLOY.md §7).
