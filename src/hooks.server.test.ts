@@ -545,6 +545,22 @@ test('a non-404 framework error still logs as an unexpected server error', async
 	expect(result).toEqual({ message: 'Method Not Allowed', supportReference: '7d70bcd5-3d71-4a32-9d25-5bbf322de95c' });
 });
 
+test('an unknown error that carries status 404 is not demoted to a warn line', async () => {
+	// Only SvelteKit's own 404 (kind "framework") is scanner noise. An HTTP client error
+	// thrown by our code (for example an upstream 404) is a real defect.
+	const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+	const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+	await handleError({
+		kind: 'unknown',
+		error: Object.assign(new Error('upstream not found'), { status: 404 }),
+		event: abortedRequestEvent(false) as never
+	});
+
+	expect(JSON.parse(err.mock.calls[0][0])).toMatchObject({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected' });
+	expect(warn).not.toHaveBeenCalled();
+});
+
 test('an abort-shaped error on a live connection still logs as a 500', async () => {
 	// The request-signal guard distinguishes a client disconnect from an
 	// abort raised by our own code (e.g. a fetch timeout inside an action) —
