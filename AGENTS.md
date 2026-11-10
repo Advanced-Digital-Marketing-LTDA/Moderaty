@@ -81,20 +81,7 @@ Executor rules:
   both together (`fix: review — <what>`). A fix without its reproducing
   test is not done.
 
-## Review Tooling (before push and in CI)
-
-Before pushing, inside Claude Code:
-
-- Run the `pr-review-toolkit` agents `pr-test-analyzer` and
-  `silent-failure-hunter` on every change. The plugin is enabled in
-  `.claude/settings.json`.
-- Run the `adversarial-review` project skill
-  (`.claude/skills/adversarial-review/SKILL.md`) before every push.
-- For changes to auth, owner-scoping (`channels.userId` scoping, `requireUser`)
-  or tests, also run gstack `/cso` and `/test-audit`. gstack is installed on the
-  human's machine, not by this repo.
-- Warp validate-changes-match-specs is not wired up yet; add it once tasks
-  carry a written spec.
+## Review Tooling (in CI)
 
 In CI on every PR, independent of the author:
 
