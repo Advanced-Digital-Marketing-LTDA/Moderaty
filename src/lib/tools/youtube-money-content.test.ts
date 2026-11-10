@@ -1,5 +1,7 @@
 import { expect, test } from 'vitest';
+import { calculate } from './youtube-money';
 import { NICHE_CPM_ROWS, YOUTUBE_MONEY_CALCULATOR, YOUTUBE_MONEY_FAQ, YOUTUBE_MONEY_SOURCES } from './youtube-money-content';
+import { formatCount, formatUsd } from './youtube-money-format';
 
 test('every niche CPM row is a real range with a unique name', () => {
 	for (const row of NICHE_CPM_ROWS) expect(row.cpmLow).toBeLessThan(row.cpmHigh);
@@ -43,4 +45,31 @@ test('the monetized-share FAQ points to the niche estimate in the calculator, no
 
 test('the OutlierKit link label says its figures are CPM, because the page does not measure RPM', () => {
 	expect(YOUTUBE_MONEY_SOURCES.cpmBenchmarks.label).toContain('CPM');
+});
+
+test('the meta description is the approved sentence and fits a search snippet', () => {
+	expect(YOUTUBE_MONEY_CALCULATOR.description).toBe(
+		'Free YouTube money calculator. Enter your monthly views and Studio RPM to see daily, monthly and yearly earnings and the views you need for an income goal.'
+	);
+	expect(YOUTUBE_MONEY_CALCULATOR.description.length).toBeLessThanOrEqual(160);
+});
+
+test.each([
+	['How much does YouTube pay per 1,000 views?', 'Your RPM sets it.'],
+	['What is the difference between CPM and RPM?', 'what an advertiser pays for 1,000 ad impressions'],
+	['Do I need the YouTube Partner Program to earn ad revenue?', 'YouTube pays ad revenue on your videos'],
+	['Is this calculator accurate?', 'reads no channel, audience or payout data']
+])('the rewritten FAQ answer to %j says %j', (question, phrase) => {
+	expect(faqAnswer(question)).toContain(phrase);
+});
+
+test('the 1 million views FAQ quotes what the calculator returns for 1,000,000 views at a $3.50 RPM', () => {
+	const out = calculate([{ label: 'Long-form', views: 1_000_000, rpm: 3.5 }], null);
+	expect(faqAnswer('How much does 1 million views pay?')).toContain(`$3.50 RPM, an example figure and not a benchmark, that is ${formatUsd(out.perMillionUsd)}`);
+});
+
+test('the $1,000 FAQ quotes the views the calculator says are needed at a $3.50 RPM', () => {
+	const out = calculate([{ label: 'Long-form', views: 1_000_000, rpm: 3.5 }], 1000);
+	if (out.viewsNeeded === null) throw new Error('a goal was given, so viewsNeeded must be set');
+	expect(faqAnswer('How many views do I need to make $1,000 a month?')).toContain(`at least ${formatCount(out.viewsNeeded)} views a month`);
 });

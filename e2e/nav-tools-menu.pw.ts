@@ -12,7 +12,7 @@ test('the Tools menu opens on desktop, reaches the calculator, and closes on Esc
 	await expect(toggle).toHaveAttribute('aria-expanded', 'true');
 	await page.getByRole('link', { name: 'YouTube money calculator', exact: true }).click();
 	await expect(page).toHaveURL(new RegExp(`${toolHref}$`));
-	await expect(page.getByRole('heading', { name: "Views are free. Here's what they pay.", level: 1 })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'YouTube Money Calculator', level: 1, exact: true })).toBeVisible();
 });
 
 test('the Tools menu closes on Escape and on an outside click', async ({ app, page }) => {
@@ -67,4 +67,23 @@ test('the desktop bar keeps every item on one row at 1152px, with the Tools item
 	expect(m.cta.right).toBeLessThanOrEqual(m.innerRight + 0.5);
 	// The links occupy a single row: a wrapped item would make the bar taller than one line.
 	expect(m.links.bottom - m.links.top).toBeLessThan(40);
+});
+
+test('the Tools toggle matches the typography of the links beside it, desktop and mobile', async ({ app, page }) => {
+	const typography = (locator: import('@playwright/test').Locator) =>
+		locator.evaluate((el) => {
+			const s = getComputedStyle(el);
+			return { family: s.fontFamily, size: s.fontSize, weight: s.fontWeight, spacing: s.letterSpacing, transform: s.textTransform, color: s.color };
+		});
+	await page.setViewportSize({ width: 1280, height: 900 });
+	await page.goto(`${app.baseURL}/`);
+	await page.waitForLoadState('networkidle');
+	const pricing = page.locator('.links').getByRole('link', { name: 'Pricing', exact: true });
+	const toggle = page.getByRole('button', { name: 'Tools', exact: true });
+	expect(await typography(toggle)).toEqual(await typography(pricing));
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.getByRole('button', { name: 'Open menu' }).click();
+	const mobilePricing = page.locator('.mobile-links').getByRole('link', { name: 'Pricing', exact: true });
+	const mobileToggle = page.locator('.mobile-links').getByRole('button', { name: 'Tools', exact: true });
+	expect(await typography(mobileToggle)).toEqual(await typography(mobilePricing));
 });
