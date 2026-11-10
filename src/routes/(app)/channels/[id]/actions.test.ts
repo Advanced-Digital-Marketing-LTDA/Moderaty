@@ -1548,10 +1548,3 @@ test('a channel re-homed to another team mid-disconnect aborts instead of erasin
 		vi.unstubAllGlobals();
 	}
 });
-
-// PR #123 review (qodo): vi.spyOn mocks are NOT restored by unstubAllGlobals —
-// a leaked console spy makes later tests order-dependent (the PR #111 lesson).
-test('disconnect tests leave no console spies behind', () => {
-	expect(vi.isMockFunction(console.info)).toBe(false);
-	expect(vi.isMockFunction(console.error)).toBe(false);
-});

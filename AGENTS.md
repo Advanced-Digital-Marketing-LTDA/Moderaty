@@ -506,8 +506,7 @@ bounded batches, skipped under `DRY_RUN`) plus on-demand per-channel erasure
 from the log page's danger zone; manual-action rows store NULL.
 Public copy (landing, FAQ, legal docs) must match actual storage: comment
 text is stored with the moderation outcome, the commenter handle is kept 30
-days then erased; the consistency guard in `src/lib/landing/legal.test.ts`
-pins the 30-day retention promise across those surfaces.
+days then erased.
 ```
 
 <!-- >>> aimax:reasonix >>> -->
