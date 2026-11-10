@@ -540,7 +540,7 @@ test('a non-404 framework error still logs as an unexpected server error', async
 		event: abortedRequestEvent(false) as never
 	});
 
-	expect(JSON.parse(err.mock.calls[0][0])).toMatchObject({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected' });
+	expect(JSON.parse(err.mock.calls[0][0])).toMatchObject({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', errorKind: 'Error', errorCauses: [{ kind: 'Error', code: null, httpStatus: 405 }] });
 	expect(warn).not.toHaveBeenCalled();
 	expect(result).toEqual({ message: 'Method Not Allowed', supportReference: '7d70bcd5-3d71-4a32-9d25-5bbf322de95c' });
 });

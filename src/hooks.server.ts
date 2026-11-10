@@ -241,6 +241,9 @@ export const handleError: HandleServerError = ({ kind, error, event }) => {
 		emitOperationalEvent({ type: 'request_not_found', severity: 'warn', category: 'not_found', route: event.route.id, requestId });
 		return { message };
 	}
-	emitOperationalEvent({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', route: event.route.id, requestId, diagnosticError: error });
+	// Kit 3 hands framework errors over as plain { status, message } objects. Give the
+	// diagnostics a real Error carrying the status so the event keeps its kind and cause.
+	const diagnosticError = kind === 'framework' ? Object.assign(new Error(error.message), { httpStatus: error.status }) : error;
+	emitOperationalEvent({ type: 'unexpected_server_error', severity: 'error', category: 'unexpected', route: event.route.id, requestId, diagnosticError });
 	return { message, supportReference: requestId };
 };
