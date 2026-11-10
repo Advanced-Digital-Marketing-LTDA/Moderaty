@@ -24,6 +24,8 @@ export const variables = defineEnvVars({
 	MERCADOPAGO_PRICE_CREDITS_2000_BRL_CENTS: optional,
 	MERCADOPAGO_WEBHOOK_SECRET: optional,
 	MODERATY_DEPLOYMENT: optional,
+	MODERATY_ENVIRONMENT: optional,
+	MODERATY_RELEASE: optional,
 	NODE_ENV: optional,
 	OPENAI_API_KEY: optional,
 	OPENAI_FEEDBACK_CLUSTER_MODEL: optional,

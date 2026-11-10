@@ -7,10 +7,14 @@ import { variables } from './env';
 
 // SvelteKit 3 exposes through $env/dynamic/private only the names declared in
 // src/env.ts, and an undeclared name reads as undefined with no error. This
-// guard fails when source code reads a private name that is not declared.
+// guard fails when source code reads a private name that is not declared, and
+// when it reads the env in a way the scan cannot follow.
 const srcDirectory = fileURLToPath(new URL('.', import.meta.url));
-const PRIVATE_ENV_MODULE = '$env/dynamic/private';
-// These tables name their env variables as string values read through env[name].
+const ENV_MODULE = '$env/dynamic/private';
+const UNSUPPORTED_ENV_MODULES = /\$env\/(?:static\/(?:private|public)|dynamic\/public)/;
+// These files look names up at run time (env[name]); the names come from the string
+// tables in PRICE_TABLES, which the scan reads as literals.
+const COMPUTED_LOOKUP_FILES = ['lib/server/stripe/bundles.ts', 'lib/server/mercadopago/bundles.ts', 'lib/server/billing/checkout.ts'];
 const PRICE_TABLES = ['lib/server/stripe/bundles.ts', 'lib/server/mercadopago/bundles.ts', 'lib/server/billing/plans.ts'];
 
 function sourceFiles(directory: string): string[] {
@@ -19,28 +23,54 @@ function sourceFiles(directory: string): string[] {
 		.map((path) => join(directory, path));
 }
 
-function addUse(uses: Map<string, Set<string>>, name: string, file: string): void {
-	const files = uses.get(name) ?? new Set<string>();
-	files.add(relative(srcDirectory, file));
-	uses.set(name, files);
+// `env` itself, `import { env as x }`, and `const x = env` (not `const x = env.Y`).
+function envIdentifiers(text: string): string[] {
+	const identifiers = new Set(['env']);
+	for (const match of text.matchAll(/\benv\s+as\s+(\w+)/g)) identifiers.add(match[1]);
+	for (const match of text.matchAll(/\b(?:const|let|var)\s+(\w+)\s*=\s*env\b(?!\s*[.[])/g)) identifiers.add(match[1]);
+	return [...identifiers];
 }
 
-function privateEnvUses(): Map<string, Set<string>> {
-	const uses = new Map<string, Set<string>>();
-	for (const file of sourceFiles(srcDirectory)) {
-		const text = readFileSync(file, 'utf8');
-		if (text.includes(PRIVATE_ENV_MODULE)) {
-			for (const match of text.matchAll(/(?<!process\.)\benv\.([A-Z][A-Z0-9_]*)/g)) addUse(uses, match[1], file);
-		}
-		if (PRICE_TABLES.some((table) => file === join(srcDirectory, table))) {
-			for (const match of text.matchAll(/'((?:STRIPE|MERCADOPAGO)_PRICE_[A-Z0-9_]+)'/g)) addUse(uses, match[1], file);
+function namesRead(text: string, identifier: string): { names: string[]; computed: boolean } {
+	const names: string[] = [];
+	const own = `(?<![.\\w])${identifier}`;
+	for (const match of text.matchAll(new RegExp(`${own}\\.([A-Z][A-Z0-9_]*)`, 'g'))) names.push(match[1]);
+	for (const match of text.matchAll(new RegExp(`${own}\\[\\s*['"]([A-Z][A-Z0-9_]*)['"]\\s*\\]`, 'g'))) names.push(match[1]);
+	for (const match of text.matchAll(new RegExp(`\\{([^}]*)\\}\\s*=\\s*${identifier}\\b`, 'g'))) {
+		for (const part of match[1].split(',')) {
+			const name = part.trim().split(/[:=\s]/)[0];
+			if (/^[A-Z][A-Z0-9_]*$/.test(name)) names.push(name);
 		}
 	}
-	return uses;
+	return { names, computed: new RegExp(`${own}\\[\\s*(?!['"])`).test(text) };
+}
+
+function scan(): { uses: Map<string, Set<string>>; problems: string[] } {
+	const uses = new Map<string, Set<string>>();
+	const problems: string[] = [];
+	const add = (name: string, file: string) => uses.set(name, (uses.get(name) ?? new Set<string>()).add(file));
+	for (const absolute of sourceFiles(srcDirectory)) {
+		const file = relative(srcDirectory, absolute);
+		const text = readFileSync(absolute, 'utf8');
+		if (UNSUPPORTED_ENV_MODULES.test(text)) problems.push(`${file}: imports an env module this guard does not scan`);
+		if (text.includes(ENV_MODULE)) {
+			for (const identifier of envIdentifiers(text)) {
+				const { names, computed } = namesRead(text, identifier);
+				for (const name of names) add(name, file);
+				if (computed && !COMPUTED_LOOKUP_FILES.includes(file)) {
+					problems.push(`${file}: computed env lookup; list the file in COMPUTED_LOOKUP_FILES and its names in a price table`);
+				}
+			}
+		}
+		if (PRICE_TABLES.includes(file)) {
+			for (const match of text.matchAll(/'((?:STRIPE|MERCADOPAGO)_PRICE_[A-Z0-9_]+)'/g)) add(match[1], file);
+		}
+	}
+	return { uses, problems };
 }
 
 describe('src/env.ts declarations', () => {
-	const uses = privateEnvUses();
+	const { uses, problems } = scan();
 
 	it('declares every private env name the source reads', () => {
 		const declared = new Set(Object.keys(variables));
@@ -50,9 +80,14 @@ describe('src/env.ts declarations', () => {
 		expect(missing).toEqual([]);
 	});
 
+	it('reads the env only in ways the scan can follow', () => {
+		expect(problems).toEqual([]);
+	});
+
 	it('finds the names it guards, so an empty scan cannot pass', () => {
-		// Direct reads, the dynamic Stripe/Mercado Pago price tables, and the plan prices.
-		for (const name of ['TURSO_DATABASE_URL', 'STRIPE_SECRET_KEY', 'STRIPE_PRICE_CREDITS_100', 'MERCADOPAGO_PRICE_CREDITS_2000_BRL_CENTS', 'STRIPE_PRICE_LIFETIME']) {
+		// Direct reads, the dynamic price tables, the plan prices, and an aliased read
+		// (operationalEvents.ts reads these two through `const identity = env`).
+		for (const name of ['TURSO_DATABASE_URL', 'STRIPE_SECRET_KEY', 'STRIPE_PRICE_CREDITS_100', 'MERCADOPAGO_PRICE_CREDITS_2000_BRL_CENTS', 'STRIPE_PRICE_LIFETIME', 'MODERATY_ENVIRONMENT', 'MODERATY_RELEASE']) {
 			expect(uses.has(name), name).toBe(true);
 		}
 		expect(uses.size).toBeGreaterThanOrEqual(40);
