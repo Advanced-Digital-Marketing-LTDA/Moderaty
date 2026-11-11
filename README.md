@@ -202,7 +202,7 @@ Copy [.env.example](.env.example) and provide these values as appropriate:
 | `MODERATY_DEPLOYMENT` | `self-hosted` (the `.env.example` default) or `official-hosted`; only the official hosted operator sets `official-hosted`, on the hosted database. It switches on the paid-ingestion gate and the hosted welcome e-mail |
 | `WELCOME_EMAIL_ENABLED` | Optional; on `official-hosted` the first welcome e-mail sends by default, `false` pauses discovery and delivery (`docs/hosted-welcome-email.md`) |
 | `UNLIMITED_ACCESS_EMAILS` | Comma-separated owner e-mails with complimentary unlimited access; runtime variable only, never commit the addresses. Empty grants nobody; unset makes the billing checks throw |
-| `REPLY_SWEEP_QUOTA_CEILING` | YouTube quota units per Pacific day that reply checks may spend; unset or `0` turns reply checks off (`docs/reply-moderation.md`) |
+| `REPLY_SWEEP_QUOTA_CEILING` | YouTube quota units per Pacific day that reply checks can spend; unset or `0` turns reply checks off (`docs/reply-moderation.md`) |
 | `DEMO_PAGES_ENABLED` | Dev only, default `false`; `true` serves the screenshot-only `/demo` pages |
 | `MODERATY_ENVIRONMENT`, `MODERATY_RELEASE` | Optional operational-event labels: environment is `development`, `test`, `staging` or `production`; release is a 7–40 character lowercase git SHA or `x.y.z` |
 | `PROTON_SMTP_USERNAME`, `PROTON_SMTP_TOKEN` | Proton Mail SMTP submission credentials for transactional e-mail (contact-form verification, zero-credit warnings) |
