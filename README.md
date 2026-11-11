@@ -38,17 +38,74 @@ decisions to a human review queue.
 - Records decisions in an audit log and supports `DRY_RUN=true` previews.
 
 Scanning covers published top-level comments on connected, active channels.
-Replies, live chat, and separate sweeps of YouTube's held-for-review or spam
-queues are outside the current scanning scope. History scans use the same
+Replies are rechecked only on channels whose owner turns on reply moderation (off
+by default): replies published after it was turned on, under top-level comments
+from the last 72 hours, within the daily YouTube quota set by
+`REPLY_SWEEP_QUOTA_CEILING` ([docs/reply-moderation.md](docs/reply-moderation.md)).
+Live chat and separate sweeps of YouTube's held-for-review or spam queues are
+outside the current scanning scope. History scans use the same
 retrieval path, with 1, 3, 6, 12, or 24-month windows. Moderation history can apply
 actions; feedback history is read-only. Starting either live history scan requires
 purchased credits, available paid subscription allowance, or, for lifetime teams,
 a usable OpenAI key.
 
+On the official hosted deployment, an organization with no credits, subscription or lifetime plan
+ingests nothing: no YouTube fetch and no AI scoring. The exception is
+one free dry run per organization, shared by moderation and feedback previews.
+Self-hosted instances are exempt.
+
 Each scheduled run is bounded and checkpointed. It processes one eligible
 channel and up to 100 top-level comments per page, records enforcement work in
 the database before writing to YouTube, and reconciles unfinished actions on a
 later run.
+
+## Feedback digest
+
+The feedback digest is an opt-in, read-only report per channel. An AI pass
+classifies each scanned top-level comment's useful claim (recurring questions,
+substantive criticism, corrections, requests), a second pass merges recurring
+themes, and the digest lists a theme only once enough comments raise it (2 to 10,
+set per channel). Abusive wording stays concealed inside the digest. It never
+replies, posts, or changes a comment's moderation.
+
+- It runs weekly, every 100 new comments, or on request, and is drained by cron.
+- History analysis covers 1, 3, 6, 12, or 24 months and is read-only.
+- Each classified comment uses one credit on metered plans, the same as AI
+  scoring. A dry run previews the first page (up to 100 comments) and writes no
+  digest, evidence, history, or billing rows.
+- If clustering fails or returns invalid data, the digest falls back to the
+  original per-comment claims and shows a recovery notice; it never invents counts
+  ([docs/feedback-clustering.md](docs/feedback-clustering.md)).
+- Models are set by `OPENAI_FEEDBACK_MODEL` and `OPENAI_FEEDBACK_CLUSTER_MODEL`.
+  `scripts/feedback-eval.mjs` is the live evaluator.
+
+## Plans, credits and teams
+
+Self-hosted Moderaty costs nothing from Moderaty; infrastructure and OpenAI
+charges are yours. The hosted service has three paid routes, with current prices
+on the public pricing page:
+
+- **Credit bundles.** One credit covers one AI moderation score or one feedback
+  classification. Rule and protected-handle decisions use no moderation credit.
+  Bundles are bought through Stripe. The 500 and 2000-credit
+  bundles are on sale; the 100-credit bundle is retired from purchase. Automatic
+  top-up is opt-in and off by default: it charges your saved card for the chosen
+  bundle when the balance drops below your threshold
+  ([docs/stripe-auto-topup.md](docs/stripe-auto-topup.md)).
+- **Hosted monthly plan.** $5 a month with 100 AI classifications shared by
+  moderation scoring and feedback digests.
+- **Lifetime.** $49 once, capped at 1,000 places, using your own OpenAI key
+  stored per organization on the Team page.
+
+Webhook handling for Stripe is documented in
+[docs/stripe-checkout-webhooks.md](docs/stripe-checkout-webhooks.md). Optional
+accounting integrations (`ADAFLOW_API_TOKEN`, `FOCUS_NFE_TOKEN`) are covered in
+`docs/adaflow-api-validation.md` and `docs/focus-nfe-validation.md`.
+
+Each account works inside an organization (team) with three roles. Members work
+the review queue, write rules, and read the audit log. Admins also manage
+channels and invites. Owners also manage billing, feedback settings, and member
+roles.
 
 ## Repository overview
 
@@ -69,11 +126,14 @@ server-only.
 | `drizzle/` | Database migrations for libSQL/SQLite and Turso |
 | `netlify/functions/cron.mjs` | Scheduled Netlify function that invokes the cron endpoint |
 | `Dockerfile` | Coolify image: migrate+verify gate, node build, non-root runtime (see `docs/COOLIFY.md`) |
+| `src/routes/demo/` | Screenshot-only pages that render the real dashboard and channel UI with fictional data; off unless `DEMO_PAGES_ENABLED=true`, always noindex, never in the sitemap |
+| `src/routes/tools/` | Public tools, currently the YouTube money calculator |
 | `scripts/dev-cron.mjs` | Cron ticker: local dev loop, or Coolify's in-container scheduled task (`--once`) |
 | `scripts/` | Local demo-data seeding, live tone calibration, and deploy helpers |
 | `docs/` | Manual end-to-end verification notes and the Coolify runbook (`docs/COOLIFY.md`) |
 | `DEPLOY.md` | Netlify, Turso, Google OAuth, and cron deployment instructions |
 | `docs/COOLIFY.md` | Coolify target: implementation plan and operator runbook |
+| `docs/reply-moderation.md` | Reply moderation design, limits, YouTube quota model and operator runbook |
 | `EXECUTION_PLAN_YouTube_Comment_Moderator.md` | Implementation plan and system invariants |
 
 The app uses local SQLite through `file:local.db` during development and Turso
@@ -140,6 +200,12 @@ Copy [.env.example](.env.example) and provide these values as appropriate:
 | `CRON_SECRET` | Secret for scheduled and manual cron requests |
 | `ENCRYPTION_KEY` | Key used to encrypt stored YouTube refresh tokens |
 | `DRY_RUN` | Must be `true` or `false`; `true` records audit previews without durable moderation changes |
+| `MODERATY_DEPLOYMENT` | `self-hosted` (the `.env.example` default) or `official-hosted`; only the official hosted operator sets `official-hosted`, on the hosted database. It switches on the paid-ingestion gate and the hosted welcome e-mail |
+| `WELCOME_EMAIL_ENABLED` | Optional; on `official-hosted` the first welcome e-mail sends by default, `false` pauses discovery and delivery (`docs/hosted-welcome-email.md`) |
+| `UNLIMITED_ACCESS_EMAILS` | Comma-separated owner e-mails with complimentary unlimited access; runtime variable only, never commit the addresses. Empty grants nobody; unset makes the billing checks throw |
+| `REPLY_SWEEP_QUOTA_CEILING` | YouTube quota units per Pacific day that reply checks can spend; unset or `0` turns reply checks off (`docs/reply-moderation.md`) |
+| `DEMO_PAGES_ENABLED` | Dev only, default `false`; `true` serves the screenshot-only `/demo` pages |
+| `MODERATY_ENVIRONMENT`, `MODERATY_RELEASE` | Optional operational-event labels: environment is `development`, `test`, `staging` or `production`; release is a 7–40 character lowercase git SHA or `x.y.z` |
 | `PROTON_SMTP_USERNAME`, `PROTON_SMTP_TOKEN` | Proton Mail SMTP submission credentials for transactional e-mail (contact-form verification, zero-credit warnings) |
 | `PROTON_FROM_NAME` | Optional sender display name; defaults to `Moderaty` |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe billing credentials for credit bundles and hosted/lifetime plans |
@@ -181,6 +247,28 @@ node scripts/tone-eval.mjs
 node scripts/feedback-eval.mjs
 ```
 
+## Testing and CI
+
+Beyond the Vitest suite, the repository runs:
+
+- Mutation tests with Stryker (always with `--ignoreStatic`) and property tests
+  with fast-check.
+- Real-browser tests with Playwright: `npm run test:e2e` and
+  `npm run check:e2e`.
+- Ratchets: `npm run ratchet` fails when test, suppress, or type counts move the
+  wrong way; `npm run ratchet:update` locks in an improvement. The base branch's
+  scripts and baselines judge each PR.
+- AgentShield: `npm run scan:agents` scans the agent configuration
+  ([docs/testing/agentshield.md](docs/testing/agentshield.md)).
+
+GitHub Actions workflows in `.github/workflows/`: `checks`, `ratchets`, `merge-evidence`
+(the "Merge evidence verification" check, [docs/merge-evidence-gate.md](docs/merge-evidence-gate.md)),
+`overlock` (test integrity audit), `adversarial-review`, `claude-code-review`,
+`rewardguard` (code and content review), `eslint`, `dependency-review`, `ossar`,
+and `refactoring-agent`. The Codacy, Semgrep, and Sonar local commit gates were
+removed in #299. The Test Quality Sentinel is disabled
+([docs/TEST_QUALITY_SENTINEL.md](docs/TEST_QUALITY_SENTINEL.md)).
+
 ## Accounts and hosting
 
 Users sign in with Google identity (`openid email profile`) and then grant a
@@ -193,6 +281,34 @@ target (Scheduled Function, see [DEPLOY.md](DEPLOY.md)) and the self-hosted
 production database and share the same `DRY_RUN`-first verification flow.
 Transactional e-mail (contact-form verification and zero-credit warnings)
 goes out through Proton Mail SMTP submission.
+
+On the official hosted deployment (`MODERATY_DEPLOYMENT=official-hosted`),
+organizations without credits or a subscription cannot ingest, and organizations
+whose owner e-mail is listed in `UNLIMITED_ACCESS_EMAILS` get unlimited access
+with the deployment's OpenAI key. Lifetime organizations must store their own
+OpenAI key on the Team page; they never fall back to the deployment key.
+
+Also in the codebase:
+
+- **Languages.** English and Brazilian Portuguese (`pt-BR`). Only `/login` and
+  `/account-deleted` switch language; the language switcher posts to
+  `/api/locale`. Legal documents stay English until a reviewed Portuguese
+  translation is published ([docs/I18N.md](docs/I18N.md)).
+- **Backups.** Turso-managed backups and point-in-time recovery; there is no
+  Moderaty backup job ([docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md)).
+- **Operational events.** Safe, structured events with request correlation. The
+  environment label comes from `MODERATY_ENVIRONMENT` or `NODE_ENV`.
+- **Cron fairness.** Feedback previews and live moderation alternate on the
+  shared cron runner ([docs/cron-workload-fairness.md](docs/cron-workload-fairness.md)).
+- **Contact and welcome e-mail.** Verified contact messages with inbox delivery,
+  and the first hosted welcome e-mail ([docs/hosted-welcome-email.md](docs/hosted-welcome-email.md)).
+- **Public content.** Blog articles at `/blogs`, creator guides at `/guides`, and
+  the YouTube money calculator at `/tools/youtube-money-calculator`.
+
+The `/demo` pages are for screenshots only: no database, sign-in, consent, cron,
+YouTube or OpenAI call. They return 404 unless `DEMO_PAGES_ENABLED=true`, and
+fail with a 500 when `APP_URL` is `moderaty.com` or the Google client is the
+production one. Never enable them on `moderaty-prod`.
 
 ## License
 
