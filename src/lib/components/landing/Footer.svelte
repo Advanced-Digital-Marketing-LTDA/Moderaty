@@ -93,8 +93,7 @@
 		font-family: var(--font-mono);
 		font-size: 14px;
 		font-weight: 600;
-		letter-spacing: 0.22em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--paper);
 	}
 	.tagline {
@@ -109,19 +108,17 @@
 		align-items: center;
 		gap: 12px;
 		font-family: var(--font-mono);
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.lgpd-note {
 		margin: 20px 0 0;
 		max-width: 44ch;
 		font-family: var(--font-mono);
-		font-size: 10px;
+		font-size: 12px;
 		line-height: 1.7;
-		text-transform: uppercase;
-		letter-spacing: 0.14em;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.capy {
@@ -137,9 +134,8 @@
 	}
 	.footer-link {
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.14em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 		text-decoration: none;
 		transition: color 200ms ease;
@@ -158,10 +154,9 @@
 	.chart-caption {
 		margin-top: 12px;
 		font-family: var(--font-mono);
-		font-size: 10px;
-		text-transform: uppercase;
+		font-size: 12px;
 		line-height: 1.6;
-		letter-spacing: 0.14em;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	@media (min-width: 1024px) {

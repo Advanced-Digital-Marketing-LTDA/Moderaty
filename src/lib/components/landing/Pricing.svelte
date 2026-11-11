@@ -43,7 +43,7 @@
 		max-width: 22ch;
 		font-family: var(--font-display);
 		font-size: 40px;
-		font-weight: 800;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		color: var(--paper);
 		margin: 0;
@@ -63,15 +63,13 @@
 	.scarcity {
 		font-family: var(--font-mono);
 		font-size: 12px;
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
+		letter-spacing: 0.01em;
 		color: var(--mint);
 	}
 	.more-link {
 		font-family: var(--font-mono);
 		font-size: 12px;
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
+		letter-spacing: 0.01em;
 		color: rgb(244 244 248 / 0.7);
 		text-decoration: none;
 		transition: color 200ms ease;

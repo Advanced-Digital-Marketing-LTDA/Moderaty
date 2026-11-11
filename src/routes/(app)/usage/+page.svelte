@@ -415,30 +415,29 @@
 		background: var(--surface);
 		border: 1px solid var(--line);
 		border-radius: var(--radius);
-		padding: 18px 16px;
+		padding: 20px 16px;
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 8px;
 	}
 	.stat-kicker {
 		font-family: var(--font-mono);
-		font-size: 11px;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--ink-2);
 	}
 	.stat-value {
-		font-size: 28px;
+		font-size: 24px;
 		font-weight: 600;
 	}
 	.stat-detail {
-		font-size: 13px;
+		font-size: 14px;
 		color: var(--ink-2);
 	}
 	.plan-actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 10px;
+		gap: 12px;
 		align-items: center;
 	}
 	.plan-actions form {
@@ -447,13 +446,13 @@
 	.bundle-grid {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 10px;
+		gap: 12px;
 	}
 	.field-row {
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		margin: 10px 0;
+		margin: 12px 0;
 	}
 	.field-row input {
 		width: 110px;
@@ -463,11 +462,11 @@
 		gap: 8px;
 		align-items: flex-start;
 		max-width: 640px;
-		margin: 10px 0;
+		margin: 12px 0;
 		line-height: 1.5;
 	}
 	.muted {
 		color: var(--ink-2);
-		font-size: 13px;
+		font-size: 14px;
 	}
 </style>

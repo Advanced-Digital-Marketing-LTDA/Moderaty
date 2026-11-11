@@ -178,17 +178,15 @@
 	}
 	.panel-name {
 		font-family: var(--font-mono);
-		font-size: 11px;
+		font-size: 12px;
 		font-weight: 500;
-		text-transform: uppercase;
-		letter-spacing: 0.18em;
+		letter-spacing: 0.01em;
 		color: rgb(244 244 248 / 0.75);
 	}
 	.panel-note {
 		font-family: var(--font-mono);
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.14em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.counters {
@@ -204,9 +202,8 @@
 	}
 	.counter-label {
 		font-family: var(--font-mono);
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.14em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.counter-value {
@@ -238,10 +235,10 @@
 	}
 	.row {
 		position: relative;
-		border-radius: 6px;
+		border-radius: var(--radius-sm);
 		border: 1px solid var(--line);
 		background: rgb(11 11 20 / 0.6);
-		padding: 10px 12px;
+		padding: 12px 12px;
 	}
 	.row-body,
 	.row-reason {
@@ -267,12 +264,12 @@
 	}
 	.row-author {
 		font-family: var(--font-mono);
-		font-size: 11px;
+		font-size: 12px;
 		font-weight: 500;
 		color: rgb(244 244 248 / 0.6);
 	}
 	.row-text {
-		font-size: 13px;
+		font-size: 14px;
 		line-height: 1.4;
 		color: rgb(244 244 248 / 0.9);
 		display: -webkit-box;
@@ -292,9 +289,8 @@
 	.row-reason {
 		margin-top: 4px;
 		font-family: var(--font-mono);
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	/* The settled row body is dimmed to 0.55 opacity, which multiplies into the muted text colours. */

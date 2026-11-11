@@ -371,9 +371,9 @@
 		.workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 		.workspace .results { position: sticky; top: 96px; }
 	}
-	.calculator { display: grid; gap: 16px; border: 1px solid var(--line-strong); padding: 24px; min-width: 0; }
+	.calculator { display: grid; gap: 16px; border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 24px; min-width: 0; }
 	.calculator input[type='text'],
-	.calculator select { width: 100%; font-size: 16px; border: 1px solid var(--text-2); }
+	.calculator select { width: 100%; font-size: 16px; border: 1px solid var(--text-2); border-radius: var(--radius-sm); }
 	.calculator fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
 	.calculator fieldset[hidden],
 	.calculator details[hidden] { display: none; }
@@ -388,6 +388,7 @@
 		min-height: 44px;
 		padding: 0 8px;
 		border: 1px solid var(--text-2);
+		border-radius: var(--radius-sm);
 		font-size: 16px;
 		line-height: 1.2;
 		text-align: center;
@@ -396,16 +397,16 @@
 	.choice-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
 	.choice-option:has(input:checked) { background: var(--paper); color: var(--bg); font-weight: 600; }
 	.choice-option:has(input:focus-visible) { outline: 2px solid var(--paper); outline-offset: 3px; }
-	.presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-	.preset { min-height: 44px; min-width: 0; padding: 0; background: var(--surface); color: var(--text); border: 1px solid var(--text-2); font: inherit; }
+	.presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+	.preset { min-height: 44px; min-width: 0; padding: 0; background: var(--surface); color: var(--text); border: 1px solid var(--text-2); border-radius: var(--radius-sm); font: inherit; }
 	.hint { color: var(--text-2); font-size: 14px; margin: 0; line-height: 1.6; }
-	.niche { border: 1px solid var(--line-strong); }
+	.niche { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); }
 	.niche summary { display: flex; align-items: center; min-height: 44px; padding: 8px 16px; cursor: pointer; font-size: 16px; font-weight: 600; line-height: 1.4; list-style: none; }
 	.niche summary::-webkit-details-marker { display: none; }
 	.niche summary::after { content: '+'; margin-left: auto; padding-left: 12px; }
 	.niche[open] summary::after { content: '\2212'; }
 	.niche-body { display: grid; gap: 8px; padding: 0 16px 16px; }
-	.submit { min-height: 48px; padding: 0 20px; background: var(--accent); color: var(--bg); border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+	.submit { min-height: 48px; padding: 0 20px; background: var(--accent); color: var(--bg); border: 0; border-radius: var(--radius-sm); font: inherit; font-weight: 600; cursor: pointer; }
 	.submit:hover { background: var(--accent-press); }
 	.preset:focus-visible,
 	.submit:focus-visible,
@@ -415,7 +416,7 @@
 		outline: 2px solid var(--paper);
 		outline-offset: 3px;
 	}
-	.results { display: grid; gap: 16px; padding: 24px; border: 1px solid var(--line-strong); background: var(--surface); scroll-margin-top: 96px; }
+	.results { display: grid; gap: 16px; padding: 24px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); scroll-margin-top: 96px; }
 	/* Grid items default to min-width: auto, so the wide earnings table would push the page sideways instead of scrolling inside its box. */
 	.results > *,
 	.figures-block { min-width: 0; }
@@ -427,7 +428,7 @@
 	.figures .figure-main { grid-column: 1 / -1; border-top: 0; border-left: 4px solid var(--accent); padding: 0 0 0 16px; }
 	.figures dt { color: var(--text-2); font-size: 14px; }
 	.figures dd { margin: 4px 0 0; font-size: clamp(18px, 5vw, 24px); overflow-wrap: anywhere; }
-	.figures .figure-main dd { font-size: clamp(40px, 9vw, 56px); line-height: 1.1; }
+	.figures .figure-main dd { font-size: clamp(40px, 9vw, 64px); line-height: 1.1; }
 	.formula { padding-left: 20px; margin: 0; }
 	.faq-item { border-top: 1px solid var(--line-strong); padding: 16px 0; }
 	.faq-item summary { cursor: pointer; font-weight: 600; list-style: none; }

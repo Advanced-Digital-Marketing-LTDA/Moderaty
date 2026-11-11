@@ -57,9 +57,8 @@
 	}
 	.eyebrow {
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.22em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 		margin: 0;
 	}
@@ -71,7 +70,7 @@
 		max-width: 20ch;
 		text-wrap: balance;
 		font-family: var(--font-display);
-		font-weight: 800;
+		font-weight: 600;
 		line-height: 1.02;
 		letter-spacing: -0.02em;
 		color: var(--paper);
@@ -82,7 +81,7 @@
 	}
 	.tagline {
 		margin: 16px 0 0;
-		font-size: 36px;
+		font-size: 32px;
 	}
 	.sub {
 		margin: 24px 0 0;
@@ -99,21 +98,21 @@
 		gap: 16px;
 	}
 	.cta-primary {
-		border-radius: 0;
+		border-radius: var(--radius-sm);
 		background: var(--ban);
 		color: var(--ink);
 		font-size: 16px;
 		font-weight: 600;
-		padding: 14px 28px;
+		padding: 16px 28px;
 		text-decoration: none;
 	}
 	.cta-ghost {
-		border-radius: 0;
+		border-radius: var(--radius-sm);
 		border: 1px solid var(--line);
 		color: var(--paper);
 		font-size: 16px;
 		font-weight: 500;
-		padding: 14px 28px;
+		padding: 16px 28px;
 		text-decoration: none;
 		transition: border-color 200ms ease;
 	}
@@ -125,10 +124,10 @@
 	}
 	@media (min-width: 768px) {
 		h1 {
-			font-size: 60px;
+			font-size: 64px;
 		}
 		.tagline {
-			font-size: 44px;
+			font-size: 48px;
 		}
 	}
 	@media (min-width: 1024px) {

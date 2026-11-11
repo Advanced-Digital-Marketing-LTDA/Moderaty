@@ -237,15 +237,14 @@
 	.eyebrow, .example-label, .plan-tag {
 		margin: 0 0 16px;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.18em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--mint);
 	}
 	.section-title {
 		max-width: 21ch;
 		font-family: var(--font-display);
-		font-size: clamp(34px, 5vw, 48px);
+		font-size: clamp(32px, 5vw, 48px);
 		line-height: 1.1;
 		letter-spacing: -0.02em;
 		color: var(--paper);
@@ -275,7 +274,7 @@
 		font-family: var(--font-display);
 		font-size: 23px;
 		line-height: 1.2;
-		margin: 18px 0 16px;
+		margin: 20px 0 16px;
 	}
 	.panel p { margin: 12px 0 0; }
 	.inline-link, .plan a, .trust-links a {
@@ -292,23 +291,23 @@
 	.table-wrap { overflow-x: auto; margin-top: 32px; border: 1px solid var(--line); border-radius: var(--radius); }
 	table { border-collapse: collapse; width: 100%; min-width: 600px; background: var(--surface); }
 	caption { text-align: left; padding: 16px 20px; color: rgb(244 244 248 / 0.6); font-size: 12px; }
-	th, td { padding: 18px 20px; text-align: left; vertical-align: top; border-top: 1px solid var(--line); line-height: 1.55; }
-	th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--mint); }
+	th, td { padding: 20px 20px; text-align: left; vertical-align: top; border-top: 1px solid var(--line); line-height: 1.55; }
+	th { font-size: 12px; letter-spacing: 0.01em; color: var(--mint); }
 	td { color: rgb(244 244 248 / 0.78); }
 	td strong { color: var(--paper); }
-	.note { max-width: 76ch; font-size: 13px; margin: 18px 0 0; }
+	.note { max-width: 76ch; font-size: 14px; margin: 20px 0 0; }
 	.two-col { display: grid; grid-template-columns: 1fr; gap: 32px; align-items: start; }
 	.digest-example {
 		border: 1px solid var(--line); border-radius: var(--radius);
 		padding: 24px; background: var(--surface);
 	}
 	.digest-example dl { margin: 0; }
-	.digest-example dl > div { border-top: 1px solid var(--line); padding: 14px 0; }
-	.digest-example dt { color: var(--mint); text-transform: uppercase; font: 11px var(--font-mono); letter-spacing: 0.12em; }
+	.digest-example dl > div { border-top: 1px solid var(--line); padding: 16px 0; }
+	.digest-example dt { color: var(--mint); font: 11px var(--font-mono); letter-spacing: 0.01em; }
 	.digest-example dd { color: var(--paper); margin: 8px 0 0; line-height: 1.5; }
 	.plan { display: flex; flex-direction: column; align-items: flex-start; }
 	.plan-tag { margin: 0; }
-	.plan-price { font: 700 38px var(--font-display); color: var(--paper) !important; margin: 18px 0 8px !important; }
+	.plan-price { font: 700 38px var(--font-display); color: var(--paper) !important; margin: 20px 0 8px !important; }
 	.plan-price span { font: 400 13px var(--font-mono); color: rgb(244 244 248 / 0.6); }
 	.plan a { margin-top: auto; padding-top: 24px; }
 	.access { margin-top: 48px; padding: 28px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
