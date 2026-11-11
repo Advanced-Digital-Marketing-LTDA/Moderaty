@@ -41,6 +41,7 @@ async function expectRecorded(client: Client) {
 		const hash = createHash('sha256').update(readFileSync(new URL(`../../../../drizzle/${entry.tag}.sql`, import.meta.url))).digest('hex');
 		expect(hashes).toContain(hash);
 	}
+	expect((await client.execute("SELECT name FROM sqlite_master WHERE name = 'mercado_pago_checkout_attempts'")).rows).toEqual([]);
 	const hash64 = createHash('sha256').update(readFileSync(new URL('../../../../drizzle/0064_cron_workload_fairness.sql', import.meta.url))).digest('hex');
 	expect(hashes.filter((hash) => hash === hash64)).toHaveLength(1);
 }

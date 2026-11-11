@@ -61,6 +61,7 @@ test.each([58, 60])('upgrades the synthetic base at %i through the real journal 
 			{ id: 'legacy-comment', status: 'restoring', restore_intent_id: null }
 		]);
 		expect((await client.execute('SELECT COUNT(*) AS n FROM __drizzle_migrations')).rows[0].n).toBe(journal.entries.length);
+		expect((await client.execute("SELECT name FROM sqlite_master WHERE name = 'mercado_pago_checkout_attempts'")).rows).toEqual([]);
 		expect((await client.execute('SELECT id, status, marker, attempted_at FROM feedback_digests ORDER BY id')).rows).toEqual([
 			{ id: 1, status: 'dry-run-pending', marker: 'preserve pending', attempted_at: base === 60 ? '2026-10-02T12:00:00.000Z' : null },
 			{ id: 2, status: 'completed', marker: 'preserve completed', attempted_at: null }
