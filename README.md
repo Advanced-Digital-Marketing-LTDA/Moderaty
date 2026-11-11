@@ -87,10 +87,26 @@ on the public pricing page:
 
 - **Credit bundles.** One credit covers one AI moderation score or one feedback
   classification. Rule and protected-handle decisions use no moderation credit.
-  Bundles are bought through Stripe, or through Mercado Pago in BRL. Automatic
+  Bundles are bought through Stripe or Mercado Pago. The 500 and 2000-credit
+  bundles are on sale; the 100-credit bundle is retired from purchase. Automatic
   top-up is opt-in and off by default: it charges your saved card for the chosen
   bundle when the balance drops below your threshold
   ([docs/stripe-auto-topup.md](docs/stripe-auto-topup.md)).
+- **Mercado Pago (BRL).** Optional prepaid-credit checkout in reais, owner-only.
+  Each bundle's price is set in BRL cents by
+  `MERCADOPAGO_PRICE_CREDITS_*_BRL_CENTS`; a bundle with no price is left off the
+  Usage page, a malformed price is left off and logged, and the whole section
+  stays hidden until a bundle has a valid price. `MERCADOPAGO_ENVIRONMENT` is `production` or
+  `sandbox`. Credits are added only when the signed webhook
+  `/api/mercadopago/webhook` confirms an approved payment: the return URL is not
+  authoritative, the webhook verifies its HMAC signature and rejects stale ones,
+  and it fetches the payment from Mercado Pago before crediting. Replays are
+  idempotent. A full refund or chargeback reverses the credits once; a partial
+  refund is rejected for manual review. A payment for an organization that cannot
+  buy credits (lifetime) grants nothing and is logged for manual refund. A
+  failed or pending return to `/usage` shows its own message. Mercado Pago covers
+  manual credits only: hosted plans, lifetime access, and automatic top-up stay
+  on Stripe. Setup and verification steps are in [DEPLOY.md](DEPLOY.md) §3.
 - **Hosted monthly plan.** $5 a month with 100 AI classifications shared by
   moderation scoring and feedback digests.
 - **Lifetime.** $49 once, capped at 1,000 places, using your own OpenAI key
@@ -211,7 +227,7 @@ Copy [.env.example](.env.example) and provide these values as appropriate:
 | `STRIPE_PRICE_CREDITS_*`, `STRIPE_PRICE_HOSTED_MONTHLY`, `STRIPE_PRICE_LIFETIME` | Stripe Price ids for the credit bundles, the hosted monthly plan, and lifetime access |
 | `STRIPE_TEST_PRODUCT` | Optional operator-only "Test checkout" card that runs a real end-to-end purchase |
 | `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` | Optional Mercado Pago BRL prepaid-credit checkout credentials |
-| `MERCADOPAGO_ENVIRONMENT`, `MERCADOPAGO_PRICE_CREDITS_*_BRL_CENTS` | Optional Mercado Pago mode and BRL bundle prices in cents |
+| `MERCADOPAGO_ENVIRONMENT`, `MERCADOPAGO_PRICE_CREDITS_*_BRL_CENTS` | Optional Mercado Pago mode (`production` or `sandbox`; production when unset, `.env.example` uses `sandbox`) and BRL bundle prices in cents; each must be a positive whole number |
 | `ADAFLOW_API_TOKEN` | Optional AdaFlow accounting-export Bearer token (`docs/adaflow-api-validation.md`) |
 | `FOCUS_NFE_TOKEN`, `FOCUS_NFE_ENVIRONMENT` | Optional Focus NFe NFS-e emission credentials (`docs/focus-nfe-validation.md`) |
 | `ANALYTICS_ENABLED`, `UMAMI_URL`, `UMAMI_WEBSITE_ID`, `ANALYTICS_ALLOWED_HOSTNAMES` | Optional self-hosted audience measurement; runtime only, disabled by default |
