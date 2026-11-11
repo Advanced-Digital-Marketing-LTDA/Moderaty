@@ -27,7 +27,7 @@ function migrationFolder(entries: Entry[]) {
 async function database() {
 	const client = createClient({ url: 'file::memory:' });
 	clients.push(client);
-	await client.executeMultiple("CREATE TABLE organizations (id TEXT PRIMARY KEY); CREATE TABLE channels (id TEXT PRIMARY KEY); CREATE TABLE channel_allowed_handles (id INTEGER PRIMARY KEY, channel_id TEXT NOT NULL, handle TEXT NOT NULL, created_at TEXT NOT NULL); CREATE TABLE comments (id TEXT PRIMARY KEY, channel_id TEXT NOT NULL DEFAULT 'channel', status TEXT NOT NULL); INSERT INTO comments (id, status) VALUES ('legacy', 'restoring');");
+	await client.executeMultiple("CREATE TABLE organizations (id TEXT PRIMARY KEY); CREATE TABLE mercado_pago_checkout_attempts (id INTEGER PRIMARY KEY); CREATE TABLE channels (id TEXT PRIMARY KEY); CREATE TABLE channel_allowed_handles (id INTEGER PRIMARY KEY, channel_id TEXT NOT NULL, handle TEXT NOT NULL, created_at TEXT NOT NULL); CREATE TABLE comments (id TEXT PRIMARY KEY, channel_id TEXT NOT NULL DEFAULT 'channel', status TEXT NOT NULL); INSERT INTO comments (id, status) VALUES ('legacy', 'restoring');");
 	return client;
 }
 
@@ -41,6 +41,7 @@ async function expectRecorded(client: Client) {
 		const hash = createHash('sha256').update(readFileSync(new URL(`../../../../drizzle/${entry.tag}.sql`, import.meta.url))).digest('hex');
 		expect(hashes).toContain(hash);
 	}
+	expect((await client.execute("SELECT name FROM sqlite_master WHERE name = 'mercado_pago_checkout_attempts'")).rows).toEqual([]);
 	const hash64 = createHash('sha256').update(readFileSync(new URL('../../../../drizzle/0064_cron_workload_fairness.sql', import.meta.url))).digest('hex');
 	expect(hashes.filter((hash) => hash === hash64)).toHaveLength(1);
 }

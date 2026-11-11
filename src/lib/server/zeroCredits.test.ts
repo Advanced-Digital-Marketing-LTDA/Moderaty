@@ -27,7 +27,7 @@ vi.mock('./stripe/client', () => ({
 
 import { encrypt } from './crypto';
 import { setupTestDb, testDb } from './testdb';
-import { channels, creditTransactions, googleRevocationOutbox, memberships, mercadoPagoCheckoutAttempts, organizations, stripeCheckoutAttempts, stripeSubscriptionPeriods, users } from './db/schema';
+import { channels, creditTransactions, googleRevocationOutbox, memberships, organizations, stripeCheckoutAttempts, stripeSubscriptionPeriods, users } from './db/schema';
 import { createCreditCheckout } from './billing/checkout';
 import { DeadlineExceededError } from './http';
 import { handleStripeEvent } from './stripe/webhooks';
@@ -53,7 +53,6 @@ setupTestDb([
 	'stripe_checkout_attempts',
 	'stripe_events',
 	'stripe_pending_reversals',
-	'mercado_pago_checkout_attempts',
 	'stripe_subscription_periods',
 	'stripe_lifetime_slots',
 	'stripe_lifetime_entitlements',
@@ -104,18 +103,12 @@ async function seedSharedOrg(userId: string, orgId: string, org: OrgSeed = {}): 
 }
 
 /** An unresolved attempt whose local payment state has not changed for four days. */
-async function seedOldCheckout(provider: string, status: string) {
-	const attempt = {
-		attemptId: 'att-stale', orgId: 'org-u1', idempotencyKey: 'idem-stale',
+async function seedOldCheckout(status: string) {
+	await testDb().db.insert(stripeCheckoutAttempts).values({
+		attemptId: 'att-stale', orgId: 'org-u1', idempotencyKey: 'idem-stale', product: 'credits_500',
 		status, createdAt: daysAgo(30), updatedAt: daysAgo(4)
-	};
-	if (provider === 'Stripe') {
-		await testDb().db.insert(stripeCheckoutAttempts).values({ ...attempt, product: 'credits_500' });
-		return stripeCheckoutAttempts;
-	}
-	// No paidAt yet: provider truth may never have reached our DB.
-	await testDb().db.insert(mercadoPagoCheckoutAttempts).values({ ...attempt, bundleId: 'credits_500', amountCents: 500 });
-	return mercadoPagoCheckoutAttempts;
+	});
+	return stripeCheckoutAttempts;
 }
 
 async function userRow(userId: string) {
@@ -877,12 +870,7 @@ describe('deletion', () => {
 		expect(mocks.sendProtonMailEmail).not.toHaveBeenCalled();
 	});
 
-	test.each([
-		['Stripe', 'pending'],
-		['Stripe', 'open'],
-		['Mercado Pago', 'pending'],
-		['Mercado Pago', 'open']
-	])('an old unresolved %s %s checkout preserves the account and countdown', async (provider, status) => {
+	test.each(['pending', 'open'])('an old unresolved %s checkout preserves the account and countdown', async (status) => {
 		// A local timestamp cannot distinguish abandonment from a payment
 		// whose delivery/fulfillment has failed beyond the retry window.
 		await seedAccount('u1', { creditsRemaining: 0 });
@@ -892,7 +880,7 @@ describe('deletion', () => {
 			zeroCreditsWarnedAt: daysAgo(7)
 		};
 		await testDb().db.update(users).set(countdown).where(eq(users.id, 'u1'));
-		const table = await seedOldCheckout(provider, status);
+		const table = await seedOldCheckout(status);
 
 		const result = await sweepZeroCreditAccounts();
 		expect(result).toMatchObject({ evaluated: 1, deleted: 0, errors: 0 });
@@ -948,7 +936,7 @@ describe('deletion', () => {
 		await seedAccount('u1', { creditsRemaining: 0 });
 		const countdown = { zeroCreditsSince: daysAgo(31), zeroCreditsNotifiedAt: daysAgo(7), zeroCreditsWarnedAt: daysAgo(7) };
 		await testDb().db.update(users).set(countdown).where(eq(users.id, 'u1'));
-		await seedOldCheckout('Stripe', status);
+		await seedOldCheckout(status);
 		await testDb().db.update(stripeCheckoutAttempts).set({ stripeSessionId: 'cs_terminal' });
 		mocks.sessionsRetrieve.mockResolvedValue({ id: 'cs_terminal', metadata: { org_id: 'org-u1' }, payment_intent: null });
 		expect(await sweepZeroCreditAccounts()).toMatchObject({ deleted: 0, errors: 0 });
@@ -983,7 +971,7 @@ describe('deletion', () => {
 	test('a failed async reversal keeps the deletion shield for a webhook retry', async () => {
 		await seedAccount('u1', { creditsRemaining: 500 });
 		await testDb().db.insert(creditTransactions).values({ orgId: 'org-u1', delta: 500, reason: 'purchase', refType: 'checkout_session', refId: 'cs_terminal', paymentIntentId: 'pi_terminal', chargeId: 'ch_terminal' });
-		await seedOldCheckout('Stripe', 'open');
+		await seedOldCheckout('open');
 		await testDb().db.update(stripeCheckoutAttempts).set({ stripeSessionId: 'cs_terminal' });
 		await testDb().db.update(users).set({ zeroCreditsSince: daysAgo(31), zeroCreditsNotifiedAt: daysAgo(7), zeroCreditsWarnedAt: daysAgo(7) }).where(eq(users.id, 'u1'));
 		const event = { id: 'evt_terminal', type: 'checkout.session.async_payment_failed', data: { object: { id: 'cs_terminal', object: 'checkout.session' } } };
@@ -1002,26 +990,17 @@ describe('deletion', () => {
 		expect((await userRow('u1'))!.googleSub).toBe('deleted:u1');
 	});
 
-	test.each([
-		['Stripe', 'expired'],
-		['Stripe', 'fulfilled'],
-		['Mercado Pago', 'fulfilled'],
-		['Mercado Pago', 'refunded'],
-		['Mercado Pago', 'disputed']
-	])('a resolved %s %s attempt allows deletion on the original countdown', async (provider, status) => {
+	test.each(['expired', 'fulfilled'])('a resolved %s attempt allows deletion on the original countdown', async (status) => {
 		await seedAccount('u1', { creditsRemaining: 0 });
 		const since = daysAgo(31);
 		await testDb().db.update(users).set({
 			zeroCreditsSince: since, zeroCreditsNotifiedAt: daysAgo(7), zeroCreditsWarnedAt: daysAgo(7)
 		}).where(eq(users.id, 'u1'));
-		const table = await seedOldCheckout(provider, 'open');
+		const table = await seedOldCheckout('open');
 		expect(await sweepZeroCreditAccounts()).toMatchObject({ deleted: 0, errors: 0 });
 		expect((await userRow('u1'))!.zeroCreditsSince).toBe(since);
 		// Explicit resolution, never the passage of time, releases the shield.
 		await testDb().db.update(table).set({ status }).where(eq(table.attemptId, 'att-stale'));
-		if (provider === 'Mercado Pago') {
-			await testDb().db.update(mercadoPagoCheckoutAttempts).set({ paidAt: daysAgo(5) }).where(eq(mercadoPagoCheckoutAttempts.attemptId, 'att-stale'));
-		}
 		expect(await sweepZeroCreditAccounts()).toMatchObject({ deleted: 1, errors: 0 });
 		expect((await userRow('u1'))!.googleSub).toBe('deleted:u1');
 	});
@@ -1041,32 +1020,6 @@ describe('deletion', () => {
 			idempotencyKey: 'idem-paid',
 			status: 'manual_refund_required',
 			updatedAt: daysAgo(30) // age does not matter — the obligation is real
-		});
-
-		const result = await sweepZeroCreditAccounts();
-		expect(result).toMatchObject({ deleted: 0, errors: 0 });
-		expect((await userRow('u1'))!.googleSub).toBe('sub-u1');
-	});
-
-	test.each(['open', 'unknown'])('a Mercado Pago paid stamp with unresolved status %s defers the erase', async (status) => {
-		// The webhook saw the payment (paidAt written) but fulfillment never
-		// completed — provider truth says money exists even though the local
-		// balance does not.
-		await seedAccount('u1', { creditsRemaining: 0 });
-		await testDb().db
-			.update(users)
-			.set({ zeroCreditsSince: daysAgo(31), zeroCreditsNotifiedAt: daysAgo(7), zeroCreditsWarnedAt: daysAgo(7) })
-			.where(eq(users.id, 'u1'));
-		await testDb().db.insert(mercadoPagoCheckoutAttempts).values({
-			attemptId: 'mp-1',
-			orgId: 'org-u1',
-			bundleId: 'credits_500',
-			idempotencyKey: 'mp-idem-1',
-			status,
-			amountCents: 500,
-			paymentId: 'pay-1',
-			paidAt: daysAgo(5), // provider confirmed — but never fulfilled
-			updatedAt: daysAgo(5)
 		});
 
 		const result = await sweepZeroCreditAccounts();

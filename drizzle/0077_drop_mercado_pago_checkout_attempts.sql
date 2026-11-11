@@ -1,0 +1,1 @@
+DROP TABLE `mercado_pago_checkout_attempts`;

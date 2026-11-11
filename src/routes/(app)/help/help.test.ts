@@ -145,9 +145,8 @@ describe('help covers the available product', () => {
 		expect(text).toMatch(/owner.*(?:generate|run).*digest/i);
 	});
 
-	it('makes billing, conditional payment availability, and lifetime BYOK clear', () => {
+	it('makes billing and lifetime BYOK clear', () => {
 		expect(text).toMatch(/automatic top-up.*consent/i);
-		expect(text).toMatch(/Mercado Pago.*when.*(?:offered|shown).*Usage/i);
 		expect(text).toMatch(/lifetime.*own OpenAI.*Team/i);
 		expect(text).toMatch(/OpenAI.*(?:bills|costs|charges).*separately/i);
 		expect(text).toMatch(/Manage cards.*Manage subscription/i);

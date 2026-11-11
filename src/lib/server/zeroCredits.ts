@@ -14,14 +14,14 @@
 // never-evaluated users go first). Cron may overlap itself, so every
 // transition is a conditional UPDATE — the loser matches 0 rows.
 
-import { and, asc, eq, inArray, isNotNull, isNull, notInArray, notLike, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, notLike, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 
 import { effectiveBalanceSql, isUnmeteredPlan, paidSubscriptionPeriodExistsSql } from '$lib/server/billing/ledger';
 import { orgHasUnlimitedAccess } from '$lib/server/billing/unlimitedAccess';
 import { isActiveSubscriptionStatus } from '$lib/server/billing/plans';
 import { db } from '$lib/server/db';
-import { memberships, mercadoPagoCheckoutAttempts, organizations, stripeCheckoutAttempts, users } from '$lib/server/db/schema';
+import { memberships, organizations, stripeCheckoutAttempts, users } from '$lib/server/db/schema';
 import { deleteUserRecords, revokeChannelGrants, type DeletionTx, type ErasedChannelGrant } from '$lib/server/deletion';
 import { escapeHtml } from '$lib/server/emailText';
 import { assertBeforeDeadline, DeadlineExceededError } from '$lib/server/http';
@@ -153,8 +153,7 @@ class PaymentInFlightError extends Error {}
  * Pending/open attempts shield until explicitly resolved, even if abandoned.
  * Never infer resolution from updatedAt. Keep this guard local so it can run
  * again under the erase transaction's write lock without remote calls.
- * Manual-refund obligations and unresolved Mercado Pago paid stamps also
- * protect the account regardless of age.
+ * Manual-refund obligations also protect the account regardless of age.
  */
 async function hasInFlightPayment(
 	userId: string,
@@ -179,26 +178,7 @@ async function hasInFlightPayment(
 			)
 		)
 		.get();
-	if (stripeInFlight) return true;
-	const mpInFlight = await handle
-		.select({ id: mercadoPagoCheckoutAttempts.id })
-		.from(mercadoPagoCheckoutAttempts)
-		.where(
-			and(
-				inArray(mercadoPagoCheckoutAttempts.orgId, orgIds),
-				or(
-					inArray(mercadoPagoCheckoutAttempts.status, ['pending', 'open', 'manual_refund_required']),
-					// Provider-confirmed payment still unresolved: paidAt stamped but
-					// the row never reached a terminal state — the money exists.
-					and(
-						isNotNull(mercadoPagoCheckoutAttempts.paidAt),
-						notInArray(mercadoPagoCheckoutAttempts.status, ['fulfilled', 'refunded', 'disputed'])
-					)
-				)
-			)
-		)
-		.get();
-	return Boolean(mpInFlight);
+	return Boolean(stripeInFlight);
 }
 
 /**

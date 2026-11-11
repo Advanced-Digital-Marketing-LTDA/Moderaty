@@ -93,8 +93,6 @@ One-time setup (human, in the Coolify dashboard):
    | `STRIPE_PRICE_CREDITS_100` / `STRIPE_PRICE_CREDITS_500` / `STRIPE_PRICE_CREDITS_2000` | production Prices | dev Prices | one-time USD Price IDs for the 100/500/2,000-credit bundles; auto top-up validates active/currency/type |
    | `STRIPE_PRICE_HOSTED_MONTHLY` / `STRIPE_PRICE_LIFETIME` | production Prices | dev Prices | hosted USD 5 monthly recurring Price and USD 49 one-time Price; the app validates mode, currency, amount, and interval |
    | `STRIPE_TEST_PRODUCT` | optional | optional | a Product (`prod_…`) or Price (`price_…`) id in the app's own Stripe environment — enables the "Test checkout" card that smoke-tests the billing pipeline with a real purchase (grants 1 credit); the card renders only for the operator account hardcoded in `src/lib/server/billing/checkout.ts`, never for other users |
-   | `MERCADOPAGO_ACCESS_TOKEN` / `MERCADOPAGO_WEBHOOK_SECRET` | production | dev | optional BRL prepaid credit checkout; webhook fulfillment is signed and idempotent |
-   | `MERCADOPAGO_ENVIRONMENT` / `MERCADOPAGO_PRICE_CREDITS_*_BRL_CENTS` | production | sandbox | optional Mercado Pago sandbox/production mode and BRL bundle prices in cents |
    | `PROTON_SMTP_USERNAME` / `PROTON_SMTP_TOKEN` | production token | dev token | Proton Mail SMTP for transactional e-mail (contact-form verification and service notices, incl. zero-credit account warnings). Username = the custom-domain sender mailbox and doubles as the From address (domain active in Proton, SPF/DKIM/DMARC verified); token from Proton → Settings → All settings → IMAP/SMTP → SMTP tokens — never the mailbox password, and a separate token per environment |
    | `PROTON_FROM_NAME` | `Moderaty` | `Moderaty` | optional sender display name; defaults to `Moderaty` |
    | `ANALYTICS_ENABLED` | `false` until activation checklist passes | `false` until staging verification | optional Umami opt-in; Runtime Variable only, **Build Variable OFF** |
@@ -383,4 +381,4 @@ record changes remain human-only.
   so delete the variable on `moderaty-dev` and `moderaty-prod` when upgrading.
 - Turso embedded replicas on the Coolify server are a possible future
   optimization (persistent disk) — out of scope; do not paper over
-  availability with silent fallbacks (DEPLOY.md §7).
+  availability with silent fallbacks (DEPLOY.md §6).

@@ -114,8 +114,7 @@ export const organizations = sqliteTable('organizations', {
 	// Billing — prepaid comment credits, per-ORGANIZATION (the tenant grain).
 	// credits_remaining is authoritative: every consume/grant/reverse mutates
 	// it transactionally with a credit_transactions row. Stripe is the payment
-	// rail; the ledger itself is provider-agnostic (a future MercadoPago
-	// provider reuses it). Columns are nullable until the contract migration.
+	// rail. Columns are nullable until the contract migration.
 	creditsRemaining: integer('credits_remaining'),
 	// Unpaid hosted orgs' one-time free dry run, org-wide and for life (billing/ingestion.ts). Null = unspent; funded and complimentary orgs never set it.
 	freeDryRunUsedAt: text('free_dry_run_used_at'),
@@ -225,36 +224,6 @@ export const stripeCheckoutAttempts = sqliteTable('stripe_checkout_attempts', {
 	updatedAt: text('updated_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
 }, (table) => [
 	index('stripe_checkout_attempts_org_status_idx').on(table.orgId, table.status)
-]);
-
-// Mercado Pago prepaid-credit checkout attempts. This is deliberately separate
-// from Stripe's attempt table: provider identifiers and lifecycle states are
-// not interchangeable, while both providers ultimately fulfill through the
-// provider-neutral credit ledger.
-export const mercadoPagoCheckoutAttempts = sqliteTable('mercado_pago_checkout_attempts', {
-	id: integer('id').primaryKey({ autoIncrement: true }),
-	attemptId: text('attempt_id').notNull().unique(),
-	orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
-	bundleId: text('bundle_id').notNull(),
-	idempotencyKey: text('idempotency_key').notNull().unique(),
-	preferenceId: text('preference_id').unique(),
-	initPoint: text('init_point'),
-	status: text('status').notNull().default('pending'), // pending | open | fulfilled | refunded | disputed | manual_refund_required
-	currency: text('currency').notNull().default('BRL'),
-	amountCents: integer('amount_cents').notNull(),
-	// The credit count agreed at checkout time (0036, nullable for pre-column
-	// attempts): fulfillment must NOT depend on the live catalog env, which can
-	// change between checkout and the webhook.
-	credits: integer('credits'),
-	paymentId: text('payment_id').unique(),
-	refundedAmountCents: integer('refunded_amount_cents'),
-	paidAt: text('paid_at'),
-	createdAt: text('created_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
-	updatedAt: text('updated_at').notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
-}, (table) => [
-	index('mercado_pago_attempts_org_status_idx').on(table.orgId, table.status)
-	// payment_id carries its own UNIQUE constraint — a separate non-unique
-	// index (0035) was redundant and is dropped in 0036.
 ]);
 
 export const memberships = sqliteTable('memberships', {

@@ -26,7 +26,6 @@ const ROUTES = new Set([
 	'/api/cron',
 	'/api/health',
 	'/api/locale',
-	'/api/mercadopago/webhook',
 	'/api/stripe/webhook',
 	'/blogs',
 	'/blogs/how-to-deal-with-hate-comments-on-youtube',

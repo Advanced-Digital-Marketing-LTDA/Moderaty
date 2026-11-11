@@ -10,8 +10,6 @@ import { and, count, eq, isNull, ne, notExists, sql } from 'drizzle-orm';
 import { AUTO_TOPUP_DEFAULT_THRESHOLD } from '$lib/server/billing/autotopup';
 import { checkoutRejectionMessage, createCreditCheckout, createPlanCheckout, createTestCheckout, getOrCreateStripeCustomer, isTestCheckoutOperator } from '$lib/server/billing/checkout';
 import { lifetimeSlotsRemaining } from '$lib/server/billing/entitlements';
-import { createMercadoPagoCreditCheckout } from '$lib/server/mercadopago/checkout';
-import { configuredMercadoPagoBundles } from '$lib/server/mercadopago/bundles';
 import { activeAllowanceSql, isUnmeteredPlan, listCreditTransactions, orgIsMetered, pauseAutoTopupForRefund, usageSummary } from '$lib/server/billing/ledger';
 import { isActiveSubscriptionStatus } from '$lib/server/billing/plans';
 import { db } from '$lib/server/db';
@@ -47,8 +45,6 @@ function maintenanceData() {
 		user: null,
 		summary: null,
 		credits: null,
-		paymentReturn: null,
-		mercadoPagoBundles: [],
 		metered: false,
 		lifetimeSlots: null,
 		history: [],
@@ -122,17 +118,7 @@ async function checkoutRedirect(create: () => Promise<string>, orgId: string) {
 	}
 }
 
-/**
- * Mercado Pago's back_urls return the buyer to /usage?payment=failed or
- * ?payment=pending (see mercadopago/client.ts); any other value is not a
- * return state the page explains.
- */
-function paymentReturnState(url: URL | undefined): 'failed' | 'pending' | null {
-	const payment = url?.searchParams.get('payment');
-	return payment === 'failed' || payment === 'pending' ? payment : null;
-}
-
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.dbDown) {
 		return maintenanceData();
 	}
@@ -185,9 +171,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			.from(stripeAutoTopupRecoveries).where(and(eq(stripeAutoTopupRecoveries.orgId, user.orgId), isNull(stripeAutoTopupRecoveries.resolvedAt))).get();
 		return {
 			maintenance: false,
-			paymentReturn: paymentReturnState(url),
 			user,
-			mercadoPagoBundles: configuredMercadoPagoBundles(),
 			summary,
 			// The merged total hides the allowance: it expires at the period
 			// boundary with no ledger row, so the page shows it on its own.
@@ -376,23 +360,6 @@ export const actions: Actions = {
 		const bundleId = String(form.get('bundle') ?? '');
 		const attemptId = String(form.get('attempt_id') ?? '');
 		return checkoutRedirect(() => createCreditCheckout(user.orgId, user, bundleId, attemptId), user.orgId);
-	},
-	/** Owner-only: creates a Mercado Pago BRL prepaid credit checkout. */
-	buyMercadoPago: async ({ request, locals }) => {
-		const user = requireUser(locals);
-		const form = await request.formData();
-		const bundleId = String(form.get('bundle') ?? '');
-		const attemptId = String(form.get('attempt_id') ?? '');
-		try {
-			const url = await createMercadoPagoCreditCheckout(user.orgId, user, bundleId, attemptId);
-			throw redirect(303, url, { external: true });
-		} catch (cause) {
-			if (isRedirect(cause) || isHttpError(cause)) throw cause;
-			console.error('usage: Mercado Pago checkout failed for org %s:', user.orgId, cause);
-			const rejection = checkoutRejectionMessage(cause);
-			if (rejection) return fail(400, { error: rejection });
-			return fail(400, { error: 'Could not start Mercado Pago checkout — please try again.' });
-		}
 	},
 	/** Owner-only: creates a hosted subscription or lifetime Checkout. */
 	buyPlan: async ({ request, locals }) => {

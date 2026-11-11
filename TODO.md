@@ -58,11 +58,6 @@ re-evaluate on the next `dev → main` merge.
       detail route, not the old dashboard design location.
 - [ ] Publish the Portuguese (`pt-BR`) product and legal translation with
       locale handling, deterministic formatting, and consent-version updates.
-- [x] Add Mercado Pago as a second billing provider without changing Stripe
-      behavior; the first slice is BRL prepaid checkout with idempotent signed
-      webhooks. A provider-neutral checkout seam lives in
-      `src/lib/server/billing/providers.ts`; full refund/dispute reconciliation
-      is now covered for Mercado Pago, while auto top-up remains Stripe-only.
 - [x] Replace legal operator placeholders (`[legal name]`, CNPJ, and address)
       in Terms and Privacy before production launch.
 

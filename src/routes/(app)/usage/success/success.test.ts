@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { TEST_OWNER, setupTestDb, testDb } from '$lib/server/testdb';
-import { creditTransactions, mercadoPagoCheckoutAttempts, organizations, stripeCheckoutAttempts, stripeEvents, stripeLifetimeEntitlements, stripeLifetimeSlots } from '$lib/server/db/schema';
+import { creditTransactions, organizations, stripeCheckoutAttempts, stripeEvents, stripeLifetimeEntitlements, stripeLifetimeSlots } from '$lib/server/db/schema';
 import { applyLedgerDelta, getCredits } from '$lib/server/billing/ledger';
 import { handleStripeEvent } from '$lib/server/stripe/webhooks';
 import { eq } from 'drizzle-orm';
 
 const mocks = vi.hoisted(() => ({
 	sessionsRetrieve: vi.fn(),
-	refundsCreate: vi.fn(),
-	retrievePayment: vi.fn()
+	refundsCreate: vi.fn()
 }));
 
 vi.mock('$lib/server/stripe/client', () => ({
@@ -18,14 +17,11 @@ vi.mock('$lib/server/stripe/client', () => ({
 		refunds: { create: mocks.refundsCreate }
 	})
 }));
-vi.mock('$lib/server/mercadopago/client', () => ({
-	retrievePayment: mocks.retrievePayment
-}));
 vi.mock('$env/dynamic/private', () => ({ env: {} }));
 
 import { load } from './+page.server';
 
-setupTestDb(['organizations', 'credit_transactions', 'stripe_events', 'mercado_pago_checkout_attempts', 'stripe_checkout_attempts', 'stripe_lifetime_slots', 'stripe_lifetime_entitlements', 'stripe_pending_reversals']);
+setupTestDb(['organizations', 'credit_transactions', 'stripe_events', 'stripe_checkout_attempts', 'stripe_lifetime_slots', 'stripe_lifetime_entitlements', 'stripe_pending_reversals']);
 
 const OWNER = TEST_OWNER;
 
@@ -472,74 +468,5 @@ describe('usage/success test-checkout branch', () => {
 		expect(data.failed).toBe(true);
 		expect(data.pending).toBe(false);
 		expect(await getCredits('org-1')).toBe(0);
-	});
-});
-
-describe('usage/success Mercado Pago branch', () => {
-	function loadMercadoPago(attemptId: string) {
-		const url = new URL('/usage/success', 'http://localhost');
-		url.searchParams.set('provider', 'mercadopago');
-		url.searchParams.set('attempt_id', attemptId);
-		return load({ locals: { user: OWNER } as never, url } as never);
-	}
-
-	test.each([
-		{ status: 'refunded', expected: { granted: false, pending: false, failed: false, refunded: true, manualRefund: false } },
-		{ status: 'disputed', expected: { granted: false, pending: false, failed: true, refunded: false, manualRefund: false } },
-		// A paid payment that can never be granted (lifetime upgrade raced the
-		// approval) is recorded for a human refund — the buyer sees the
-		// dedicated manual-refund state, not pending forever (codex P1).
-		{ status: 'manual_refund_required', expected: { granted: false, pending: false, failed: false, refunded: false, manualRefund: true } }
-	])('a $status attempt is terminal — a deliberate verdict, never pending, and never re-retrieved', async ({ status, expected }) => {
-		// A reversed payment has no fulfillment left to wait for: the page must
-		// show a terminal state immediately instead of pending forever (codex).
-		// A refund is a deliberate outcome — the buyer gets the refunded state,
-		// not the generic failure (review); a chargeback still reads as failed.
-		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org' });
-		await testDb().db.insert(mercadoPagoCheckoutAttempts).values({
-			attemptId: 'attempt_1',
-			orgId: 'org-1',
-			bundleId: 'credits_100',
-			idempotencyKey: 'mp-key',
-			amountCents: 500,
-			status,
-			paymentId: 'pay-1'
-		});
-
-		const data = (await loadMercadoPago('attempt_1')) as { granted: boolean; pending: boolean; failed: boolean; refunded: boolean };
-
-		expect(data).toMatchObject(expected);
-		expect(mocks.retrievePayment).not.toHaveBeenCalled();
-	});
-
-	test.each([
-		{ paymentStatus: 'refunded', expected: { granted: false, pending: false, failed: false, refunded: true } },
-		{ paymentStatus: 'charged_back', expected: { granted: false, pending: false, failed: true, refunded: false } }
-	])('a pending attempt whose inline processing lands a $paymentStatus reversal shows its verdict — never stale pending', async ({ paymentStatus, expected }) => {
-		// The attempt snapshot is read BEFORE processMercadoPagoPayment runs; a
-		// refund/chargeback processed inline flips the row to terminal, and the
-		// page must decide from the post-processing state (cubic, round 3).
-		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org' });
-		await testDb().db.insert(mercadoPagoCheckoutAttempts).values({
-			attemptId: 'attempt_1',
-			orgId: 'org-1',
-			bundleId: 'credits_100',
-			idempotencyKey: 'mp-key',
-			amountCents: 500,
-			status: 'open',
-			paymentId: 'pay-1'
-		});
-		mocks.retrievePayment.mockResolvedValue({
-			id: 'pay-1',
-			status: paymentStatus,
-			externalReference: 'org-1:attempt_1',
-			transactionAmount: 5,
-			refundedAmount: 5,
-			currencyId: 'BRL'
-		});
-
-		const data = (await loadMercadoPago('attempt_1')) as { granted: boolean; pending: boolean; failed: boolean; refunded: boolean };
-
-		expect(data).toMatchObject(expected);
 	});
 });

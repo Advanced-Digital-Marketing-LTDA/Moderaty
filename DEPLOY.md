@@ -235,26 +235,7 @@ drizzle-kit progress renderer hid these errors behind an exit code. Keep
     loudly until transport is configured again; there is no Mailjet side
     to retire.
 
-## 3. Mercado Pago (optional BRL prepaid credits)
-
-- Create a Mercado Pago application for the target account and keep its
-  access token and webhook secret only in the matching Netlify/Coolify context.
-- Configure the `MERCADOPAGO_PRICE_*_BRL_CENTS` values and the exact BRL
-  catalog used by the account; the app rejects missing or invalid amounts.
-- Register `https://<your-site>/api/mercadopago/webhook` as the payment webhook
-  URL and select payment notifications. The return URL is not authoritative;
-  the signed webhook fetches the payment from Mercado Pago before crediting.
-- Run a sandbox payment first. Confirm the credit ledger has one purchase row
-  and that replaying the same webhook does not add credits twice.
-- Exercise a full refund and, where the Mercado Pago account exposes it, a
-  chargeback. Confirm a refund/dispute ledger reversal is created once, a
-  partial refund is rejected for manual review, and a repeated notification
-  does not reverse credits twice.
-- Mercado Pago currently covers manual prepaid credits only. Stripe remains the
-  provider for hosted plans and automatic top-up until separate mandate and
-  refund/dispute behavior is implemented and reviewed.
-
-## 4. Google Cloud Console
+## 3. Google Cloud Console
 
 - Add the production redirect URI to the OAuth client:
   `https://<your-site>/api/auth/google/callback`
@@ -269,7 +250,7 @@ drizzle-kit progress renderer hid these errors behind an exit code. Keep
   `https://www.googleapis.com/auth/youtube.force-ssl`; while unverified, add
   each channel owner's Gmail as a test user.
 
-## 5. Cron
+## 4. Cron
 
 - `netlify/functions/cron.mjs` runs on a `* * * * *` schedule and calls
   `GET $APP_URL/api/cron` with the secret in an `Authorization: Bearer` header
@@ -296,17 +277,14 @@ drizzle-kit progress renderer hid these errors behind an exit code. Keep
   Functions) so the graceful-timeout path can fire; on a 10s limit the
   platform kills first (runs still recover via lease expiry, but failures are
   reported less cleanly). This is a site-level setting, and adapter-netlify
-  serves every SSR route (including `/api/mercadopago/webhook`) through the
-  same function — the raised limit also keeps Mercado Pago webhook handling
-  inside its ~22s retry window instead of falling into the 15-minute replay
-  loop.
+  serves every SSR route through the same function.
 - Manual trigger (e.g. right after connecting a channel) — prefer the header
   form so the secret stays out of shell history and logs:
   `curl -H "Authorization: Bearer <CRON_SECRET>" "https://<your-site>/api/cron"`
   (the endpoint also accepts the plan-documented `?secret=` query form as a
   fallback)
 
-## 6. Post-launch verification
+## 5. Post-launch verification
 
 - Deploy, then open the site and connect a channel via Google OAuth.
 - Trigger cron manually (above) with `DRY_RUN=true`; expect `dryRun: true`
@@ -321,7 +299,7 @@ drizzle-kit progress renderer hid these errors behind an exit code. Keep
   top-up" — or "A card is saved" while details are still resolving).
 - Watch the next scheduled invocation succeed in the Netlify function logs.
 
-## 7. Turso backups and recovery
+## 6. Turso backups and recovery
 
 Use Turso's automatic commit-time backups and native point-in-time recovery.
 No custom backup schedule, export script or workflow artifact is required.
@@ -334,7 +312,7 @@ isolated restore drills, billing reconciliation and human-approved cutover.
 The former scheduled dump/artifact workflow is retired in this change. Normal
 CI checks the repository only; it does not prove a usable native recovery point.
 
-## 8. Database outage runbook
+## 7. Database outage runbook
 
 Turso outages (e.g. HTTP 502 "connect to upstream failed") are Turso-side;
 nothing in the app causes or can prevent them. When one happens:

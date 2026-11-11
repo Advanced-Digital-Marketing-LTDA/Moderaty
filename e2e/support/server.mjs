@@ -112,7 +112,7 @@ if (!leaksProjectDotenv(root)) {
 // launcher does not set may be present: a shell export or dotenv leak would show up here.
 const { env: privateEnv } = await vite.ssrLoadModule('$env/dynamic/private');
 if (privateEnv.TURSO_DATABASE_URL !== databaseUrl) throw new Error('E2E app does not resolve the disposable database');
-const unexpectedCredentials = ['TURSO_AUTH_TOKEN', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'CRON_SECRET', 'PROTON_SMTP_TOKEN', 'MERCADOPAGO_ACCESS_TOKEN'].filter((name) => privateEnv[name] !== undefined);
+const unexpectedCredentials = ['TURSO_AUTH_TOKEN', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'CRON_SECRET', 'PROTON_SMTP_TOKEN'].filter((name) => privateEnv[name] !== undefined);
 if (unexpectedCredentials.length > 0) throw new Error(`E2E app sees credentials the launcher did not set: ${unexpectedCredentials.join(', ')}`);
 const { db } = await vite.ssrLoadModule('/src/lib/server/db/index.ts');
 const schema = await vite.ssrLoadModule('/src/lib/server/db/schema.ts');
