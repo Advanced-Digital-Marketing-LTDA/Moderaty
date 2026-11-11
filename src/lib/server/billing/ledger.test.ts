@@ -268,7 +268,7 @@ describe('orgIsMetered', () => {
 
 describe('assertCreditsPurchasable', () => {
 	test('passes for metered orgs, throws for the unmetered lifetime plan', async () => {
-		// Credit checkout creation (Stripe AND Mercado Pago) must reject an
+		// Credit checkout creation must reject an
 		// unlimited plan before planting an attempt — a lifetime org buying
 		// credits pays real money for a balance it can never need (MOD-35).
 		await seedOrg('org-1', null, null);

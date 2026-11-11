@@ -6,9 +6,7 @@ APPROVED; the rest is the concrete proposal the accountant confirms or corrects.
 open questions are collected in §8 — they are the MOD-179 sign-off checklist.
 
 Scope: the four Stripe purchase paths (hosted subscription, lifetime, prepaid credit
-bundles, automatic top-up) plus Mercado Pago prepaid credits where enabled
-(`MERCADOPAGO_PRICE_*_BRL_CENTS` — DEPLOY.md §3; Mercado Pago covers manual credits
-only, not plans or top-ups). Consumed by MOD-182 (canonical fiscal sale ledger),
+bundles, automatic top-up). Consumed by MOD-182 (canonical fiscal sale ledger),
 MOD-183 (versioned fiscal configuration), MOD-184 (historical reconciliation), and
 MOD-191 (refund/cancellation workflow).
 
@@ -40,13 +38,12 @@ MOD-191 (refund/cancellation workflow).
 | Lifetime (USD 49 one-time, `STRIPE_PRICE_LIFETIME`) | Checkout `mode: 'payment'` | `checkout.session.completed` (or `async_payment_succeeded`) with `payment_status = 'paid'` | `session.amount_total`, USD |
 | Credit bundle (`credits_500` USD 20.40, `credits_2000` USD 64.65; `credits_100` USD 5.00 is hidden from purchase) | Checkout `mode: 'payment'` | same as lifetime | `session.amount_total`, USD |
 | Auto top-up (credits_500/credits_2000) | off-session `paymentIntents.create` | `payment_intent.succeeded` with `metadata.type = 'auto_topup'` | `payment_intent.amount`, USD |
-| Mercado Pago credit bundle (BRL prices from env) | Checkout Pro preference → Payment | webhook-fetched `status = 'approved'` (`fulfillMercadoPagoPayment`) | `payment.transaction_amount`, BRL |
 
 **Receipt timestamp** = the payment-confirmation time: the `created` time of the
 successful Stripe event (`invoice.paid`, `payment_intent.succeeded`,
 `checkout.session.completed` when `payment_status` is `paid`, or
 `checkout.session.async_payment_succeeded`), or `invoice.status_transitions.paid_at`
-where applicable; Mercado Pago's `date_approved`. Processor object `created` times
+where applicable. Processor object `created` times
 (PaymentIntent, Charge, Session) predate confirmation for delayed payment methods and
 are never a receipt time. All timestamps are stored in UTC; the competence date
 derives from the America/São_Paulo calendar date (§4).
@@ -57,7 +54,6 @@ The sale key is the **processor payment object**, not the billing document:
 
 - Stripe: the **PaymentIntent id** behind the payment; a Charge id is the fallback
   only when no PaymentIntent exists.
-- Mercado Pago: the **payment id**.
 
 Linked-object collapse (MOD-182's "map linked objects to the same transaction"):
 
@@ -91,7 +87,7 @@ pending refund obligation. Outcomes are named for the MOD-182 eligibility contra
 | `checkout.session.completed` for `metadata.product = 'test'` (operator smoke test, `TEST_CHECKOUT_PRODUCT`) | `ineligible:test_purchase` — not a customer sale (Q6) |
 | `invoice.paid`/`payment_intent.succeeded` for a payment already queued for `refundUngrantablePayment` (duplicate subscription, unmetered-org grant) | `review:refund_pending` — not eligible while the refund obligation stands; becomes `ineligible:refunded` when it completes |
 | Invoice marked paid out-of-band at Stripe (`invoice.paid`, `amount_paid` > 0, no PaymentIntent/Charge — the current `INVOICE_PAYMENT_REQUIRED_ERROR` case) | `review:out_of_band` — money may have arrived outside Stripe (bank transfer/Pix); requires receipt evidence before issuance (Q7) |
-| Any payment in a currency other than USD (Stripe) or BRL (Mercado Pago) | `ineligible:unsupported_currency` — loud, per I2; the catalog is validated USD-only (`validatePlanPrice`, auto-top-up price check) and BRL-only (`fulfillMercadoPagoPayment`), so this is a breach-of-contract guard |
+| Any payment in a currency other than USD | `ineligible:unsupported_currency` — loud, per I2; the catalog is validated USD-only (`validatePlanPrice`, auto-top-up price check), so this is a breach-of-contract guard |
 | `charge.refunded`, `refund.*`, `charge.dispute.*` | **Not sale events** — adjustments on the existing sale's note per the MOD-178 refund rules (review → cancellation-requested → canceled only on confirmed fiscal event). A full refund on a never-rendered service requests cancellation; a used-service refund is accountant review; partial refunds never auto-cancel or substitute. |
 | `customer.subscription.*`, `payment_method.detached`, `customer.updated` | **Not sale events** — entitlement state sync only |
 
@@ -112,8 +108,7 @@ competence month is the receipt month. Consequences:
 
 - Subscription: each paid invoice's competence is its payment month. A renewal
   collected late lands in the month it was *received*, not the period's month.
-- Delayed-notification methods (`checkout.session.async_payment_succeeded`, Mercado
-  Pago pix/boleto clearing): competence is the async success date, not the checkout
+- Delayed-notification methods (`checkout.session.async_payment_succeeded`): competence is the async success date, not the checkout
   date.
 - Prepaid credits and lifetime: competence is the purchase month. Consumption never
   creates a competence — a credit drawn six months later produces no fiscal event.
@@ -160,7 +155,7 @@ catch-up) does not move the competence: the note is emitted when it is emitted
 
 - `valor_servico` (vServ, required, Decimal[15.2], **in R$**) = the gross amount the
   customer paid for the service — after any discount, **before processor fees**.
-  Stripe/Mercado Pago fees are the issuer's cost, not a price reduction (Q3 confirms
+  Stripe fees are the issuer's cost, not a price reduction (Q3 confirms
   the reading, though it is the standard one).
 - Discounts (coupon/promo — not enabled in Checkout today, but definable at Stripe):
   the note carries the net amount actually charged. Recording `desconto_incondicionado`
@@ -173,7 +168,7 @@ catch-up) does not move the competence: the note is emitted when it is emitted
   (vServMoeda) = the USD amount — the foreign-currency fields exist precisely for
   this, and their presence is what makes the FX inputs in §7 mandatory even for
   exempt notes.
-- Domestic-treated notes (BRL via Mercado Pago, or a domestic profile paying USD via
+- Domestic-treated notes (a domestic profile paying USD via
   Stripe): `tributacao_iss = 1`, national code `01.05.01` / SP `02800`, ISS 2,9%
   (MOD-178 APPROVED).
 
@@ -194,13 +189,11 @@ Every USD receipt needs a recorded, reproducible BRL figure — for the note's
   own window, so the sale stays `pending` per the blocker rule below.
   Deterministic: same receipt date → same rate, forever.
 - **Computation**: `valor_brl = ROUND_HALF_UP(amount_usd × rate, 2)` — decimal
-  arithmetic on integer cents, never binary float (same rule as
-  `paymentAmountCents` in the Mercado Pago webhook).
+  arithmetic on integer cents, never binary float.
 - **Stored per sale (the auditable calculation)**: `original_currency`,
   `gross_amount_cents`, `fx_source = 'ptax_venda'`, `fx_bulletin_date` (the bulletin
   actually used — may precede the receipt date), `fx_rate` (4 dp as published),
-  `fx_rounding = 'half_up_2dp'`, `amount_brl_cents`. BRL sales record
-  `fx_source = 'none'`.
+  `fx_rounding = 'half_up_2dp'`, `amount_brl_cents`.
 - **Supplementary evidence, not the rule**: when the Stripe account settles in a
   currency different from the charge, `balance_transaction.exchange_rate`
   (docs.stripe.com/api/balance_transactions/object — "amount in currency A ×
@@ -251,16 +244,15 @@ PTAX examples use the verified 2026-09-30 closing sell rate **5.18090**.
 | F3 | `checkout.session.completed` lifetime, paid, USD 4900¢ | eligible | per profile | receipt date | USD 49.00 → R$ 253,86 |
 | F4 | `checkout.session.completed` `credits_500`, paid, USD 2040¢ | eligible — consumed credits never re-recognize | per profile | receipt date | USD 20.40 → R$ 105,69 |
 | F5 | `payment_intent.succeeded` `metadata.type=auto_topup`, `credits_2000`, USD 6465¢ | eligible | per profile | receipt date | USD 64.65 → R$ 334,95 |
-| F6 | Mercado Pago webhook `approved`, `transaction_amount` R$ 99,00 | eligible | per profile | `date_approved` date | R$ 99,00; no FX (`fx_source='none'`) |
-| F7 | `checkout.session.completed`, `payment_status=no_payment_required` | `ineligible:zero_amount` | — | — | — |
-| F8 | `invoice.paid`, `amount_paid=0` (credit-covered) | `ineligible:zero_amount` | — | — | — |
-| F9 | `checkout.session.async_payment_failed` / `expired` | `ineligible:no_payment` | — | — | — |
-| F10 | `invoice.paid`, `amount_paid>0`, no PI/charge (marked paid out-of-band) | `review:out_of_band` | — | evidence date | — |
-| F11 | delayed method: `checkout.session.async_payment_succeeded` 3 days after checkout | eligible | per profile | **async success date**, not checkout date | per §7 |
-| F12 | paid payment then `refundUngrantablePayment` queued (duplicate subscription) | `review:refund_pending` → `ineligible:refunded` on completion | — | — | — |
-| F13 | `charge.refunded` (full) on an F3 sale, service never rendered | not a sale event — MOD-178 track: review → cancellation request on F3's note | — | — | — |
-| F14 | `checkout.session.completed` `product='test'` | `ineligible:test_purchase` | — | — | — |
-| F15 | `payment_intent.succeeded` for an invoice payment (no `auto_topup` metadata) | not a new sale — resolves to F1's PaymentIntent key | — | — | — |
+| F6 | `checkout.session.completed`, `payment_status=no_payment_required` | `ineligible:zero_amount` | — | — | — |
+| F7 | `invoice.paid`, `amount_paid=0` (credit-covered) | `ineligible:zero_amount` | — | — | — |
+| F8 | `checkout.session.async_payment_failed` / `expired` | `ineligible:no_payment` | — | — | — |
+| F9 | `invoice.paid`, `amount_paid>0`, no PI/charge (marked paid out-of-band) | `review:out_of_band` | — | evidence date | — |
+| F10 | delayed method: `checkout.session.async_payment_succeeded` 3 days after checkout | eligible | per profile | **async success date**, not checkout date | per §7 |
+| F11 | paid payment then `refundUngrantablePayment` queued (duplicate subscription) | `review:refund_pending` → `ineligible:refunded` on completion | — | — | — |
+| F12 | `charge.refunded` (full) on an F3 sale, service never rendered | not a sale event — MOD-178 track: review → cancellation request on F3's note | — | — | — |
+| F13 | `checkout.session.completed` `product='test'` | `ineligible:test_purchase` | — | — | — |
+| F14 | `payment_intent.succeeded` for an invoice payment (no `auto_topup` metadata) | not a new sale — resolves to F1's PaymentIntent key | — | — | — |
 
 ## Sources
 
@@ -279,5 +271,5 @@ PTAX examples use the verified 2026-09-30 closing sell rate **5.18090**.
 - Resolução CGSN nº 190/2026 (DOU 2026-08-10) — ends the monthly regime-de-caixa
   option for Simples apuração from 2027-01-01.
 - Code anchors: `src/lib/server/billing/checkout.ts`, `billing/autotopup.ts`,
-  `billing/entitlements.ts`, `stripe/webhooks.ts`, `mercadopago/webhooks.ts`,
+  `billing/entitlements.ts`, `stripe/webhooks.ts`,
   `stripe/bundles.ts`, `src/lib/credit-pricing.ts`.

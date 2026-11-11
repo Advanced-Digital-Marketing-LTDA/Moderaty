@@ -28,10 +28,6 @@ export const PRICING_FAQ_ENTRIES: { q: string; a: string }[] = [
 		a: `You can buy ${TOP_UP_BUNDLES_COPY}. One credit covers one AI moderation score; a feedback digest classification uses another. Rule and protected-handle decisions use no moderation credit, but digest classification of those comments still uses one. A requested history scan can charge again; retrying the same scan does not. For example, with the full 100-credit allowance and no purchased credits, 100 moderation scores plus 100 digest classifications need one 500-credit bundle: $${(MONTHLY_PLAN_USD + expectedBundlePriceCents(500) / 100).toFixed(2)} including the subscription, with 400 purchased credits left. Purchased credits stay on your balance. The Usage page shows your balance; automatic top-up uses your selected bundle and threshold.`
 	},
 	{
-		q: 'Can I pay in Brazilian reais?',
-		a: 'Yes. Comment bundles are also sold through Mercado Pago in reais, and the bundle lands on your balance once the payment confirms. The $5 subscription and automatic top-up run on your saved card through Stripe.'
-	},
-	{
 		q: 'Which one should I pick?',
 		a: 'Choose hosted monthly if you want Moderaty to run the service and handle the AI key. Choose lifetime if you want hosted access without a monthly subscription and can provide an OpenAI key. Self-host if you can operate the infrastructure and want to manage your own key and deployment. Contact us for custom or volume pricing.'
 	},

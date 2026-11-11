@@ -81,10 +81,6 @@ const FIXTURE_IDENTIFIERS = [
 	'held text', 'restoring text', 'deleted text',
 	'sa-1', 'sa-2', 'sa-3', 'sa-4', 'sa-5', 'sa-6', 'sa-7', 'sa-8', 'sa-9', 'sa-10',
 	'idem-2', 'idem-3', 'idem-4', 'idem-5', 'idem-6', 'idem-7', 'idem-8', 'idem-9', 'idem-10',
-	'mp-1', 'mp-2', 'mp-3', 'mp-4', 'mp-5',
-	'mpidem-1', 'mpidem-2', 'mpidem-3', 'mpidem-4', 'mpidem-5',
-	'mp-pay-1', 'mp-pay-2', 'mp-pay-3', 'mp-pay-4',
-	'mercadopago:mp-pay-1', 'mercadopago:mp-pay-3', 'mercadopago:mp-pay-4',
 	'cs_sa2', 'cs_sa3', 'cs_sa4', 'cs_sa5', 'cs_sa6', 'cs_sa7', 'cs_sa8', 'cs_test_1',
 	'UC-dryrun', 'UC-pausedfailed', 'UC-resumedfailed', 'Dryrun Chan', 'Pausedfailed Chan', 'Resumedfailed Chan', 'enc-7', 'enc-8', 'enc-9', 'c-5',
 	'pi_topup_1', 'ch_topup_1', 'ch_ref', 'adj-1',
@@ -242,28 +238,12 @@ INSERT INTO stripe_checkout_attempts (attempt_id, org_id, product, idempotency_k
 	-- The operator's smoke test purchases through the same ledger path with
 	-- product='test': real grant, but not a customer conversion.
 	('sa-10', 'org-personal-1', 'test', 'idem-10', 'cs_test_1', 'fulfilled', '2026-10-05T04:00:00.000Z', '2026-10-05T04:00:00.000Z');
-INSERT INTO mercado_pago_checkout_attempts (attempt_id, org_id, bundle_id, idempotency_key, payment_id, status, amount_cents, paid_at, created_at) VALUES
-	-- A fulfillment replay restamped paid_at past the window; the immutable
-	-- purchase ledger row still anchors the grant to 2026-10-05.
-	('mp-1', 'org-sentinel', 'credits_100', 'mpidem-1', 'mp-pay-1', 'fulfilled', 4900, '2026-10-08T02:00:00.000Z', '2026-10-05T02:00:00.000Z'),
-	-- Approved but refused before granting (unmetered org): payment_id exists
-	-- but no purchase row was ever written — an alert, not a paid grant.
-	('mp-2', 'org-personal-1', 'credits_100', 'mpidem-2', 'mp-pay-2', 'manual_refund_required', 4900, NULL, '2026-10-05T03:00:00.000Z'),
-	-- Granted in-window but later refunded: the purchase row still counts.
-	('mp-3', 'org-sentinel', 'credits_100', 'mpidem-3', 'mp-pay-3', 'refunded', 4900, '2026-10-04T10:00:00.000Z', '2026-10-03T23:00:00.000Z'),
-	-- Opened in-window, paid the week after: paid_at lies in-window (a replay
-	-- artifact) but the durable grant was on 2026-10-07 — outside.
-	('mp-4', 'org-personal-2', 'credits_100', 'mpidem-4', 'mp-pay-4', 'fulfilled', 4900, '2026-10-05T12:00:00.000Z', '2026-10-05T01:00:00.000Z'),
-	('mp-5', 'org-personal-1', 'credits_100', 'mpidem-5', NULL, 'open', 4900, NULL, '2026-10-05T04:00:00.000Z');
 INSERT INTO credit_transactions (org_id, delta, reason, ref_type, ref_id, payment_intent_id, charge_id, balance_after, created_at) VALUES
 	('org-personal-1', 100, 'purchase', 'checkout_session', 'cs_sentinel_session', 'pi_sentinel', 'ch_sentinel', 100, '2026-10-04T15:00:00.000Z'),
 	('org-personal-1', -10, 'consume', 'comment', 'c-1', NULL, NULL, 90, '2026-10-05T00:00:00.000Z'),
 	('org-personal-1', 100, 'auto_topup', 'payment_intent', 'pi_topup_1', 'pi_topup_1', 'ch_topup_1', 190, '2026-10-05T01:00:00.000Z'),
 	('org-personal-1', 100, 'purchase', 'checkout_session', 'cs_sa6', NULL, NULL, 390, '2026-10-05T05:00:00.000Z'),
 	('org-personal-2', 100, 'purchase', 'checkout_session', 'cs_sa7', NULL, NULL, 100, '2026-10-07T00:00:00.000Z'),
-	('org-sentinel', 100, 'purchase', 'checkout_session', 'mercadopago:mp-pay-1', NULL, NULL, 100, '2026-10-05T02:00:00.000Z'),
-	('org-sentinel', 100, 'purchase', 'checkout_session', 'mercadopago:mp-pay-3', NULL, NULL, 200, '2026-10-04T10:00:00.000Z'),
-	('org-personal-2', 100, 'purchase', 'checkout_session', 'mercadopago:mp-pay-4', NULL, NULL, 200, '2026-10-07T01:00:00.000Z'),
 	('org-sentinel', -30, 'consume', 'comment', 'c-9', NULL, NULL, 70, '2026-10-05T03:00:00.000Z'),
 	('org-sentinel', 60, 'adjust', 'admin', 'adj-1', NULL, NULL, 130, '2026-10-05T04:00:00.000Z'),
 	('org-broke', -100, 'refund', 'charge', 'ch_ref', 'pi_ref', 'ch_ref', -100, '2026-10-05T05:00:00.000Z'),
@@ -528,7 +508,6 @@ describe('launch-report content', () => {
 		// verbatim; only a durable grant record counts toward conversions.
 		expect(report.billing.stripeCheckoutAttemptsByStatus).toEqual({ fulfilled: 6, open: 1, expired: 1, manual_refund_required: 1, pending: 1 });
 		expect(report.billing.stripeCheckoutAttemptsByProduct).toEqual({ credits_100: 6, credits_500: 1, hosted: 1, lifetime: 1, test: 1 });
-		expect(report.billing.mercadoPagoCheckoutAttemptsByStatus).toEqual({ fulfilled: 2, manual_refund_required: 1, refunded: 1, open: 1 });
 		// Grant windows anchor on the immutable credit_transactions purchase row
 		// (inserted once per org/ref anchor), never on restampable attempt
 		// timestamps: sa-1's replayed updated_at moved past the window but its
@@ -542,17 +521,12 @@ describe('launch-report content', () => {
 		// first paid period (sub_sentinel) both landed in-window.
 		expect(report.billing.stripeLifetimeGrantsInWindow).toBe(1);
 		expect(report.billing.stripeHostedSubscriptionsStartedInWindow).toBe(1);
-		// Same on MP: mp-1's replayed paid_at is ignored (ledger says in-window),
-		// mp-3's refund doesn't erase the grant, mp-4's in-window paid_at replay
-		// can't move its post-window ledger row, and mp-2 was approved but never
-		// granted — no purchase row, no count.
-		expect(report.billing.mercadoPagoCreditGrantsInWindow).toBe(2);
 		// Stripe's manual_refund_required is terminal — nothing transitions it
 		// after a human refunds — so it is a historical flag, not live
-		// attention. MP's resolves to 'refunded' via the reversal webhook.
+		// attention.
 		expect(report.billing.stripeCheckoutsFlaggedManualRefund).toBe(1);
 		expect(report.billing.creditLedgerByReason).toEqual({
-			purchase: { rows: 7, netCredits: 601 },
+			purchase: { rows: 4, netCredits: 301 },
 			consume: { rows: 2, netCredits: -40 },
 			auto_topup: { rows: 1, netCredits: 100 },
 			adjust: { rows: 1, netCredits: 60 },
@@ -583,9 +557,6 @@ describe('launch-report content', () => {
 			// still recorded (org-personal-2) both need operator follow-up; a
 			// plain owner opt-out would not.
 			orgsAutoTopupNeedingAttention: 2,
-			// MP's flag resolves to 'refunded' when the operator's manual refund
-			// webhook lands; Stripe's terminal flag lives in billing instead.
-			mercadoPagoManualRefundsOutstanding: 1,
 			// c-3's remote human action may or may not have landed.
 			uncertainHumanDispatches: 1,
 			pendingReversals: 1,

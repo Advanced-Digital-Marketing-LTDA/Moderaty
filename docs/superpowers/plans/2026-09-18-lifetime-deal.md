@@ -47,8 +47,6 @@ through MOD-39 (each task below cites its issue).
 - `src/lib/server/billing/ledger.ts` — export `isUnmeteredPlan`,
   `assertCreditsPurchasable`; `consumeCredit` no-ops for unmetered plans.
 - `src/lib/server/billing/checkout.ts` — gate `createCreditCheckout`.
-- `src/lib/server/mercadopago/checkout.ts` — gate
-  `createMercadoPagoCreditCheckout`.
 - `src/lib/server/billing/autotopup.ts` — plan in `AutoTopupState`;
   `basicEligibility` + atomic claim skip unmetered orgs.
 - `src/routes/(app)/usage/+page.server.ts` — `setAutoTopup` rejects lifetime;
@@ -215,15 +213,13 @@ git commit -m "step 2: reconcile BYOK docs with the shipped key flow (MOD-34)"
   `assertCreditsPurchasable`
 - Modify: `src/lib/server/billing/checkout.ts` — gate in
   `createCreditCheckout` before `createCheckoutAttempt`
-- Modify: `src/lib/server/mercadopago/checkout.ts` — same gate before
-  `loadOrCreateAttempt`
 - Modify: `src/lib/server/billing/autotopup.ts` — `plan` in
   `AutoTopupState`/`readAutoTopupState`; `basicEligibility` + atomic-claim
   WHERE skip unmetered orgs
 - Modify: `src/routes/(app)/usage/+page.server.ts` — `setAutoTopup` rejects
   enable for lifetime
-- Modify: `src/routes/(app)/usage/+page.svelte` — hide Buy credits / Mercado
-  Pago / Automatic top-up cards for `billing.plan === 'lifetime'`
+- Modify: `src/routes/(app)/usage/+page.svelte` — hide Buy credits /
+  Automatic top-up cards for `billing.plan === 'lifetime'`
 - Test: `src/routes/(app)/usage/usage.test.ts`,
   `src/lib/server/billing/ledger.test.ts`,
   `src/lib/server/billing/autotopup.test.ts`
@@ -237,17 +233,14 @@ git commit -m "step 2: reconcile BYOK docs with the shipped key flow (MOD-34)"
 - [ ] **Step 1: Failing tests**
 
 `usage.test.ts` (add near the buy tests; the file's `seedOrg` accepts
-overrides and `buy`/`buyMercadoPago`-equivalent helpers exist — for MP use
-`actions.buyMercadoPago`):
+overrides and `buy`-equivalent helpers exist):
 
 ```ts
-test('a lifetime org cannot open a credit checkout (Stripe or Mercado Pago)', async () => {
+test('a lifetime org cannot open a credit checkout', async () => {
 	await seedOrg({ plan: 'lifetime', creditsRemaining: 0 });
 	const stripeRes = (await buy('credits_100')) as { status?: number };
 	expect(stripeRes.status).toBeGreaterThanOrEqual(400);
 	expect(mocks.sessionsCreate).not.toHaveBeenCalled();
-	const mpRes = (await actions.buyMercadoPago({ request: postForm({ bundle: 'mp_100' }), locals: { user: OWNER } } as never)) as { status?: number };
-	expect(mpRes.status).toBeGreaterThanOrEqual(400);
 });
 
 test('a lifetime org cannot enable auto top-up; disabling stays allowed', async () => {
@@ -310,13 +303,6 @@ check, before `createCheckoutAttempt`:
 	await assertCreditsPurchasable(orgId);
 ```
 
-`mercadopago/checkout.ts` — inside `createMercadoPagoCreditCheckout`, after
-`webhookSecret()`/`mercadoPagoBundleById`, before `loadOrCreateAttempt`:
-
-```ts
-	await assertCreditsPurchasable(orgId);
-```
-
 `autotopup.ts` — `AutoTopupState` gains `plan: string | null`;
 `readAutoTopupState` selects `organizations.plan`; in `basicEligibility`,
 first branch:
@@ -343,7 +329,7 @@ verify import list).
 	}
 ```
 
-`usage/+page.svelte` — wrap the "Buy credits", "Buy with Mercado Pago", and
+`usage/+page.svelte` — wrap the "Buy credits" and
 "Automatic top-up" cards in `{#if data.billing?.plan !== 'lifetime'}`, and
 show an explanatory line instead (I12: not silently different):
 
@@ -363,7 +349,7 @@ show an explanatory line instead (I12: not silently different):
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/lib/server/billing/ledger.ts src/lib/server/billing/checkout.ts src/lib/server/mercadopago/checkout.ts src/lib/server/billing/autotopup.ts "src/routes/(app)/usage/+page.server.ts" "src/routes/(app)/usage/+page.svelte" src/lib/server/billing/ledger.test.ts src/lib/server/billing/autotopup.test.ts "src/routes/(app)/usage/usage.test.ts"
+git add src/lib/server/billing/ledger.ts src/lib/server/billing/checkout.ts src/lib/server/billing/autotopup.ts "src/routes/(app)/usage/+page.server.ts" "src/routes/(app)/usage/+page.svelte" src/lib/server/billing/ledger.test.ts src/lib/server/billing/autotopup.test.ts "src/routes/(app)/usage/usage.test.ts"
 git commit -m "step 3: lifetime orgs cannot buy credits or auto top up (MOD-35)"
 ```
 

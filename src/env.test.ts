@@ -14,8 +14,8 @@ const ENV_MODULE = '$env/dynamic/private';
 const UNSUPPORTED_ENV_MODULES = /\$env\/(?:static\/(?:private|public)|dynamic\/public)/;
 // These files look names up at run time (env[name]); the names come from the string
 // tables in PRICE_TABLES, which the scan reads as literals.
-const COMPUTED_LOOKUP_FILES = ['lib/server/stripe/bundles.ts', 'lib/server/mercadopago/bundles.ts', 'lib/server/billing/checkout.ts'];
-const PRICE_TABLES = ['lib/server/stripe/bundles.ts', 'lib/server/mercadopago/bundles.ts', 'lib/server/billing/plans.ts'];
+const COMPUTED_LOOKUP_FILES = ['lib/server/stripe/bundles.ts', 'lib/server/billing/checkout.ts'];
+const PRICE_TABLES = ['lib/server/stripe/bundles.ts', 'lib/server/billing/plans.ts'];
 
 function sourceFiles(directory: string): string[] {
 	return readdirSync(directory, { recursive: true, encoding: 'utf8' })
@@ -62,7 +62,7 @@ function envModuleScan(file: string, text: string): FileScan {
 
 function priceTableNames(file: string, text: string): string[] {
 	if (!PRICE_TABLES.includes(file)) return [];
-	return [...text.matchAll(/'((?:STRIPE|MERCADOPAGO)_PRICE_[A-Z0-9_]+)'/g)].map((match) => match[1]);
+	return [...text.matchAll(/'(STRIPE_PRICE_[A-Z0-9_]+)'/g)].map((match) => match[1]);
 }
 
 function scanFile(file: string, text: string): FileScan {
@@ -101,9 +101,9 @@ describe('src/env.ts declarations', () => {
 	it('finds the names it guards, so an empty scan cannot pass', () => {
 		// Direct reads, the dynamic price tables, the plan prices, and an aliased read
 		// (operationalEvents.ts reads these two through `const identity = env`).
-		for (const name of ['TURSO_DATABASE_URL', 'STRIPE_SECRET_KEY', 'STRIPE_PRICE_CREDITS_100', 'MERCADOPAGO_PRICE_CREDITS_2000_BRL_CENTS', 'STRIPE_PRICE_LIFETIME', 'MODERATY_ENVIRONMENT', 'MODERATY_RELEASE']) {
+		for (const name of ['TURSO_DATABASE_URL', 'STRIPE_SECRET_KEY', 'STRIPE_PRICE_CREDITS_100', 'STRIPE_PRICE_CREDITS_2000', 'STRIPE_PRICE_LIFETIME', 'MODERATY_ENVIRONMENT', 'MODERATY_RELEASE']) {
 			expect(uses.has(name), name).toBe(true);
 		}
-		expect(uses.size).toBeGreaterThanOrEqual(40);
+		expect(uses.size).toBeGreaterThanOrEqual(34);
 	});
 });

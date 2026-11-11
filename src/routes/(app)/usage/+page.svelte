@@ -12,8 +12,6 @@
 	const autoTopupBundles = $derived(data.autoTopupBundles ?? []);
 	const storedBundleAvailable = $derived(autoTopupBundles.some((bundle: { id: string }) => bundle.id === data.autoTopup?.bundle));
 	const autoTopupState = $derived(data.autoTopup?.state ?? 'idle');
-	const mercadoPagoBundles = $derived(data.mercadoPagoBundles ?? []);
-	const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 	// Svelte 5 runes: a reassigned $state variable must be declared with `let`.
 	let pending = $state(false);
 	let checkoutAttempts = $state<Record<string, string>>({});
@@ -23,8 +21,7 @@
 			'hosted',
 			'lifetime',
 			'test',
-			...data.bundles.map((bundle: { id: string }) => bundle.id),
-			...mercadoPagoBundles.map((bundle: { id: string }) => `mercadopago:${bundle.id}`)
+			...data.bundles.map((bundle: { id: string }) => bundle.id)
 		];
 		checkoutAttempts = Object.fromEntries(keys.map((key) => [key, crypto.randomUUID()]));
 	});
@@ -78,16 +75,6 @@
 	{/if}
 {/snippet}
 
-{#if data.paymentReturn === 'failed'}
-	<p class="error-box" role="alert">
-		Your Mercado Pago payment did not go through, so no credits were added. You can try again below.
-	</p>
-{:else if data.paymentReturn === 'pending'}
-	<p class="ok-box" role="status">
-		Your Mercado Pago payment is awaiting confirmation. Credits are added automatically once Mercado
-		Pago confirms it.
-	</p>
-{/if}
 {#if form?.error}
 	<p class="error-box" role="alert">{form.error}</p>
 {/if}
@@ -236,23 +223,6 @@
 				Stripe; your card is saved so auto top-up can work if you enable it.</p>
 		{/if}
 	</div>
-
-	{#if mercadoPagoBundles.length > 0}
-		<div class="card">
-			<h2 style="margin-top:0">Buy with Mercado Pago</h2>
-			<p class="muted">Pay in Brazilian reais using Mercado Pago. Credits are added only after the payment webhook confirms approval.</p>
-			<div class="bundle-grid">
-				{#each mercadoPagoBundles as bundle (bundle.id)}
-					<form method="POST" action="?/buyMercadoPago" use:enhance={submitting}>
-						<input type="hidden" name="bundle" value={bundle.id} />
-						<input type="hidden" name="attempt_id" value={checkoutAttempts[`mercadopago:${bundle.id}`] ?? ''} />
-						<button class="btn secondary" type="submit" disabled={pending}>Buy {bundle.label} · {brl.format(bundle.amountCents / 100)}</button>
-					</form>
-				{/each}
-			</div>
-			<p class="muted">Mercado Pago purchases are prepaid credits. Automatic top-up currently uses Stripe only.</p>
-		</div>
-	{/if}
 
 	<div class="card">
 		<h2 style="margin-top:0">Automatic top-up</h2>

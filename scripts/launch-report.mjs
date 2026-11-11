@@ -46,7 +46,6 @@ export const REQUIRED_TABLES = [
 	'welcome_emails',
 	'contact_submissions',
 	'stripe_checkout_attempts',
-	'mercado_pago_checkout_attempts',
 	'credit_transactions',
 	'stripe_subscription_periods',
 	'stripe_lifetime_slots',
@@ -247,9 +246,8 @@ async function reportLifecycle(client) {
 
 // A credit grant is the immutable credit_transactions purchase row: applied
 // once per (org_id, ref_type, ref_id) and never rewritten, while attempt
-// timestamps (Stripe updated_at, MP paid_at) restamp on webhook replays.
-// Stripe anchors on ref_id = stripe_session_id; Mercado Pago on
-// 'mercadopago:<payment_id>'. manual_refund_required rows (approved, never
+// timestamps (Stripe updated_at) restamp on webhook replays.
+// Stripe anchors on ref_id = stripe_session_id. manual_refund_required rows (approved, never
 // granted) have no purchase row and stay excluded; refunds/disputes keep
 // theirs and stay counted.
 //
@@ -301,13 +299,7 @@ async function stripePlanGrantsInWindow(client, inWindow) {
 async function grantsInWindow(client, inWindow) {
 	return {
 		...(await stripeCreditGrantsInWindow(client, inWindow)),
-		...(await stripePlanGrantsInWindow(client, inWindow)),
-		mercadoPagoCreditGrantsInWindow: await scalar(
-			client,
-			'billing.mercadoPagoCreditGrantsInWindow',
-			`SELECT count(*) AS n FROM mercado_pago_checkout_attempts a JOIN credit_transactions t ON ${LEDGER_PURCHASE_ANCHOR} AND t.ref_id = 'mercadopago:' || a.payment_id WHERE t.created_at >= ? AND t.created_at < ?`,
-			inWindow
-		)
+		...(await stripePlanGrantsInWindow(client, inWindow))
 	};
 }
 
@@ -315,12 +307,10 @@ async function reportBilling(client, inWindow) {
 	return {
 		stripeCheckoutAttemptsByStatus: await grouped(client, 'billing.stripeAttempts', 'SELECT status AS k, count(*) AS n FROM stripe_checkout_attempts GROUP BY status'),
 		stripeCheckoutAttemptsByProduct: await grouped(client, 'billing.stripeAttemptsByProduct', 'SELECT product AS k, count(*) AS n FROM stripe_checkout_attempts GROUP BY product'),
-		mercadoPagoCheckoutAttemptsByStatus: await grouped(client, 'billing.mercadoPagoAttempts', 'SELECT status AS k, count(*) AS n FROM mercado_pago_checkout_attempts GROUP BY status'),
 		// Stripe's manual_refund_required is terminal: refund.updated only
 		// flips 'ungrantable'-tagged auto-refunds on failure, and a manual
 		// Dashboard refund never writes back — so the flag is a historical
-		// record, not outstanding work. MP's resolves to 'refunded' via the
-		// reversal webhook, so only its count belongs in attention.
+		// record, not outstanding work.
 		stripeCheckoutsFlaggedManualRefund: await scalar(client, 'billing.stripeFlaggedManualRefund', "SELECT count(*) AS n FROM stripe_checkout_attempts WHERE status = 'manual_refund_required'"),
 		...(await grantsInWindow(client, inWindow)),
 		creditLedgerByReason: await ledgerGrouped(client, 'billing.ledgerByReason', 'SELECT reason AS k, count(*) AS n, COALESCE(SUM(delta), 0) AS s FROM credit_transactions GROUP BY reason'),
@@ -400,10 +390,8 @@ function moderationAttention(moderation) {
 function sectionAttention({ users, billing, moderation }) {
 	return {
 		usersInZeroCreditCountdown: users.inZeroCreditCountdown,
-		// Only MP's flag is resolvable (a manual refund flips it to 'refunded'
-		// via the reversal webhook). Stripe's is terminal — reported in
-		// billing as history, it cannot distinguish resolved work.
-		mercadoPagoManualRefundsOutstanding: billing.mercadoPagoCheckoutAttemptsByStatus.manual_refund_required ?? 0,
+		// Stripe's manual-refund flag is terminal — reported in billing as
+		// history, it cannot distinguish resolved work.
 		...moderationAttention(moderation)
 	};
 }

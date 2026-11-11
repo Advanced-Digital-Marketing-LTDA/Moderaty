@@ -11,9 +11,7 @@ import { and, eq, gt, inArray, isNotNull } from 'drizzle-orm';
 import type Stripe from 'stripe';
 
 import { db } from '$lib/server/db';
-import { creditTransactions, mercadoPagoCheckoutAttempts, stripeCheckoutAttempts, stripeEvents } from '$lib/server/db/schema';
-import { retrievePayment } from '$lib/server/mercadopago/client';
-import { processMercadoPagoPayment } from '$lib/server/mercadopago/webhooks';
+import { creditTransactions, stripeCheckoutAttempts, stripeEvents } from '$lib/server/db/schema';
 
 import { markCheckoutAttemptFulfilled, TEST_CHECKOUT_PRODUCT } from '$lib/server/billing/checkout';
 import { requireUser } from '$lib/server/session';
@@ -37,55 +35,6 @@ type SuccessState = {
 	/** This session is the STRIPE_TEST_PRODUCT smoke test — the page renders webhook-verification copy instead of buyer copy. */
 	test?: boolean;
 };
-
-/**
- * Mercado Pago branch: fulfill the user's own attempt idempotently. Unknown
- * attempt → failed; already fulfilled → granted; paid but unfulfilled → run
- * the same idempotent processor the webhook uses; otherwise still pending.
- */
-// A reversed attempt is terminal: there is no fulfillment left to wait
-// for — never leave the page pending (codex). A refund means the money
-// went back, so show that deliberately; a chargeback reads as failed. A
-// paid payment that can never be granted (the org went lifetime between
-// checkout and approval) is a durable terminal record — the buyer is still
-// charged, so the dedicated manual-refund state replaces "almost there"
-// (codex P1).
-function terminalAttemptState(status: string | undefined): Pick<SuccessState, 'granted' | 'pending' | 'failed' | 'refunded' | 'manualRefund'> | undefined {
-	if (status === 'fulfilled') return { granted: true, pending: false, failed: false, refunded: false, manualRefund: false };
-	if (status === 'refunded') return { granted: false, pending: false, failed: false, refunded: true, manualRefund: false };
-	if (status === 'disputed') return { granted: false, pending: false, failed: true, refunded: false, manualRefund: false };
-	if (status === 'manual_refund_required') return { granted: false, pending: false, failed: false, refunded: false, manualRefund: true };
-	return undefined;
-}
-
-async function mercadoPagoSuccess(user: SessionUser, attemptId: string): Promise<SuccessState> {
-	const attempt = await db
-		.select({ status: mercadoPagoCheckoutAttempts.status, paymentId: mercadoPagoCheckoutAttempts.paymentId })
-		.from(mercadoPagoCheckoutAttempts)
-		.where(and(eq(mercadoPagoCheckoutAttempts.attemptId, attemptId), eq(mercadoPagoCheckoutAttempts.orgId, user.orgId)))
-		.get();
-	if (!attempt) return { maintenance: false, user, sessionId: attemptId, granted: false, pending: false, failed: true, refunded: false, manualRefund: false };
-	const terminal = terminalAttemptState(attempt.status);
-	if (terminal) return { maintenance: false, user, sessionId: attemptId, ...terminal };
-	if (attempt.paymentId) {
-		try {
-			await processMercadoPagoPayment(await retrievePayment(attempt.paymentId));
-			// The snapshot above is stale by now: inline processing may have
-			// flipped the attempt to a TERMINAL state (a refund/chargeback
-			// reversal) — re-read before deciding what to render (cubic, round 3).
-			const fresh = await db
-				.select({ status: mercadoPagoCheckoutAttempts.status })
-				.from(mercadoPagoCheckoutAttempts)
-				.where(and(eq(mercadoPagoCheckoutAttempts.attemptId, attemptId), eq(mercadoPagoCheckoutAttempts.orgId, user.orgId)))
-				.get();
-			const freshTerminal = terminalAttemptState(fresh?.status);
-			if (freshTerminal) return { maintenance: false, user, sessionId: attemptId, ...freshTerminal };
-		} catch (cause) {
-			console.error('usage/success: Mercado Pago fulfillment retry failed:', cause);
-		}
-	}
-	return { maintenance: false, user, sessionId: attemptId, granted: false, pending: true, failed: false, refunded: false, manualRefund: false };
-}
 
 /**
  * Stripe branch: retrieve the session and run the idempotent fulfillCheckout.
@@ -250,10 +199,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 	const user = requireUser(locals);
 	const sessionId = url.searchParams.get('session_id');
-	const mercadoPagoAttemptId = url.searchParams.get('attempt_id');
-	if (url.searchParams.get('provider') === 'mercadopago' && mercadoPagoAttemptId) {
-		return mercadoPagoSuccess(user, mercadoPagoAttemptId);
-	}
 	if (!sessionId) return { maintenance: false, user, sessionId: null, granted: false, pending: false, failed: false, refunded: false, manualRefund: false };
 	return stripeSuccess(user, sessionId);
 };

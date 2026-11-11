@@ -171,8 +171,7 @@ export const UNMETERED_CREDIT_PURCHASE_ERROR = 'the lifetime plan includes unlim
 
 /**
  * Rejects credit purchases for plans whose comments are already unlimited.
- * Called before a checkout attempt is planted for ANY credit bundle (Stripe
- * and Mercado Pago): a lifetime org buying credits pays real money for a
+ * Called before a checkout attempt is planted for ANY credit bundle: a lifetime org buying credits pays real money for a
  * balance it can never need (MOD-35).
  */
 export async function assertCreditsPurchasable(orgId: string): Promise<void> {

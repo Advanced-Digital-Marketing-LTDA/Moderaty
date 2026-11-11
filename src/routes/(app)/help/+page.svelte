@@ -292,10 +292,6 @@
 		for large scans. After a card change, payment failure, or refund, read its status before
 		expecting another top-up.
 	</p>
-	<p>
-		Mercado Pago prepaid-credit purchases in Brazilian reais are available when offered on Usage.
-		Credits arrive after payment approval is confirmed. Automatic top-up uses Stripe only.
-	</p>
 </section>
 
 <section id="teams" class="card">

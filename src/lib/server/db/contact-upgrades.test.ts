@@ -36,6 +36,7 @@ test.each([58, 60])('upgrades the synthetic base at %i through the real journal 
 		await client.executeMultiple(`
 			CREATE TABLE __drizzle_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, hash TEXT NOT NULL, created_at NUMERIC);
 			CREATE TABLE organizations (id TEXT PRIMARY KEY);
+			CREATE TABLE mercado_pago_checkout_attempts (id INTEGER PRIMARY KEY);
 			CREATE TABLE feedback_digests (id INTEGER PRIMARY KEY, status TEXT NOT NULL, marker TEXT);
 			CREATE TABLE contact_submissions (id INTEGER PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, status TEXT NOT NULL, verification_token TEXT NOT NULL, expires_at TEXT NOT NULL, verified_at TEXT, consent_text TEXT NOT NULL, ip TEXT NOT NULL, user_agent TEXT NOT NULL, created_at TEXT NOT NULL);
 			CREATE TABLE comments (id TEXT PRIMARY KEY, channel_id TEXT NOT NULL, status TEXT NOT NULL);

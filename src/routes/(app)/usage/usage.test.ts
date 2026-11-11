@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { TEST_OWNER, postForm, setupTestDb, testDb } from '$lib/server/testdb';
-import { mercadoPagoCheckoutAttempts, organizations, stripeCheckoutAttempts, stripeLifetimeSlots, stripeAutoTopupRecoveries, stripeSubscriptionPeriods } from '$lib/server/db/schema';
+import { organizations, stripeCheckoutAttempts, stripeLifetimeSlots, stripeAutoTopupRecoveries, stripeSubscriptionPeriods } from '$lib/server/db/schema';
 import type { SessionUser } from '$lib/server/session';
 import { TEST_CHECKOUT_OPERATOR_EMAIL } from '$lib/server/billing/checkout';
 import { applyLedgerDelta, consumeCredit } from '$lib/server/billing/ledger';
@@ -48,7 +48,7 @@ import { render } from 'svelte/server';
 import Page from './+page.svelte';
 import { actions, load } from './+page.server';
 
-setupTestDb(['organizations', 'credit_transactions', 'stripe_events', 'stripe_checkout_attempts', 'mercado_pago_checkout_attempts', 'stripe_lifetime_entitlements', 'stripe_lifetime_slots', 'stripe_pending_reversals', 'stripe_dispute_reversals', 'stripe_auto_topup_recoveries', 'stripe_subscription_periods']);
+setupTestDb(['organizations', 'credit_transactions', 'stripe_events', 'stripe_checkout_attempts', 'stripe_lifetime_entitlements', 'stripe_lifetime_slots', 'stripe_pending_reversals', 'stripe_dispute_reversals', 'stripe_auto_topup_recoveries', 'stripe_subscription_periods']);
 
 const OWNER = TEST_OWNER;
 // The test checkout is gated to the operator account — TEST_OWNER's email is
@@ -155,7 +155,6 @@ describe('usage load', () => {
 			metered: false,
 			history: [],
 			bundles: [],
-			mercadoPagoBundles: [],
 			autoTopup: { enabled: false, threshold: 100, state: 'idle', failures: 0, lastAttemptAt: null, hasCard: false, card: null },
 			autoTopupConsentText: 'consent',
 			stripeConfigured: true,
@@ -326,12 +325,11 @@ describe('usage load', () => {
 		// Unlimited scoring makes credit bundles and auto top-up useless, so
 		// the cards are replaced by an explanatory line (I12: never silently
 		// different). A metered org renders them normally.
-		const base = { ...usagePageData(), bundles: [{ id: 'credits_100', label: '100 credits' }], mercadoPagoBundles: [{ id: 'credits_100', label: '100 credits', amountCents: 990 }] };
+		const base = { ...usagePageData(), bundles: [{ id: 'credits_100', label: '100 credits' }] };
 		const lifetime = render(Page, {
 			props: { data: { ...base, billing: { plan: 'lifetime', subscriptionStatus: null, periodEnd: null } }, form: null } as never
 		}).body;
 		expect(lifetime).not.toContain('action="?/buy"');
-		expect(lifetime).not.toContain('action="?/buyMercadoPago"');
 		expect(lifetime).not.toContain('action="?/setAutoTopup"');
 		expect(lifetime).toContain('unlimited moderated comments');
 
@@ -339,7 +337,6 @@ describe('usage load', () => {
 			props: { data: { ...base, billing: { plan: null, subscriptionStatus: null, periodEnd: null } }, form: null } as never
 		}).body;
 		expect(metered).toContain('action="?/buy"');
-		expect(metered).toContain('action="?/buyMercadoPago"');
 		expect(metered).toContain('action="?/setAutoTopup"');
 
 		// A stale enabled flag (enabled before the upgrade) must be
@@ -460,28 +457,6 @@ describe('usage load', () => {
 		const data = { ...usagePageData(), maintenance: true, summary: null, credits: null };
 		const body = render(Page, { props: { data, form: null } as never }).body;
 		expect(body).not.toContain('monthly credits left');
-	});
-
-	// back_urls send the buyer to /usage?payment=failed|pending — without a
-	// notice they land on a plain usage page with no sign of what happened.
-	test.each([
-		{ state: 'failed', shown: 'Your Mercado Pago payment did not go through', hidden: 'awaiting confirmation' },
-		{ state: 'pending', shown: 'Your Mercado Pago payment is awaiting confirmation', hidden: 'did not go through' }
-	])('a Mercado Pago $state return explains the payment state', async ({ state, shown, hidden }) => {
-		await seedOrg({ creditsRemaining: 5 });
-		const { data, body } = await loadAndRender(`?payment=${state}`);
-		expect(data.paymentReturn).toBe(state);
-		expect(body).toContain(shown);
-		expect(body).not.toContain(hidden);
-	});
-
-	test('no or an unknown payment parameter shows no payment notice', async () => {
-		await seedOrg({ creditsRemaining: 5 });
-		for (const search of ['', '?payment=approved', '?payment=FAILED']) {
-			const { data, body } = await loadAndRender(search);
-			expect(data.paymentReturn).toBeNull();
-			expect(body).not.toContain('Mercado Pago payment');
-		}
 	});
 
 	test('a lifetime org never gets a period end on the plan line — a live hosted subscription shows separately', async () => {
@@ -776,56 +751,6 @@ describe('usage buy action', () => {
 		expect(mocks.sessionsCreate).not.toHaveBeenCalled();
 		expect(mocks.customersCreate).not.toHaveBeenCalled();
 		expect(await testDb().db.select().from(stripeCheckoutAttempts)).toHaveLength(0);
-	});
-
-	test('a lifetime org cannot open a Mercado Pago credit checkout', async () => {
-		// With valid provider configuration, unlimited plans cannot create attempts.
-		await seedOrg({ plan: 'lifetime' });
-		const priorSecret = env.MERCADOPAGO_WEBHOOK_SECRET;
-		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		try {
-			env.MERCADOPAGO_WEBHOOK_SECRET = 'webhook-test';
-			const result = (await actions.buyMercadoPago({ request: postForm({ bundle: 'credits_100' }), locals: { user: OWNER } } as never)) as { status: number };
-			expect(result.status).toBeGreaterThanOrEqual(400);
-			expect(errorSpy.mock.calls.flat().some((arg) => arg instanceof Error && arg.message.includes('lifetime'))).toBe(true);
-			expect(await testDb().db.select().from(mercadoPagoCheckoutAttempts)).toHaveLength(0);
-		} finally {
-			if (priorSecret === undefined) delete (env as Record<string, unknown>).MERCADOPAGO_WEBHOOK_SECRET;
-			else env.MERCADOPAGO_WEBHOOK_SECRET = priorSecret;
-			errorSpy.mockRestore();
-		}
-	});
-
-	test('an owner starts a Mercado Pago checkout and is redirected to the provider', async () => {
-		// Only the provider's HTTP call is stubbed; the real checkout runs (bundle price,
-		// attempt row, init_point host check). Kit 3 rejects an absolute URL unless
-		// redirect() is told it is external, which the action's catch would otherwise
-		// turn into a 400.
-		await seedOrg();
-		const keys = ['MERCADOPAGO_WEBHOOK_SECRET', 'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_PRICE_CREDITS_500_BRL_CENTS'] as const;
-		const prior = Object.fromEntries(keys.map((key) => [key, env[key]]));
-		Object.assign(env, { MERCADOPAGO_WEBHOOK_SECRET: 'webhook-test', MERCADOPAGO_ACCESS_TOKEN: 'mp-token', MERCADOPAGO_PRICE_CREDITS_500_BRL_CENTS: '2500' });
-		const location = 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=pref_1';
-		const provider = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-			new Response(JSON.stringify({ id: 'pref_1', init_point: location }), { status: 201, headers: { 'Content-Type': 'application/json' } })
-		);
-		try {
-			await expect(
-				actions.buyMercadoPago({ request: postForm({ bundle: 'credits_500' }), locals: { user: OWNER } } as never)
-			).rejects.toMatchObject({ status: 303, location });
-
-			expect(new URL(String(provider.mock.calls[0][0])).pathname).toBe('/checkout/preferences');
-			expect(provider.mock.calls[0][1]?.headers).toMatchObject({ Authorization: 'Bearer mp-token' });
-			const attempts = await testDb().db.select().from(mercadoPagoCheckoutAttempts);
-			expect(attempts).toHaveLength(1);
-			expect(attempts[0]).toMatchObject({ orgId: 'org-1', bundleId: 'credits_500', status: 'open', initPoint: location, preferenceId: 'pref_1' });
-		} finally {
-			provider.mockRestore();
-			for (const key of keys) {
-				if (prior[key] === undefined) delete (env as Record<string, unknown>)[key];
-				else (env as Record<string, unknown>)[key] = prior[key];
-			}
-		}
 	});
 });
 
@@ -1394,7 +1319,6 @@ describe('usage cards section', () => {
 					user: OWNER,
 					summary: { remaining: 10, usedThisMonth: 0, usedLifetime: 0 },
 					metered: true,
-					mercadoPagoBundles: [],
 					history: [],
 					bundles: [],
 					autoTopup: { enabled: false, threshold: 100, state: 'idle', failures: 0, lastAttemptAt: null, hasCard: true },
@@ -1476,28 +1400,21 @@ describe('usage cards section', () => {
 		});
 		expect(body).toContain('No card saved yet');
 		expect(body).not.toContain('A card is saved');
-		// Only a STRIPE bundle saves a card — a Mercado Pago purchase saves no
-		// Stripe payment method, so "buy any bundle" would mislead (cubic P2).
+		// The card is saved by buying a Stripe bundle, so "buy any bundle" would mislead.
 		expect(body).toContain('buy a Stripe bundle once');
 		expect(body).not.toContain('buy any bundle');
 	});
 });
 
 
-test('retired manual bundles return a specific 400 on both purchase paths without attempts', async () => {
+test('a retired manual bundle returns a specific 400 without an attempt', async () => {
 	await seedOrg();
-	Object.assign(env, { MERCADOPAGO_WEBHOOK_SECRET: 'webhook-test' });
-	try {
-	for (const action of [actions.buy, actions.buyMercadoPago]) {
-		const result = await action({ request: postForm({ bundle: 'credits_100' }), locals: { user: OWNER } } as never);
-		expect(result).toMatchObject({ status: 400 });
-		expect(JSON.stringify(result)).toContain('no longer available');
-	}
+	const result = await actions.buy({ request: postForm({ bundle: 'credits_100' }), locals: { user: OWNER } } as never);
+	expect(result).toMatchObject({ status: 400 });
+	expect(JSON.stringify(result)).toContain('no longer available');
 	expect(mocks.sessionsCreate).not.toHaveBeenCalled();
 	expect(mocks.customersCreate).not.toHaveBeenCalled();
 	expect(await testDb().db.select().from(stripeCheckoutAttempts)).toHaveLength(0);
-	expect(await testDb().db.select().from(mercadoPagoCheckoutAttempts)).toHaveLength(0);
-	} finally { delete (env as Record<string, unknown>).MERCADOPAGO_WEBHOOK_SECRET; }
 });
 
 

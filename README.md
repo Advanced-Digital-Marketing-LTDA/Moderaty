@@ -145,8 +145,6 @@ Copy [.env.example](.env.example) and provide these values as appropriate:
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe billing credentials for credit bundles and hosted/lifetime plans |
 | `STRIPE_PRICE_CREDITS_*`, `STRIPE_PRICE_HOSTED_MONTHLY`, `STRIPE_PRICE_LIFETIME` | Stripe Price ids for the credit bundles, the hosted monthly plan, and lifetime access |
 | `STRIPE_TEST_PRODUCT` | Optional operator-only "Test checkout" card that runs a real end-to-end purchase |
-| `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` | Optional Mercado Pago BRL prepaid-credit checkout credentials |
-| `MERCADOPAGO_ENVIRONMENT`, `MERCADOPAGO_PRICE_CREDITS_*_BRL_CENTS` | Optional Mercado Pago mode and BRL bundle prices in cents |
 | `ADAFLOW_API_TOKEN` | Optional AdaFlow accounting-export Bearer token (`docs/adaflow-api-validation.md`) |
 | `FOCUS_NFE_TOKEN`, `FOCUS_NFE_ENVIRONMENT` | Optional Focus NFe NFS-e emission credentials (`docs/focus-nfe-validation.md`) |
 | `ANALYTICS_ENABLED`, `UMAMI_URL`, `UMAMI_WEBSITE_ID`, `ANALYTICS_ALLOWED_HOSTNAMES` | Optional self-hosted audience measurement; runtime only, disabled by default |

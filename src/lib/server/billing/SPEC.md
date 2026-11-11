@@ -12,8 +12,8 @@ depends-on: [persistence-boundary]
 
 ## Responsibility
 
-Billing owns organization-scoped entitlements and credit-ledger mutations. Stripe handles hosted subscriptions and lifetime entitlements and also supports prepaid-credit purchases. Stripe and Mercado Pago both grant and reverse prepaid credits through the shared ledger; Mercado Pago does not implement subscription or lifetime entitlements. Provider procedure details remain with their operational docs.
+Billing owns organization-scoped entitlements and credit-ledger mutations. Stripe handles hosted subscriptions, lifetime entitlements and prepaid-credit purchases, and grants and reverses prepaid credits through the shared ledger. Provider procedure details remain with its operational docs.
 
 ## Boundary
 
-Webhook routes verify provider signatures before handing validated events to server-side handlers. Stripe event claims and provider payment identifiers, together with unique organization-scoped ledger references, make fulfillment and reversal retries idempotent. Provider credentials and SDK clients remain server-side and are never exposed to clients. Partial refunds do not proportionally reverse credits: Stripe recognizes them without a proportional ledger debit, while Mercado Pago partial-refund approvals are rejected for manual review.
+Webhook routes verify provider signatures before handing validated events to server-side handlers. Stripe event claims and provider payment identifiers, together with unique organization-scoped ledger references, make fulfillment and reversal retries idempotent. Provider credentials and SDK clients remain server-side and are never exposed to clients. Partial refunds do not proportionally reverse credits: Stripe recognizes them without a proportional ledger debit.
