@@ -44,19 +44,17 @@
 	}
 	.signal {
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.18em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: rgb(244 244 248 / 0.8);
 	}
 	.microcopy {
 		max-width: 52ch;
 		text-align: center;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
+		font-size: 12px;
 		line-height: 1.6;
-		letter-spacing: 0.14em;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 		margin: 0;
 	}

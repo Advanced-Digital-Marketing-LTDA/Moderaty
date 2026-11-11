@@ -31,7 +31,7 @@
 		align-items: center;
 		justify-content: flex-end;
 		gap: 8px;
-		padding: 10px 24px;
+		padding: 12px 24px;
 		border-bottom: 1px solid var(--line);
 		font-size: 12px;
 		color: var(--ink-2);

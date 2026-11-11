@@ -7,7 +7,7 @@ parent: moderaty-architecture
 tags:
   - visual-design
 name: Moderaty
-description: Comment protection for YouTube creators, dark-only, flat and square.
+description: Comment protection for YouTube creators, dark-only, flat, with nested rounded corners.
 colors:
   bg: "#0a0a0c"
   surface: "#101014"
@@ -16,7 +16,7 @@ colors:
   line-strong: "rgba(255, 255, 255, 0.16)"
   text: "#f4f4f2"
   text-2: "#9b9ba4"
-  text-3: "#5c5c66"
+  text-3: "#85858f"
   accent: "#ff3131"
   accent-hover: "#ff4747"
   accent-press: "#e02b2b"
@@ -25,8 +25,8 @@ colors:
 typography:
   display:
     fontFamily: "Archivo, system-ui, -apple-system, 'Segoe UI', sans-serif"
-    fontSize: "26px"
-    fontWeight: 700
+    fontSize: "24px"
+    fontWeight: 600
     lineHeight: 1.55
     letterSpacing: "-0.01em"
   body:
@@ -41,16 +41,18 @@ typography:
     lineHeight: 1.55
   button:
     fontFamily: "Archivo, system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontSize: "14px"
+    fontWeight: 600
+    letterSpacing: "0.01em"
+  label:
+    fontFamily: "Archivo, system-ui, -apple-system, 'Segoe UI', sans-serif"
     fontSize: "12px"
-    fontWeight: 700
-    letterSpacing: "0.08em"
-  caps-label:
-    fontFamily: "'JetBrains Mono', ui-monospace, monospace"
-    fontSize: "11px"
     fontWeight: 500
-    letterSpacing: "0.14em"
+    letterSpacing: "0.01em"
 rounded:
-  none: "0px"
+  xs: "4px"
+  sm: "8px"
+  md: "12px"
 spacing:
   space-4: "4px"
   space-8: "8px"
@@ -88,8 +90,9 @@ components:
 
 ## Overview
 
-Moderaty's interface is dark-only, flat, and square. Zero radius, one red
-accent, and a monospaced voice for labels. The app has no gradients and no
+Moderaty's interface is dark-only and flat with nested rounded corners (cards
+12px, controls 8px, tags 4px), one red accent, and sentence-case labels. The
+verdict stamp stays square and uppercase: it is the product signature. The app has no gradients and no
 shadows; separation comes from 1px hairline borders and two surface steps.
 This document describes the styles shipped in `src/app.css` and the small
 components in `src/lib/`. Those files are the source of truth for the values
@@ -103,9 +106,8 @@ below.
 - **Lines:** `line` (9% white) for default borders and dividers; `line-strong`
   (16% white) for secondary buttons and underlines.
 - **Text:** `text` (#f4f4f2) for primary text, `text-2` (#9b9ba4) for
-  secondary text, and `text-3` (#5c5c66) for caps labels. `text-3` measures
-  2.99:1 on `bg`, below the 4.5:1 body-text threshold, so use it only for
-  non-essential labels.
+  secondary text, and `text-3` (#85858f) for labels and meta. `text-3` measures
+  5.42:1 on `bg` and 4.94:1 on `surface-2`, above the 4.5:1 threshold.
 - **Accent:** `accent` (#ff3131) is the single saturated color. It marks the
   primary action, danger, and errors. `accent-hover` and `accent-press` are the
   button states.
@@ -118,12 +120,12 @@ Contrast against `bg`: `text` 17.96:1, `text-2` 7.18:1, `accent` 5.40:1, `ok`
 ## Typography
 
 **Archivo** (variable, weights 100 to 900) is the only text face. Headings are
-26px at weight 700. Body is 15px at line-height 1.55. Secondary text and table
-cells are 14px. Button labels are 12px uppercase at weight 700 with 0.08em
-tracking.
+24px at weight 600; no weight above 600 is used. Body is 15px at line-height
+1.55. Secondary text and table cells are 14px. Button labels are 14px sentence
+case at weight 600. Type sizes come from one scale: 12, 14, 15, 16, 18, 20, 24,
+32, 40, 48, 64.
 
-**JetBrains Mono** carries caps labels (11px, weight 500, 0.14em tracking) and
-table headers. Use it for numbers that need tabular alignment.
+**JetBrains Mono** carries table headers and meta lines (12px, sentence case, 0.01em tracking). Use it for numbers that need tabular alignment.
 
 IBM Plex Mono is shipped under `static/fonts/` and loaded by `src/app.css`, but
 no current rule references it. Remove it from the bundle only when that is
@@ -131,20 +133,21 @@ decided.
 
 ## Layout and spacing
 
-Spacing steps are 4, 8, 16, 24, 32, 48, 64, and 96 px. The app column is 900px
-wide with 20px side gutters. Cards use 20px padding and a 14px bottom margin.
+Spacing steps are 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, and 96 px; every margin, padding, gap and fixed height sits on the 4px grid. The app column is 900px
+wide with 20px side gutters. Cards use 20px padding and a 16px bottom margin.
 Pages show all four states: loading (skeleton), empty (dashed-border block),
 error (`error-box`), and populated.
 
 ## Shape and motion
 
-Every radius is 0. Borders are 1px. Presses scale to 0.97 over 150ms with an
-ease-out curve. Hover changes color only. Under `prefers-reduced-motion`,
+Radii nest: 12px for cards and panels, 8px for controls, 4px for tags; the verdict
+stamp is the only square element. Borders are 1px. Presses scale to 0.97 over
+150ms with one ease-out curve and no overshoot. Hover changes color only. Under `prefers-reduced-motion`,
 transitions and animations are disabled.
 
 ## Components
 
-- **Button:** 48px high, uppercase, 32px horizontal padding. Primary uses
+- **Button:** 48px high, sentence case, 8px radius, 32px horizontal padding. Primary uses
   `accent`; secondary uses a transparent fill with a `line-strong` border;
   danger uses `accent`; small is a compact variant.
 - **Card:** `surface` background, 1px `line` border, 20px padding. The
@@ -162,8 +165,8 @@ transitions and animations are disabled.
 **The One Accent Rule.** `accent` is for the primary action, danger, and errors.
 Never use it for decoration.
 
-**The Flat Rule.** No gradients, shadows, or radii. Separation comes from
-borders and surface steps.
+**The Flat Rule.** No hue gradients or shadows. The only gradient is the neutral
+skeleton shimmer. Separation comes from borders and surface steps.
 
 **The Four States Rule.** Every page ships loading, empty, error, and populated
 states. A page with a blank state is a bug.

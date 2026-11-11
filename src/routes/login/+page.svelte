@@ -56,13 +56,13 @@
 		margin-top: 16px;
 	}
 	.login-card .small {
-		font-size: 13px;
+		font-size: 14px;
 	}
 	.login-links {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
 		gap: 8px 20px;
-		font-size: 13px;
+		font-size: 14px;
 	}
 </style>

@@ -539,7 +539,7 @@
 		border-bottom: 1px solid var(--line);
 	}
 	.finding-summary {
-		margin: 0 0 10px;
+		margin: 0 0 12px;
 		font-weight: 600;
 	}
 	.evidence-details summary {
@@ -553,7 +553,7 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
+		gap: 16px;
 	}
 	.evidence .quote {
 		margin: 0;
@@ -581,13 +581,13 @@
 	}
 	.settings-note {
 		margin: 0;
-		font-size: 13px;
+		font-size: 14px;
 	}
 	.history-status {
 		margin: 0 0 24px;
 	}
 	.history-tools > h3 {
-		margin: 0 0 10px;
+		margin: 0 0 12px;
 	}
 	.history-tools > p {
 		margin: 0 0 16px;
@@ -602,7 +602,7 @@
 	}
 	.settings-readonly {
 		margin: 0 0 12px;
-		padding-left: 18px;
+		padding-left: 20px;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
@@ -610,7 +610,7 @@
 	}
 	.card {
 		border: 1px solid var(--line);
-		border-radius: 8px;
+		border-radius: var(--radius-sm);
 		padding: 20px;
 		margin-bottom: 24px;
 	}
@@ -624,7 +624,7 @@
 	.settings-form {
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
+		gap: 16px;
 	}
 	.check {
 		display: flex;
@@ -635,18 +635,18 @@
 	.field {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 8px;
 		font-size: 14px;
 		max-width: 360px;
 	}
 	.field select,
 	.field input[type='number'] {
 		font: inherit;
-		padding: 6px 8px;
+		padding: 8px 8px;
 		background: var(--bg);
 		color: var(--text);
 		border: 1px solid var(--line);
-		border-radius: 6px;
+		border-radius: var(--radius-xs);
 	}
 	fieldset.categories {
 		border: 0;
@@ -673,7 +673,7 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
-		font-size: 13px;
+		gap: 8px;
+		font-size: 14px;
 	}
 </style>

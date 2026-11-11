@@ -118,7 +118,7 @@
 	.title {
 		font-family: var(--font-display);
 		font-size: 40px;
-		font-weight: 800;
+		font-weight: 600;
 		line-height: 1.05;
 		letter-spacing: -0.02em;
 		color: var(--paper);
@@ -132,15 +132,14 @@
 	}
 	.contact-form {
 		display: grid;
-		gap: 10px;
+		gap: 12px;
 		margin-bottom: 0;
 	}
 	.field {
 		margin-top: 8px;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.14em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.contact-form input[type='text'],
@@ -168,31 +167,31 @@
 	}
 	.check {
 		display: flex;
-		gap: 10px;
+		gap: 12px;
 		align-items: flex-start;
-		margin-top: 14px;
+		margin-top: 16px;
 		font-size: 14px;
 		line-height: 1.5;
 	}
 	.check input {
-		margin-top: 3px;
+		margin-top: 4px;
 		flex-shrink: 0;
 	}
 	.contact-form .btn {
 		justify-self: start;
-		margin-top: 18px;
+		margin-top: 20px;
 	}
 	.microcopy {
-		margin: 14px 0 0;
+		margin: 16px 0 0;
 		font-size: 12px;
 		line-height: 1.6;
 		color: var(--text-muted);
 	}
 	.success-title {
-		margin: 0 0 10px;
+		margin: 0 0 12px;
 		font-family: var(--font-display);
 		font-size: 24px;
-		font-weight: 700;
+		font-weight: 600;
 		color: var(--paper);
 	}
 	.success p {
@@ -200,7 +199,7 @@
 		line-height: 1.6;
 	}
 	.success-note {
-		font-size: 13px;
+		font-size: 14px;
 		color: var(--text-muted);
 	}
 	.success .btn {

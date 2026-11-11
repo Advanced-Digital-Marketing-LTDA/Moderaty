@@ -46,7 +46,7 @@
 		max-width: 20ch;
 		font-family: var(--font-display);
 		font-size: 40px;
-		font-weight: 800;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		color: var(--paper);
 		margin: 0;
@@ -65,8 +65,7 @@
 		margin: 40px 0 0;
 		font-family: var(--font-mono);
 		font-size: 12px;
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
+		letter-spacing: 0.01em;
 		color: rgb(244 244 248 / 0.7);
 	}
 	.custom-link {

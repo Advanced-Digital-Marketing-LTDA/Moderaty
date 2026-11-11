@@ -57,17 +57,16 @@
 	.kicker {
 		margin: 0 0 16px;
 		font-family: var(--font-mono);
-		font-size: 11px;
+		font-size: 12px;
 		font-weight: 600;
-		letter-spacing: 0.22em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--ban);
 	}
 	h1 {
 		margin: 0;
 		font-family: var(--font-display);
 		font-size: clamp(32px, 6vw, 48px);
-		font-weight: 800;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		line-height: 1.05;
 		color: var(--paper);
@@ -75,9 +74,8 @@
 	.doc-meta {
 		margin: 16px 0 0;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.toc {
@@ -90,10 +88,9 @@
 	.toc-title {
 		margin: 0 0 12px;
 		font-family: var(--font-mono);
-		font-size: 10px;
+		font-size: 12px;
 		font-weight: 600;
-		letter-spacing: 0.2em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.toc ol {
@@ -104,7 +101,7 @@
 		column-gap: 32px;
 	}
 	.toc li {
-		margin: 6px 0;
+		margin: 8px 0;
 		font-size: 14px;
 		break-inside: avoid;
 	}
@@ -127,7 +124,7 @@
 		margin: 56px 0 16px;
 		font-family: var(--font-display);
 		font-size: 24px;
-		font-weight: 700;
+		font-weight: 600;
 		letter-spacing: -0.01em;
 		color: var(--paper);
 		scroll-margin-top: 96px;
@@ -136,15 +133,15 @@
 		margin: 32px 0 12px;
 		font-family: var(--font-display);
 		font-size: 18px;
-		font-weight: 700;
+		font-weight: 600;
 		color: var(--paper);
 	}
 	.legal-body :global(p) {
-		margin: 14px 0;
+		margin: 16px 0;
 	}
 	.legal-body :global(ol),
 	.legal-body :global(ul) {
-		margin: 14px 0;
+		margin: 16px 0;
 		padding-left: 24px;
 	}
 	.legal-body :global(li) {
@@ -179,10 +176,9 @@
 	}
 	.legal-body :global(th) {
 		font-family: var(--font-mono);
-		font-size: 10px;
+		font-size: 12px;
 		font-weight: 600;
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 		background: var(--surface);
 	}
@@ -199,7 +195,7 @@
 		border: 1px solid var(--ban);
 		border-radius: var(--radius);
 		background: var(--brand-soft);
-		font-weight: 700;
+		font-weight: 600;
 		color: var(--paper);
 	}
 

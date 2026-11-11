@@ -221,11 +221,11 @@
 	   while it is only requested — the row must never overclaim. */
 	.queue-reason {
 		margin: 8px 0 0;
-		font-size: 13px;
+		font-size: 14px;
 	}
 	.hold-state {
 		margin: 8px 0 0;
-		font-size: 13px;
+		font-size: 14px;
 		color: var(--text-2);
 	}
 	.hold-state.muted {

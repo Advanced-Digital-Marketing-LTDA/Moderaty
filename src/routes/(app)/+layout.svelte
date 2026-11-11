@@ -95,13 +95,13 @@
 	.team-switch {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 8px;
 	}
 	.account {
 		margin-left: auto;
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: 12px;
 	}
 	.route-enter {
 		animation: route-in 200ms var(--ease-out);
@@ -136,12 +136,11 @@
 	}
 	.maintenance-kicker {
 		font-family: var(--font-mono);
-		font-size: 11px;
+		font-size: 12px;
 		font-weight: 500;
-		letter-spacing: 0.16em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--brand);
-		margin: 0 0 10px;
+		margin: 0 0 12px;
 	}
 	.maintenance-panel h1 {
 		font-size: 24px;

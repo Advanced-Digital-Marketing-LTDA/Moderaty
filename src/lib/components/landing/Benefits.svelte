@@ -54,7 +54,7 @@
 		max-width: 16ch;
 		font-family: var(--font-display);
 		font-size: 40px;
-		font-weight: 800;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		color: var(--paper);
 		margin: 0;
@@ -78,7 +78,7 @@
 	}
 	.numeral {
 		font-family: var(--font-mono);
-		font-size: 60px;
+		font-size: 64px;
 		font-weight: 600;
 		font-variant-numeric: tabular-nums;
 		line-height: 1;
@@ -91,15 +91,14 @@
 		padding-bottom: 4px;
 		font-family: var(--font-mono);
 		font-size: 14px;
-		text-transform: uppercase;
-		letter-spacing: 0.14em;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.chunk-title {
 		margin: 24px 0 0;
 		font-family: var(--font-display);
 		font-size: 24px;
-		font-weight: 700;
+		font-weight: 600;
 		color: var(--paper);
 	}
 	.chunk-body {
@@ -118,7 +117,7 @@
 			font-size: 48px;
 		}
 		.numeral {
-			font-size: 72px;
+			font-size: 64px;
 		}
 	}
 	@media (min-width: 1024px) {
