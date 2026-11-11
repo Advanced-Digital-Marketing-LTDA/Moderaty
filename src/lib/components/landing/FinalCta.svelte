@@ -35,7 +35,7 @@
 		text-wrap: balance;
 		font-family: var(--font-display);
 		font-size: 48px;
-		font-weight: 800;
+		font-weight: 600;
 		line-height: 1.02;
 		letter-spacing: -0.02em;
 		color: var(--paper);
@@ -49,7 +49,7 @@
 	}
 	.secondary {
 		display: block;
-		margin-top: 18px;
+		margin-top: 20px;
 		color: var(--paper);
 		text-underline-offset: 5px;
 		text-decoration-color: var(--ban);
@@ -57,7 +57,7 @@
 	.cta {
 		margin-top: 40px;
 		display: inline-block;
-		border-radius: 0;
+		border-radius: var(--radius-sm);
 		background: var(--ban);
 		color: var(--ink);
 		font-size: 18px;
@@ -68,14 +68,13 @@
 	.microcopy {
 		margin: 24px 0 0;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.14em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	@media (min-width: 768px) {
 		.title {
-			font-size: 60px;
+			font-size: 64px;
 		}
 	}
 </style>

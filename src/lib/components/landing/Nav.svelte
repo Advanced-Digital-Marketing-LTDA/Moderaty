@@ -116,8 +116,7 @@
 		font-family: var(--font-mono);
 		font-size: 14px;
 		font-weight: 600;
-		letter-spacing: 0.22em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--paper);
 		text-decoration: none;
 	}
@@ -130,9 +129,8 @@
 	.link {
 		white-space: nowrap;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 		text-decoration: none;
 		transition: color 200ms ease;
@@ -149,12 +147,12 @@
 	.cta {
 		white-space: nowrap;
 		display: none;
-		border-radius: 0;
+		border-radius: var(--radius-sm);
 		background: var(--ban);
 		color: var(--ink);
 		font-size: 14px;
 		font-weight: 600;
-		padding: 10px 20px;
+		padding: 12px 20px;
 		text-decoration: none;
 	}
 	.menu-btn {
@@ -165,7 +163,7 @@
 		border: 0;
 		color: var(--paper);
 		cursor: pointer;
-		padding: 6px;
+		padding: 8px;
 	}
 	.mobile-links {
 		border-top: 1px solid var(--line);
@@ -178,8 +176,7 @@
 	.mobile-link {
 		font-family: var(--font-mono);
 		font-size: 12px;
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
+		letter-spacing: 0.01em;
 		color: rgb(244 244 248 / 0.7);
 		text-decoration: none;
 	}
@@ -212,12 +209,11 @@
 	}
 	.tools-link {
 		display: block;
-		padding: 10px 12px;
+		padding: 12px 12px;
 		white-space: nowrap;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--paper);
 		text-decoration: none;
 	}

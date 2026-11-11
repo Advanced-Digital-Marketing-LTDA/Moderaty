@@ -118,7 +118,6 @@
 	.back-link {
 		display: inline-block;
 		margin-bottom: 20px;
-		text-transform: uppercase;
 	}
 	.channel-headline {
 		display: flex;
@@ -128,10 +127,10 @@
 		flex-wrap: wrap;
 	}
 	.channel-identity h1 {
-		font-size: 44px;
+		font-size: 48px;
 		font-weight: 600;
 		line-height: 1.05;
-		margin: 0 0 10px;
+		margin: 0 0 12px;
 	}
 	.channel-sub {
 		color: var(--text-3);
@@ -147,7 +146,7 @@
 	.protected {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 8px;
 		align-items: flex-end;
 	}
 	.protected-label {
@@ -163,13 +162,17 @@
 		color: var(--text-3);
 	}
 	.protected-sub {
-		font-size: 13px;
+		font-size: 14px;
 		color: var(--text-2);
+	}
+	.protected-sub a {
+		color: var(--accent);
+		text-underline-offset: 3px;
 	}
 	.banned {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 8px;
 		align-items: flex-end;
 	}
 	.banned-count {
@@ -188,10 +191,9 @@
 	}
 	.tab {
 		padding: 0 2px 12px;
-		font-size: 13px;
+		font-size: 14px;
 		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--text-2);
 		text-decoration: none;
 		border-bottom: 2px solid transparent;

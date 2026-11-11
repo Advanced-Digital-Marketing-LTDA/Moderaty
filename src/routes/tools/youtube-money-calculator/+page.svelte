@@ -396,7 +396,7 @@
 	.choice-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
 	.choice-option:has(input:checked) { background: var(--paper); color: var(--bg); font-weight: 600; }
 	.choice-option:has(input:focus-visible) { outline: 2px solid var(--paper); outline-offset: 3px; }
-	.presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+	.presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 	.preset { min-height: 44px; min-width: 0; padding: 0; background: var(--surface); color: var(--text); border: 1px solid var(--text-2); font: inherit; }
 	.hint { color: var(--text-2); font-size: 14px; margin: 0; line-height: 1.6; }
 	.niche { border: 1px solid var(--line-strong); }
@@ -427,7 +427,7 @@
 	.figures .figure-main { grid-column: 1 / -1; border-top: 0; border-left: 4px solid var(--accent); padding: 0 0 0 16px; }
 	.figures dt { color: var(--text-2); font-size: 14px; }
 	.figures dd { margin: 4px 0 0; font-size: clamp(18px, 5vw, 24px); overflow-wrap: anywhere; }
-	.figures .figure-main dd { font-size: clamp(40px, 9vw, 56px); line-height: 1.1; }
+	.figures .figure-main dd { font-size: clamp(40px, 9vw, 64px); line-height: 1.1; }
 	.formula { padding-left: 20px; margin: 0; }
 	.faq-item { border-top: 1px solid var(--line-strong); padding: 16px 0; }
 	.faq-item summary { cursor: pointer; font-weight: 600; list-style: none; }

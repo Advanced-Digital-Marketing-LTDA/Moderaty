@@ -22,14 +22,14 @@
 		overflow-wrap: break-word;
 	}
 	.blog-content :global(h1) {
-		font-size: clamp(32px, 6vw, 52px);
+		font-size: clamp(32px, 6vw, 48px);
 		line-height: 1.15;
 		letter-spacing: -0.025em;
 		margin: 24px 0 32px;
 	}
 	.blog-content :global(.blog-article) { position: relative; }
 	.blog-content :global(h2) {
-		font-size: clamp(24px, 4vw, 30px);
+		font-size: clamp(24px, 4vw, 32px);
 		line-height: 1.3;
 		margin: 48px 0 20px;
 		scroll-margin-top: 96px;

@@ -130,5 +130,5 @@
 	code { white-space: normal; overflow-wrap: anywhere; font-size: 0.85em; }
 	ul, ol { padding-left: 24px; margin-bottom: 24px; }
 	li { margin-bottom: 12px; }
-	h3 { margin: 28px 0 12px; font-size: 22px; line-height: 1.4; }
+	h3 { margin: 28px 0 12px; font-size: 24px; line-height: 1.4; }
 </style>

@@ -374,10 +374,10 @@
 
 <style>
 	.preview-limit {
-		padding: 16px 18px;
+		padding: 16px 20px;
 		margin: 0 0 24px;
 		border: 1px solid var(--line);
-		border-radius: 8px;
+		border-radius: var(--radius-sm);
 		background: var(--surface);
 		line-height: 1.5;
 		color: var(--text-2);
@@ -388,20 +388,20 @@
 		gap: 8px;
 		align-items: center;
 		flex-wrap: wrap;
-		margin-top: 10px;
+		margin-top: 12px;
 	}
 	.pause-form {
-		margin: 0 0 10px;
+		margin: 0 0 12px;
 	}
 	.paused-banner {
-		margin: 0 0 10px;
-		padding: 10px 12px;
+		margin: 0 0 12px;
+		padding: 12px 12px;
 		border: 1px solid var(--accent);
 		font-size: 0.9rem;
 	}
 	.channel-disconnect {
-		margin-top: 14px;
-		padding-top: 10px;
+		margin-top: 16px;
+		padding-top: 12px;
 		border-top: 1px dashed var(--danger);
 	}
 	.channel-disconnect summary {
@@ -412,30 +412,30 @@
 	}
 	.confirm-delete {
 		display: flex;
-		gap: 10px;
+		gap: 12px;
 		align-items: flex-start;
 		font-size: 0.9rem;
 		margin: 12px 0;
 	}
 	.confirm-delete input {
-		margin-top: 3px;
+		margin-top: 4px;
 		flex-shrink: 0;
 	}
 	.protections {
-		margin: 10px 0 14px;
-		padding: 10px 12px;
+		margin: 12px 0 16px;
+		padding: 12px 12px;
 		border: 1px solid var(--border);
 		background: var(--bg);
 	}
 	.protection-toggle {
 		display: flex;
-		gap: 10px;
+		gap: 12px;
 		align-items: flex-start;
 		font-size: 0.9rem;
 		margin: 8px 0;
 	}
 	.protection-toggle input {
-		margin-top: 3px;
+		margin-top: 4px;
 		flex-shrink: 0;
 		accent-color: var(--brand);
 	}
@@ -443,6 +443,6 @@
 		display: block;
 		font-size: 0.85rem;
 		font-weight: 600;
-		margin-bottom: 6px;
+		margin-bottom: 8px;
 	}
 </style>

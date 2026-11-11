@@ -82,9 +82,8 @@
 	}
 	.kicker {
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.18em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 		margin: 0;
 	}
@@ -95,8 +94,8 @@
 		gap: 12px;
 	}
 	.price {
-		font-size: 60px;
-		font-weight: 800;
+		font-size: 64px;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		line-height: 1;
 		color: var(--paper);
@@ -104,8 +103,7 @@
 	.price-note {
 		font-family: var(--font-mono);
 		font-size: 14px;
-		text-transform: uppercase;
-		letter-spacing: 0.14em;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.mint {
@@ -117,10 +115,9 @@
 	.best-for {
 		margin: 12px 0 0;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
+		font-size: 12px;
 		line-height: 1.6;
-		letter-spacing: 0.12em;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.plan-body {
@@ -156,7 +153,7 @@
 	}
 	:global(.plan-cta .primary-btn) {
 		display: inline-block;
-		border-radius: 999px;
+		border-radius: var(--radius-sm);
 		background: var(--ban);
 		padding: 12px 24px;
 		font-size: 14px;
@@ -166,7 +163,7 @@
 	}
 	:global(.plan-cta .ghost-btn) {
 		display: inline-block;
-		border-radius: 999px;
+		border-radius: var(--radius-sm);
 		border: 1px solid var(--line);
 		padding: 12px 24px;
 		font-size: 14px;
@@ -181,10 +178,9 @@
 	:global(.plan-cta .refund-note) {
 		margin: 16px 0 0;
 		font-family: var(--font-mono);
-		font-size: 10px;
+		font-size: 12px;
 		line-height: 1.7;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	:global(.plan-body .inline-link) {

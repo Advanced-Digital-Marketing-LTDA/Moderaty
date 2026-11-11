@@ -70,7 +70,7 @@
 		display: flex;
 		align-items: center;
 		min-height: 44px;
-		padding: 10px 16px;
+		padding: 12px 16px;
 		border-left: 2px solid transparent;
 		color: var(--text-2);
 		font-size: 14px;
@@ -99,10 +99,9 @@
 	summary,
 	.contents-label {
 		font-family: var(--font-mono);
-		font-size: 11px;
+		font-size: 12px;
 		font-weight: 500;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 	}
 	summary {
 		display: flex;

@@ -225,10 +225,10 @@
 		margin-bottom: 48px;
 	}
 	.door-headline {
-		font-size: 44px;
+		font-size: 48px;
 		font-weight: 600;
 		line-height: 1.05;
-		margin: 14px 0 10px;
+		margin: 16px 0 12px;
 	}
 	.door-subline {
 		margin: 0 0 32px;
@@ -269,7 +269,7 @@
 	}
 	.ledger-head h2 {
 		margin: 0;
-		font-size: 22px;
+		font-size: 24px;
 		font-weight: 600;
 	}
 	.ledger-table {
@@ -278,10 +278,9 @@
 	}
 	.ledger-table th {
 		text-align: left;
-		font-size: 11px;
+		font-size: 12px;
 		font-weight: 500;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--text-3);
 		padding: 0 20px 12px 0;
 		border-bottom: 1px solid var(--line);
@@ -330,7 +329,7 @@
 	.status-sub {
 		display: block;
 		margin-top: 4px;
-		font-size: 13px;
+		font-size: 14px;
 		color: var(--text-2);
 	}
 	.pending-link {
@@ -346,14 +345,14 @@
 		position: relative;
 		width: 64px;
 		height: 12px;
-		margin-bottom: 6px;
+		margin-bottom: 8px;
 	}
 	.mini-rail {
 		position: absolute;
 		left: 0;
 		right: 0;
 		top: 50%;
-		height: 3px;
+		height: 4px;
 		transform: translateY(-50%);
 		background: var(--line);
 	}
@@ -362,7 +361,7 @@
 		left: 0;
 		top: 50%;
 		width: 0;
-		height: 3px;
+		height: 4px;
 		transform: translateY(-50%);
 		background: var(--accent);
 	}
@@ -405,8 +404,8 @@
 		margin-bottom: 12px;
 	}
 	.connect-helper {
-		margin: 10px 0 0;
-		font-size: 13px;
+		margin: 12px 0 0;
+		font-size: 14px;
 		color: var(--text-2);
 	}
 	.privacy-note {

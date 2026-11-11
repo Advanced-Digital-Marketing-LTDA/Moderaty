@@ -99,7 +99,7 @@
 		max-width: 18ch;
 		font-family: var(--font-display);
 		font-size: 40px;
-		font-weight: 800;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		color: var(--paper);
 		margin: 0;
@@ -118,7 +118,7 @@
 	.step-title {
 		font-family: var(--font-display);
 		font-size: 24px;
-		font-weight: 700;
+		font-weight: 600;
 		color: var(--paper);
 		margin: 0;
 	}
@@ -135,19 +135,18 @@
 	}
 	.terminal-head {
 		border-bottom: 1px solid var(--line);
-		padding: 10px 16px;
+		padding: 12px 16px;
 	}
 	.terminal-label {
 		font-family: var(--font-mono);
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.18em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.terminal-body {
 		padding: 16px;
 		font-family: var(--font-mono);
-		font-size: 13px;
+		font-size: 14px;
 		line-height: 2;
 		overflow-x: auto;
 	}
@@ -160,9 +159,8 @@
 	.t-mint { color: var(--mint); font-weight: 600; }
 	.t-note {
 		margin-top: 12px;
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	@media (min-width: 768px) {
