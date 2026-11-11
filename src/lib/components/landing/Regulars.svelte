@@ -100,7 +100,7 @@
 		max-width: 16ch;
 		font-family: var(--font-display);
 		font-size: 40px;
-		font-weight: 800;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		color: var(--paper);
 		margin: 0;
@@ -143,18 +143,18 @@
 		padding-right: 96px;
 		font-family: var(--font-display);
 		font-size: 20px;
-		font-weight: 700;
+		font-weight: 600;
 		color: var(--paper);
 		margin: 0;
 	}
 	.rogue-quote {
 		margin: 16px 0 0;
-		border-radius: 6px;
+		border-radius: var(--radius-xs);
 		border: 1px solid var(--line);
 		background: var(--ink);
-		padding: 10px 12px;
+		padding: 12px 12px;
 		font-family: var(--font-mono);
-		font-size: 13px;
+		font-size: 14px;
 		line-height: 1.5;
 		color: rgb(244 244 248 / 0.75);
 	}
@@ -166,9 +166,8 @@
 	.rogue-footnote {
 		margin: 12px 0 0;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.closing {

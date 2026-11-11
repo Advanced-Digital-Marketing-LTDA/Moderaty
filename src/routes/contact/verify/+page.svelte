@@ -74,15 +74,15 @@
 		padding: 0 24px 96px;
 	}
 	.outcome-title {
-		margin: 0 0 10px;
+		margin: 0 0 12px;
 		font-family: var(--font-display);
-		font-size: 28px;
-		font-weight: 800;
+		font-size: 24px;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		color: var(--paper);
 	}
 	.outcome p {
-		margin: 0 0 18px;
+		margin: 0 0 20px;
 		line-height: 1.6;
 	}
 </style>

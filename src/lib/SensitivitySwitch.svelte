@@ -329,13 +329,13 @@
 
 <style>
 	.sensitivity-switch {
-		margin: 10px 0 14px;
+		margin: 12px 0 16px;
 	}
 	.switch-head {
 		display: flex;
 		align-items: baseline;
-		gap: 14px;
-		margin-bottom: 18px;
+		gap: 16px;
+		margin-bottom: 20px;
 	}
 	.applied {
 		font-size: 12px;
@@ -346,8 +346,8 @@
 		opacity: 0;
 	}
 	.save-error {
-		margin: 14px 0 0;
-		font-size: 13px;
+		margin: 16px 0 0;
+		font-size: 14px;
 		color: var(--accent);
 	}
 
@@ -360,12 +360,12 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		padding: 4px 10px;
+		padding: 4px 12px;
 		border: none;
 		background: none;
-		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.08em;
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.01em;
 		color: var(--text);
 		cursor: pointer;
 		transition: opacity 150ms var(--ease-out);
@@ -480,7 +480,7 @@
 	.mode-copy {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 8px;
 	}
 	.mode-name {
 		color: var(--accent);

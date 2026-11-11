@@ -43,7 +43,7 @@
 		max-width: 18ch;
 		font-family: var(--font-display);
 		font-size: 40px;
-		font-weight: 800;
+		font-weight: 600;
 		line-height: 1.05;
 		letter-spacing: -0.02em;
 		color: var(--paper);

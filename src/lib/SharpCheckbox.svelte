@@ -49,7 +49,7 @@
 	.sharp-checkbox {
 		display: inline-flex;
 		align-items: center;
-		gap: 10px;
+		gap: 12px;
 		cursor: pointer;
 	}
 
@@ -62,7 +62,7 @@
 		appearance: none;
 		flex: none;
 		width: 18px;
-		height: 18px;
+		height: 20px;
 		margin: 0;
 		padding: 0;
 		border: 1px solid var(--line);

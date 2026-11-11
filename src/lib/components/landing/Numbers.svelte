@@ -76,8 +76,8 @@
 	.quote-line {
 		max-width: 26ch;
 		font-family: var(--font-display);
-		font-size: 30px;
-		font-weight: 700;
+		font-size: 32px;
+		font-weight: 600;
 		line-height: 1.2;
 		letter-spacing: -0.01em;
 		color: rgb(244 244 248 / 0.85);
@@ -90,9 +90,8 @@
 	.quote-attr {
 		margin: 16px 0 0;
 		font-family: var(--font-mono);
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.section-title {
@@ -100,7 +99,7 @@
 		max-width: 20ch;
 		font-family: var(--font-display);
 		font-size: 40px;
-		font-weight: 800;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		color: var(--paper);
 	}
@@ -115,6 +114,7 @@
 	.stat-box {
 		height: 100%;
 		border: 1px solid var(--line);
+		border-radius: var(--radius);
 		background: rgb(18 18 30 / 0.4);
 	}
 	.stat-inner {
@@ -125,7 +125,7 @@
 		font-family: var(--font-display);
 		font-stretch: 125%;
 		font-size: 48px;
-		font-weight: 800;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		color: var(--paper);
 	}
@@ -158,7 +158,7 @@
 	}
 	@media (min-width: 768px) {
 		.quote-line {
-			font-size: 36px;
+			font-size: 32px;
 		}
 		.section-title {
 			font-size: 48px;
@@ -170,7 +170,7 @@
 			grid-column: span 2;
 		}
 		.stat-figure {
-			font-size: 60px;
+			font-size: 64px;
 		}
 	}
 </style>

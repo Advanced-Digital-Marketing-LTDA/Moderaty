@@ -145,10 +145,10 @@
 		margin-bottom: 48px;
 	}
 	.account-head h1 {
-		font-size: 44px;
+		font-size: 48px;
 		font-weight: 600;
 		line-height: 1.05;
-		margin: 14px 0 10px;
+		margin: 16px 0 12px;
 	}
 	.signed-in {
 		margin: 0;
@@ -185,7 +185,7 @@
 	.connection-row {
 		display: flex;
 		gap: 24px;
-		padding: 14px 0;
+		padding: 16px 0;
 		border-bottom: 1px solid var(--line);
 	}
 	.connection-row:first-child {
@@ -193,10 +193,9 @@
 	}
 	.connection-row dt {
 		flex: 0 0 180px;
-		font-size: 11px;
+		font-size: 12px;
 		font-weight: 500;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--text-3);
 	}
 	.connection-row dd {
@@ -207,14 +206,15 @@
 	/* ── danger zone (spec §7 Step 5.2) ─────────────────────── */
 	.danger-zone {
 		border: 1px solid rgba(255, 49, 49, 0.35);
+		border-radius: var(--radius);
 		padding: 28px 32px;
 	}
 	.danger-label {
 		color: var(--accent);
 	}
 	.danger-zone h2 {
-		margin: 14px 0 12px;
-		font-size: 22px;
+		margin: 16px 0 12px;
+		font-size: 24px;
 		font-weight: 600;
 	}
 	.legal {
@@ -228,16 +228,16 @@
 	   checked → --accent border + text, faint accent hover;
 	   armed → solid --accent, black text. */
 	.delete-btn {
+		border-radius: var(--radius-sm);
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		min-height: 48px;
 		padding: 0 28px;
 		margin-top: 20px;
-		font-size: 13px;
+		font-size: 14px;
 		font-weight: 600;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		background: transparent;
 		border: 1px solid var(--line);
 		color: var(--text-3);

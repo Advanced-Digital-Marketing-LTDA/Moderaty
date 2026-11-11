@@ -1,4 +1,4 @@
-/* ── Redesign tokens — dark-only, zero radius, one red accent ──
+/* ── Redesign tokens — dark-only, rounded controls, one red accent ──
    Canonical tokens are the spec §7 set (--bg/--surface/--line/--text/
    --accent/--ok/--ease-out); legacy aliases below remap onto them so
    landing/org/help keep rendering unedited. Spacing scale: 4/8/16/24/32/48/64/96. */
@@ -62,16 +62,17 @@
 	--line-strong: rgba(255, 255, 255, 0.16);
 	--text: #f4f4f2;
 	--text-2: #9b9ba4;
-	--text-3: #5c5c66;
+	--text-3: #85858f;
 	--text-muted: rgb(244 244 248 / 0.6);
 	--accent: #ff3131;
 	--accent-press: #e02b2b;
 	--ok: #3ddc84;
 	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
-	/* shape system: zero radius everywhere (spec §7) */
-	--radius: 0;
-	--radius-sm: 0;
+	/* shape system: nested radius — panels/cards 12, controls 8, tags 4 */
+	--radius: 12px;
+	--radius-sm: 8px;
+	--radius-xs: 4px;
 	--font-display: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
 	--font-mono: 'JetBrains Mono', ui-monospace, monospace;
 	--font-body: var(--font-display);
@@ -97,7 +98,6 @@
 
 * {
 	box-sizing: border-box;
-	border-radius: 0;
 }
 
 html {
@@ -134,53 +134,14 @@ body {
 	-webkit-box-decoration-break: clone;
 }
 
-/* corner brackets: technical-drafting frame (8px squares at corners).
-   Needs a .brackets-inner child for the bottom two corners. */
+/* frame wrapper kept for markup that still carries the class; the drafting
+   corner marks were dropped with the square-corner system */
 .brackets { position: relative; }
 
-.brackets::before,
-.brackets::after,
-.brackets > .brackets-inner::before,
-.brackets > .brackets-inner::after {
-	content: '';
-	position: absolute;
-	width: 8px;
-	height: 8px;
-	border: 1px solid var(--line);
-}
-
-.brackets::before {
-	top: -1px;
-	left: -1px;
-	border-right: 0;
-	border-bottom: 0;
-}
-
-.brackets::after {
-	top: -1px;
-	right: -1px;
-	border-left: 0;
-	border-bottom: 0;
-}
-
-.brackets > .brackets-inner::before {
-	bottom: -1px;
-	left: -1px;
-	border-right: 0;
-	border-top: 0;
-}
-
-.brackets > .brackets-inner::after {
-	bottom: -1px;
-	right: -1px;
-	border-left: 0;
-	border-top: 0;
-}
-
-/* verdict stamp: ticket aesthetic, radius 0 by rule */
+/* verdict stamp: the product signature, a square ticket on purpose */
 .stamp {
 	font-family: var(--font-mono);
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 600;
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
@@ -202,14 +163,14 @@ body {
 	50% { opacity: 0.35; }
 }
 
-/* verdict stamp punch-in: spring (stiffness ~500, damping ~25) approximated
-   with an overshoot ease — scale 1.4 → 1, rotate -16deg → -8deg */
-.stamp-punch { animation: stamp-punch 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+/* verdict stamp punch-in: settles on the shared ease-out, no overshoot —
+   scale 1.15 → 1, rotate -12deg → -8deg */
+.stamp-punch { animation: stamp-punch 300ms var(--ease-out) both; }
 
 @keyframes stamp-punch {
 	0% {
 		opacity: 0;
-		transform: rotate(-16deg) scale(1.4);
+		transform: rotate(-12deg) scale(1.15);
 	}
 
 	100% {
@@ -239,7 +200,7 @@ body {
 }
 
 @keyframes restamp {
-	0% { transform: rotate(-8deg) scale(1.18); }
+	0% { transform: rotate(-8deg) scale(1.12); }
 	100% { transform: rotate(-8deg) scale(1); }
 }
 
@@ -272,8 +233,7 @@ details[open] .faq-plus { transform: rotate(45deg); }
 	font-weight: 600;
 	color: var(--paper);
 	font-size: 14px;
-	letter-spacing: 0.22em;
-	text-transform: uppercase;
+	letter-spacing: 0.01em;
 }
 
 .app-main {
@@ -281,12 +241,12 @@ details[open] .faq-plus { transform: rotate(45deg); }
 	margin: 32px auto;
 	padding: 0 20px;
 }
-.app-main > .btn { margin-bottom: 18px; }
+.app-main > .btn { margin-bottom: 20px; }
 
 h1 {
 	font-family: var(--font-display);
-	font-weight: 700;
-	font-size: 26px;
+	font-weight: 600;
+	font-size: 24px;
 	letter-spacing: -0.01em;
 	margin: 0 0 4px;
 }
@@ -301,8 +261,9 @@ h1 {
 .card {
 	background: var(--surface);
 	border: 1px solid var(--line);
+	border-radius: var(--radius);
 	padding: 20px;
-	margin-bottom: 14px;
+	margin-bottom: 16px;
 }
 
 /* Danger zone: a card holding a destructive, irreversible action. */
@@ -321,16 +282,16 @@ h1 {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 10px;
+	gap: 12px;
 	height: 48px;
 	padding: 0 32px;
 	background: var(--accent);
 	color: var(--bg);
 	border: 1px solid transparent;
-	font-size: 12px;
-	font-weight: 700;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
+	border-radius: var(--radius-sm);
+	font-size: 14px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
 	font-family: var(--font-body);
 	cursor: pointer;
 	text-decoration: none;
@@ -368,7 +329,7 @@ h1 {
 .btn.small {
 	height: 36px;
 	padding: 0 16px;
-	font-size: 11px;
+	font-size: 12px;
 }
 
 .btn:focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
@@ -378,8 +339,9 @@ h1 {
 
 /* ── forms ──────────────────────────────────────────────── */
 input, select, textarea {
-	padding: 8px 10px;
+	padding: 8px 12px;
 	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
 	font-size: 14px;
 	font-family: var(--font-body);
 	background: var(--surface);
@@ -401,11 +363,10 @@ form.inline { display: inline; }
 	font-feature-settings: 'tnum' on;
 }
 
-/* caps label: 11px uppercase, tracked, faint */
+/* label: 12px sentence case, muted */
 .caps-label {
-	font-size: 11px;
-	letter-spacing: 0.14em;
-	text-transform: uppercase;
+	font-size: 12px;
+	letter-spacing: 0.01em;
 	font-weight: 500;
 	color: var(--text-3);
 }
@@ -430,8 +391,7 @@ form.inline { display: inline; }
 .row-action {
 	font-size: 12px;
 	font-weight: 600;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
+	letter-spacing: 0.01em;
 	text-decoration: underline;
 	text-underline-offset: 3px;
 	cursor: pointer;
@@ -464,20 +424,24 @@ form.inline { display: inline; }
 /* ── text & badges ──────────────────────────────────────── */
 .muted {
 	color: var(--ink-2);
-	font-size: 13px;
+	font-size: 14px;
 }
+
+.muted a { color: var(--paper); text-underline-offset: 3px; }
 
 code {
 	background: var(--surface);
 	border: 1px solid var(--line);
-	padding: 1px 6px;
+	border-radius: var(--radius-xs);
+	padding: 1px 8px;
 	font-family: var(--font-mono);
 	font-size: 0.92em;
 }
 
 .badge {
 	display: inline-block;
-	padding: 2px 10px;
+	border-radius: var(--radius-xs);
+	padding: 2px 12px;
 	font-size: 12px;
 	font-weight: 500;
 	font-variant-numeric: tabular-nums;
@@ -509,9 +473,10 @@ code {
 /* ── quote (review queue) ───────────────────────────────── */
 .quote {
 	margin: 8px 0;
-	padding: 10px 14px;
+	padding: 12px 16px;
 	background: var(--ink);
 	border: 1px solid var(--line);
+	border-radius: var(--radius-sm);
 	color: rgb(244 244 248 / 85%);
 }
 
@@ -526,15 +491,14 @@ table {
 th {
 	font-family: var(--font-mono);
 	color: var(--ink-2);
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 500;
-	text-transform: uppercase;
-	letter-spacing: 0.14em;
+	letter-spacing: 0.01em;
 }
 
 th, td {
 	text-align: left;
-	padding: 10px 8px;
+	padding: 12px 8px;
 	border-bottom: 1px solid var(--line);
 	vertical-align: top;
 }
@@ -558,17 +522,16 @@ tbody tr:last-child td { border-bottom: 0; }
 
 	.stack-table td {
 		border-bottom: 0;
-		padding: 3px 0;
+		padding: 4px 0;
 	}
 
 	.stack-table td::before {
 		content: attr(data-label);
 		display: block;
 		font-family: var(--font-mono);
-		font-size: 10px;
+		font-size: 12px;
 		font-weight: 500;
-		text-transform: uppercase;
-		letter-spacing: 0.14em;
+		letter-spacing: 0.01em;
 		color: var(--ink-2);
 	}
 }
@@ -580,10 +543,11 @@ tbody tr:last-child td { border-bottom: 0; }
 	color: var(--ink-2);
 	background: var(--surface);
 	border: 1px dashed var(--line);
+	border-radius: var(--radius);
 }
 
 .empty p {
-	margin: 0 0 6px;
+	margin: 0 0 8px;
 	font-size: 15px;
 	color: var(--paper);
 	font-weight: 500;
@@ -591,7 +555,8 @@ tbody tr:last-child td { border-bottom: 0; }
 .empty .muted { font-size: 14px; }
 
 .skeleton {
-	background: linear-gradient(90deg, var(--surface) 25%, #1a1a2b 50%, var(--surface) 75%);
+	background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+	border-radius: var(--radius-xs);
 	background-size: 200% 100%;
 	animation: shimmer 1.2s infinite linear;
 	min-height: 16px;
@@ -604,19 +569,21 @@ tbody tr:last-child td { border-bottom: 0; }
 .error-box {
 	background: var(--danger-soft);
 	border: 1px solid rgb(255 49 49 / 40%);
+	border-radius: var(--radius-sm);
 	color: var(--danger);
 	padding: 12px 16px;
 	font-size: 14px;
-	margin-bottom: 14px;
+	margin-bottom: 16px;
 }
 
 .flash {
 	background: var(--brand-soft);
 	border: 1px solid rgb(255 49 49 / 35%);
+	border-radius: var(--radius-sm);
 	color: var(--paper);
-	padding: 10px 16px;
+	padding: 12px 16px;
 	font-size: 14px;
-	margin-bottom: 14px;
+	margin-bottom: 16px;
 }
 
 /* reduced motion: collapse everything animated to calm — all transitions,

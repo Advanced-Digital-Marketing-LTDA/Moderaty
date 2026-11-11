@@ -281,8 +281,7 @@
 	.eyebrow, .card-label {
 		margin: 0 0 16px;
 		font: 11px var(--font-mono);
-		letter-spacing: 0.18em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 		color: var(--mint);
 	}
 	h1, h2, h3 {
@@ -293,13 +292,13 @@
 	h1 {
 		max-width: 16ch;
 		margin: 0;
-		font-size: clamp(44px, 7vw, 68px);
+		font-size: clamp(48px, 7vw, 64px);
 		line-height: 1.04;
 	}
 	.hero-copy {
 		max-width: 68ch;
 		margin: 24px 0 0;
-		font-size: clamp(18px, 2.5vw, 22px);
+		font-size: clamp(18px, 2.5vw, 24px);
 		line-height: 1.6;
 		color: rgb(244 244 248 / 0.78);
 	}
@@ -311,8 +310,8 @@
 	}
 	.button-primary, .button-secondary {
 		display: inline-block;
-		border-radius: 999px;
-		padding: 13px 22px;
+		border-radius: var(--radius-sm);
+		padding: 12px 24px;
 		font-size: 14px;
 		font-weight: 600;
 		text-decoration: none;
@@ -337,8 +336,7 @@
 		border-top: 1px solid var(--line);
 		border-bottom: 1px solid var(--line);
 		font: 11px var(--font-mono);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+		letter-spacing: 0.01em;
 	}
 	.section {
 		padding-top: 80px;
@@ -348,7 +346,7 @@
 	.section h2 {
 		max-width: 24ch;
 		margin: 0 0 24px;
-		font-size: clamp(32px, 5vw, 46px);
+		font-size: clamp(32px, 5vw, 48px);
 		line-height: 1.12;
 	}
 	.section p:not(.eyebrow, .card-label) {
@@ -372,15 +370,15 @@
 	}
 	.fact-card p { margin-top: 12px; }
 	.fact-card .card-label { margin-top: 0; }
-	.fact-card ol { margin: 0; padding-left: 22px; color: rgb(244 244 248 / 0.78); line-height: 1.9; }
+	.fact-card ol { margin: 0; padding-left: 24px; color: rgb(244 244 248 / 0.78); line-height: 1.9; }
 	.plans {
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 18px;
+		gap: 20px;
 		margin-top: 32px;
 	}
 	.plan-card { display: flex; flex-direction: column; align-items: flex-start; }
-	.plan-card h3 { margin: 0; font-size: 22px; }
+	.plan-card h3 { margin: 0; font-size: 24px; }
 	.plan-card p { margin: 16px 0 24px; }
 	.plan-card a { margin-top: auto; font: 12px/1.7 var(--font-mono); }
 	.pricing-note { margin-top: 24px; }
@@ -394,7 +392,7 @@
 		font-weight: 600;
 		cursor: pointer;
 	}
-	.faq details p { margin: 0 0 22px; }
+	.faq details p { margin: 0 0 24px; }
 	@media (max-width: 720px) {
 		.section-grid, .plans { grid-template-columns: 1fr; }
 		.section { padding-top: 64px; padding-bottom: 64px; }

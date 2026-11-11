@@ -42,12 +42,12 @@
 	}
 	.pick-card form {
 		display: grid;
-		gap: 14px;
+		gap: 16px;
 		margin-top: 16px;
 	}
 	.pick-card fieldset {
 		display: grid;
-		gap: 10px;
+		gap: 12px;
 		border: none;
 		padding: 0;
 		margin: 0;

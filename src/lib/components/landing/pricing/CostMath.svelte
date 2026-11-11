@@ -121,7 +121,7 @@
 	.section-title {
 		font-family: var(--font-display);
 		font-size: 40px;
-		font-weight: 800;
+		font-weight: 600;
 		letter-spacing: -0.02em;
 		color: var(--paper);
 		margin: 0;
@@ -144,19 +144,18 @@
 	}
 	.terminal-head {
 		border-bottom: 1px solid var(--line);
-		padding: 10px 16px;
+		padding: 12px 16px;
 	}
 	.terminal-label {
 		font-family: var(--font-mono);
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.18em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.terminal-body {
 		padding: 16px;
 		font-family: var(--font-mono);
-		font-size: 13px;
+		font-size: 14px;
 		line-height: 2;
 		overflow-x: auto;
 	}
@@ -168,7 +167,7 @@
 		gap: 16px;
 		margin-top: 32px;
 	}
-	.calculator-assumptions { grid-column: 1 / -1; margin: 0; color: rgb(244 244 248 / 0.7); font-size: 13px; line-height: 1.6; }
+	.calculator-assumptions { grid-column: 1 / -1; margin: 0; color: rgb(244 244 248 / 0.7); font-size: 14px; line-height: 1.6; }
 	.calculator {
 		border: 1px solid var(--line);
 		border-radius: var(--radius);
@@ -176,12 +175,12 @@
 		background: var(--surface);
 	}
 	.calculator h3 { margin: 0; color: var(--paper); font-size: 18px; }
-	.calculator-copy { margin: 8px 0 16px; color: rgb(244 244 248 / 0.6); font-size: 13px; }
-	.calculator label { display: grid; gap: 6px; color: rgb(244 244 248 / 0.75); font-size: 12px; }
+	.calculator-copy { margin: 8px 0 16px; color: rgb(244 244 248 / 0.6); font-size: 14px; }
+	.calculator label { display: grid; gap: 8px; color: rgb(244 244 248 / 0.75); font-size: 12px; }
 	.calculator > label:not(:first-of-type) { margin-top: 12px; }
 	.calculator input { width: 100%; box-sizing: border-box; }
 	.calculator > strong { display: block; margin-top: 16px; color: var(--mint); font-family: var(--font-mono); font-size: 20px; }
-	.calculator > strong span, .forecast span { color: var(--text-muted); font-size: 11px; font-weight: 400; }
+	.calculator > strong span, .forecast span { color: var(--text-muted); font-size: 12px; font-weight: 400; }
 	.month-inputs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 	.forecast { margin: 16px 0 0; color: var(--mint); font-family: var(--font-mono); font-size: 18px; }
 	.input-error { margin: 12px 0 0; color: var(--brand); font-size: 12px; }
@@ -191,9 +190,8 @@
 
 	.t-note {
 		margin-top: 12px;
-		font-size: 11px;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	@media (min-width: 768px) {

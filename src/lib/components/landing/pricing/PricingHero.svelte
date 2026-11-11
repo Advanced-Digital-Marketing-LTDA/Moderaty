@@ -45,20 +45,19 @@
 	}
 	.qa-head {
 		border-bottom: 1px solid var(--line);
-		padding: 10px 16px;
+		padding: 12px 16px;
 	}
 	.qa-label {
 		font-family: var(--font-mono);
-		font-size: 10px;
-		text-transform: uppercase;
-		letter-spacing: 0.18em;
+		font-size: 12px;
+		letter-spacing: 0.01em;
 		color: var(--text-muted);
 	}
 	.qa-body {
 		margin: 0;
 		padding: 16px;
 		font-family: var(--font-mono);
-		font-size: 13px;
+		font-size: 14px;
 		line-height: 1.6;
 		color: rgb(244 244 248 / 0.75);
 	}
@@ -67,7 +66,7 @@
 		max-width: 16ch;
 		font-family: var(--font-display);
 		font-size: 48px;
-		font-weight: 800;
+		font-weight: 600;
 		line-height: 1.02;
 		letter-spacing: -0.02em;
 		text-wrap: balance;
@@ -85,7 +84,7 @@
 			padding-top: 160px;
 		}
 		.hero-title {
-			font-size: 60px;
+			font-size: 64px;
 		}
 	}
 </style>

@@ -59,18 +59,18 @@
 	}
 	.consent-card form {
 		display: grid;
-		gap: 14px;
+		gap: 16px;
 		margin-top: 16px;
 	}
 	.check {
 		display: flex;
-		gap: 10px;
+		gap: 12px;
 		align-items: flex-start;
 		font-size: 14px;
 		line-height: 1.5;
 	}
 	.check input {
-		margin-top: 3px;
+		margin-top: 4px;
 		flex-shrink: 0;
 	}
 	.consent-card .btn {
@@ -84,7 +84,7 @@
 		color: var(--ink-2);
 	}
 	.privacy-note {
-		margin: 10px 0 0;
+		margin: 12px 0 0;
 		font-size: 12px;
 		line-height: 1.6;
 		color: var(--ink-2);
