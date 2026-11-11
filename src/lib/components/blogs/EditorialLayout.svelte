@@ -67,6 +67,7 @@
 		overflow-x: auto;
 		margin-bottom: 24px;
 		border: 1px solid var(--line-strong);
+		border-radius: var(--radius-sm);
 	}
 	.blog-content :global(table) {
 		width: 100%;

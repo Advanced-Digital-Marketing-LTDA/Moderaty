@@ -206,6 +206,7 @@
 	/* ── danger zone (spec §7 Step 5.2) ─────────────────────── */
 	.danger-zone {
 		border: 1px solid rgba(255, 49, 49, 0.35);
+		border-radius: var(--radius);
 		padding: 28px 32px;
 	}
 	.danger-label {
@@ -227,6 +228,7 @@
 	   checked → --accent border + text, faint accent hover;
 	   armed → solid --accent, black text. */
 	.delete-btn {
+		border-radius: var(--radius-sm);
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;

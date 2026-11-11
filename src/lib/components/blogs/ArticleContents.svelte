@@ -94,6 +94,7 @@
 	.mobile-contents {
 		margin: 0 0 32px;
 		border: 1px solid var(--line-strong);
+		border-radius: var(--radius);
 		background: var(--surface);
 	}
 	summary,

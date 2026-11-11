@@ -397,6 +397,7 @@
 		margin: 0 0 12px;
 		padding: 12px 12px;
 		border: 1px solid var(--accent);
+		border-radius: var(--radius-sm);
 		font-size: 0.9rem;
 	}
 	.channel-disconnect {
@@ -425,6 +426,7 @@
 		margin: 12px 0 16px;
 		padding: 12px 12px;
 		border: 1px solid var(--border);
+		border-radius: var(--radius);
 		background: var(--bg);
 	}
 	.protection-toggle {

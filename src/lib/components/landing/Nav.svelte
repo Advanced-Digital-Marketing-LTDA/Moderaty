@@ -205,6 +205,7 @@
 		gap: 4px;
 		padding: 8px;
 		border: 1px solid var(--line);
+		border-radius: var(--radius);
 		background: rgb(11 11 20 / 0.98);
 	}
 	.tools-link {

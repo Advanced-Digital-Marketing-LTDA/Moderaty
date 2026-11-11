@@ -114,6 +114,7 @@
 	.stat-box {
 		height: 100%;
 		border: 1px solid var(--line);
+		border-radius: var(--radius);
 		background: rgb(18 18 30 / 0.4);
 	}
 	.stat-inner {
