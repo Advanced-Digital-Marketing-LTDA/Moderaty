@@ -1246,22 +1246,13 @@ describe('never-purchased accounts: 30 days to buy, then the 30-day countdown', 
 		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
 	});
 
-	test('lifetime accounts are exempt however old', async () => {
-		await seedAccount('u1', { plan: 'lifetime', creditsRemaining: null, userCreatedAt: daysAgo(400) });
-		await sweepZeroCreditAccounts();
-		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
-	});
-
-	test('complimentary owners are exempt however old', async () => {
-		mocks.env.UNLIMITED_ACCESS_EMAILS = 'u1@example.com';
-		await seedAccount('u1', { userCreatedAt: daysAgo(400) });
-		await sweepZeroCreditAccounts();
-		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
-	});
-
-	test('self-hosted deployments are exempt however old', async () => {
-		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
-		await seedAccount('u1', { userCreatedAt: daysAgo(400) });
+	test.each([
+		['lifetime accounts', { plan: 'lifetime', creditsRemaining: null }, {}],
+		['complimentary owners', {}, { UNLIMITED_ACCESS_EMAILS: 'u1@example.com' }],
+		['self-hosted deployments', {}, { MODERATY_DEPLOYMENT: 'self-hosted' }]
+	] as [string, OrgSeed, Record<string, string>][])('%s are exempt however old', async (_name, org, envOverride) => {
+		Object.assign(mocks.env, envOverride);
+		await seedAccount('u1', { ...org, userCreatedAt: daysAgo(400) });
 		await sweepZeroCreditAccounts();
 		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
 	});
