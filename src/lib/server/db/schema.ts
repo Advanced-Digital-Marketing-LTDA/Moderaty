@@ -19,9 +19,9 @@ export const users = sqliteTable('users', {
 	// Stryker disable next-line StringLiteral: "" equivalent (drizzle falls back to property key)
 	plan: text('plan').notNull().default('free'), // LEGACY — billing hooks live on organizations.plan; read nowhere
 	// Zero-credit retention countdown (zeroCredits.ts cron sweep). All nullable
-	// per I7 — NULL since = not in countdown. Only billing-engaged accounts
-	// (every membership org metered AND unfunded) get stamped; unmetered
-	// orgs (never-purchased, lifetime) can never start the clock.
+	// per I7 — NULL since = not in countdown. Billing-engaged accounts (every
+	// engaged org unfunded) and never-purchased accounts older than 30 days
+	// get stamped; lifetime, complimentary and self-hosted accounts never do.
 	zeroCreditsSince: text('zero_credits_since'), // ISO of first broke observation; account deleted after 30 days
 	zeroCreditsNotifiedAt: text('zero_credits_notified_at'), // ISO of last warning CLAIM — the idempotency lease for the 7-day cadence
 	zeroCreditsWarnedAt: text('zero_credits_warned_at'), // ISO a warning was CONFIRMED delivered — the deletion gate requires this ≥ since (codex)

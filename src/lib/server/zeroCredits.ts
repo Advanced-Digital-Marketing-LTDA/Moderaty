@@ -4,9 +4,12 @@
 // time a sweep observes EVERY metered org unfunded. Warnings go out every
 // 7 days — never on the day the balance hits zero — and the account is
 // deleted (deleteUserRecords) at day 30 if it stays broke. Funding ANY
-// metered org clears the clock. Unmetered orgs (never-purchased, lifetime —
-// self-hosted included) are excluded from the test entirely: they can
-// neither start the clock nor break it.
+// metered org clears the clock. A NEVER-PURCHASED account (no engaged org)
+// first gets a 30-day purchase grace from `users.created_at`; once that
+// passes without a purchase it enters the same countdown, so the warnings
+// only ever fall in the final 30 days. Lifetime orgs, complimentary owners,
+// and self-hosted deployments are exempt: they can neither start the clock
+// nor break it.
 //
 // Durable state lives on `users` (0047): `zero_credits_since` is the clock,
 // `zero_credits_notified_at` the per-milestone claim, and
@@ -19,6 +22,7 @@ import { env } from '$env/dynamic/private';
 
 import { effectiveBalanceSql, isUnmeteredPlan, paidSubscriptionPeriodExistsSql } from '$lib/server/billing/ledger';
 import { orgHasUnlimitedAccess } from '$lib/server/billing/unlimitedAccess';
+import { requireDeploymentMode } from '$lib/server/deploymentMode';
 import { isActiveSubscriptionStatus } from '$lib/server/billing/plans';
 import { db } from '$lib/server/db';
 import { memberships, organizations, stripeCheckoutAttempts, users } from '$lib/server/db/schema';
@@ -28,6 +32,7 @@ import { assertBeforeDeadline, DeadlineExceededError } from '$lib/server/http';
 import { sendProtonMailEmail } from '$lib/server/protonMail';
 
 export const ZERO_CREDIT_GRACE_MS = 30 * 24 * 60 * 60 * 1000; // countdown length (Terms §17)
+export const ZERO_CREDIT_PURCHASE_GRACE_MS = 30 * 24 * 60 * 60 * 1000; // never-purchased accounts get this long from signup before the countdown starts
 export const ZERO_CREDIT_NOTICE_MS = 7 * 24 * 60 * 60 * 1000; // warning cadence — first at day 7, never at day 0
 export const ZERO_CREDIT_SWEEP_BATCH = 25; // bounded per cron invocation (I10); rotation covers the rest
 
@@ -226,7 +231,29 @@ async function fundingState(
 	// otherwise land a never-purchased account in the deletion countdown
 	// (codex — §17 applies only to billing-engaged accounts).
 	const engaged = orgs.filter((org) => org.plan === 'hosted' || org.creditsRemaining !== null || org.hasPaidPeriod);
-	return engaged.length > 0 && engaged.every(orgIsUnfunded) ? 'broke' : 'funded';
+	if (engaged.length > 0) return engaged.every(orgIsUnfunded) ? 'broke' : 'funded';
+	return neverPurchasedState(userId, nowIso, handle);
+}
+
+/**
+ * A never-purchased account is 'funded' (safe) through its 30-day purchase
+ * grace and 'broke' after it, which feeds the normal countdown. Self-hosted
+ * deployments never enter it. An unreadable `created_at` throws — the sweep
+ * logs and counts that account's failure, so it is never deleted on a guess.
+ */
+async function neverPurchasedState(
+	userId: string,
+	nowIso: string,
+	handle: Pick<typeof db, 'select'> | DeletionTx
+): Promise<'broke' | 'funded' | 'corrupt'> {
+	if (requireDeploymentMode() === 'self-hosted') return 'funded';
+	const row = await handle.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, userId)).get();
+	if (!row) return 'corrupt';
+	const createdMs = Date.parse(row.createdAt);
+	if (Number.isNaN(createdMs)) {
+		throw new Error(`zero-credit sweep: user ${userId} has an unparseable created_at (${row.createdAt})`);
+	}
+	return Date.parse(nowIso) - createdMs >= ZERO_CREDIT_PURCHASE_GRACE_MS ? 'broke' : 'funded';
 }
 
 /** Releases a claimed warning milestone so a later rotation can retry the send. */

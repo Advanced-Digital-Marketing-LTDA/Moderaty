@@ -70,13 +70,21 @@ interface OrgSeed {
 	creditsRemaining?: number | null;
 	stripeSubscriptionId?: string | null;
 	subscriptionStatus?: string | null;
+	/** ISO creation time of the user row; defaults to now (inside the purchase grace). */
+	userCreatedAt?: string;
 }
 
 /** A user whose personal org carries the given billing state. */
 async function seedAccount(userId: string, org: OrgSeed = {}): Promise<void> {
 	await testDb().db
 		.insert(users)
-		.values({ id: userId, googleSub: `sub-${userId}`, email: `${userId}@example.com`, displayName: userId });
+		.values({
+			id: userId,
+			googleSub: `sub-${userId}`,
+			email: `${userId}@example.com`,
+			displayName: userId,
+			...(org.userCreatedAt !== undefined ? { createdAt: org.userCreatedAt } : {})
+		});
 	await testDb().db.insert(organizations).values({
 		id: `org-${userId}`,
 		name: userId,
@@ -1181,5 +1189,87 @@ describe('e-mail builders', () => {
 		const email = buildZeroCreditDeletedEmail({ name: 'Gone' });
 		expect(email.subject).toContain('has been deleted');
 		expect(email.textPart).toContain('30 days');
+	});
+});
+
+describe('never-purchased accounts: 30 days to buy, then the 30-day countdown', () => {
+	beforeEach(() => {
+		mocks.env.MODERATY_DEPLOYMENT = 'official-hosted';
+		mocks.env.UNLIMITED_ACCESS_EMAILS = '';
+	});
+
+	test('inside the purchase grace nothing is stamped and nothing is sent', async () => {
+		await seedAccount('u1', { userCreatedAt: daysAgo(29) });
+		const result = await sweepZeroCreditAccounts();
+		expect(result).toMatchObject({ evaluated: 1, warned: 0, deleted: 0, errors: 0 });
+		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
+		expect(mocks.sendProtonMailEmail).not.toHaveBeenCalled();
+	});
+
+	test('past the grace the first sweep stamps the clock and sends NO e-mail', async () => {
+		await seedAccount('u1', { userCreatedAt: daysAgo(31) });
+		await sweepZeroCreditAccounts();
+		expect((await userRow('u1'))!.zeroCreditsSince).not.toBeNull();
+		expect(mocks.sendProtonMailEmail).not.toHaveBeenCalled();
+	});
+
+	test('the first warning lands 7 days into the countdown, never during the purchase grace', async () => {
+		await seedAccount('u1', { userCreatedAt: daysAgo(40) });
+		await testDb().db.update(users).set({ zeroCreditsSince: daysAgo(8) }).where(eq(users.id, 'u1'));
+		const result = await sweepZeroCreditAccounts();
+		expect(result).toMatchObject({ warned: 1, deleted: 0, errors: 0 });
+		expect(mocks.sendProtonMailEmail).toHaveBeenCalledTimes(1);
+		expect(mocks.sendProtonMailEmail.mock.calls[0][0].subject).toContain('will be deleted');
+	});
+
+	test('a warned account is deleted once the 30-day countdown ends', async () => {
+		await seedAccount('u1', { userCreatedAt: daysAgo(70) });
+		await testDb().db.update(users).set({ zeroCreditsSince: daysAgo(31), zeroCreditsNotifiedAt: daysAgo(7), zeroCreditsWarnedAt: daysAgo(7) }).where(eq(users.id, 'u1'));
+		const result = await sweepZeroCreditAccounts();
+		expect(result).toMatchObject({ deleted: 1, errors: 0 });
+		expect(await userRow('u1')).toMatchObject({ googleSub: 'deleted:u1' });
+	});
+
+	test('a long-standing never-purchased account enters the countdown on the first sweep, with a full 30 days left', async () => {
+		await seedAccount('u1', { userCreatedAt: daysAgo(400) });
+		const result = await sweepZeroCreditAccounts();
+		expect(result).toMatchObject({ warned: 0, deleted: 0, errors: 0 });
+		expect((await userRow('u1'))!.zeroCreditsSince).not.toBeNull();
+		expect(mocks.sendProtonMailEmail).not.toHaveBeenCalled();
+	});
+
+	test('buying credits mid-countdown clears the clock', async () => {
+		await seedAccount('u1', { userCreatedAt: daysAgo(400) });
+		await sweepZeroCreditAccounts();
+		await testDb().db.update(organizations).set({ creditsRemaining: 500 }).where(eq(organizations.id, 'org-u1'));
+		await sweepZeroCreditAccounts();
+		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
+	});
+
+	test('lifetime accounts are exempt however old', async () => {
+		await seedAccount('u1', { plan: 'lifetime', creditsRemaining: null, userCreatedAt: daysAgo(400) });
+		await sweepZeroCreditAccounts();
+		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
+	});
+
+	test('complimentary owners are exempt however old', async () => {
+		mocks.env.UNLIMITED_ACCESS_EMAILS = 'u1@example.com';
+		await seedAccount('u1', { userCreatedAt: daysAgo(400) });
+		await sweepZeroCreditAccounts();
+		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
+	});
+
+	test('self-hosted deployments are exempt however old', async () => {
+		mocks.env.MODERATY_DEPLOYMENT = 'self-hosted';
+		await seedAccount('u1', { userCreatedAt: daysAgo(400) });
+		await sweepZeroCreditAccounts();
+		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
+	});
+
+	test('an unparseable created_at fails loudly for that account', async () => {
+		await seedAccount('u1', { userCreatedAt: 'not-a-date' });
+		const result = await sweepZeroCreditAccounts();
+		expect(result.errors).toBe(1);
+		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
 	});
 });
