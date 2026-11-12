@@ -1257,6 +1257,35 @@ describe('never-purchased accounts: 30 days to buy, then the 30-day countdown', 
 		expect(await userRow('u1')).toMatchObject({ zeroCreditsSince: null });
 	});
 
+	test('end to end: stamp, silent first week, warning at day 7, deletion at day 30', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		try {
+			await seedAccount('u1', { userCreatedAt: daysAgo(31) });
+			await sweepZeroCreditAccounts(); // day 0 of the countdown: stamp only
+			expect((await userRow('u1'))!.zeroCreditsSince).not.toBeNull();
+			expect(mocks.sendProtonMailEmail).not.toHaveBeenCalled();
+
+			vi.setSystemTime(Date.now() + 6 * DAY_MS);
+			await sweepZeroCreditAccounts();
+			expect(mocks.sendProtonMailEmail).not.toHaveBeenCalled();
+
+			vi.setSystemTime(Date.now() + 2 * DAY_MS); // day 8
+			await sweepZeroCreditAccounts();
+			expect(mocks.sendProtonMailEmail).toHaveBeenCalledTimes(1);
+
+			vi.setSystemTime(Date.now() + 15 * DAY_MS); // day 23: still alive
+			await sweepZeroCreditAccounts();
+			expect((await userRow('u1'))!.googleSub).toBe('sub-u1');
+
+			vi.setSystemTime(Date.now() + 8 * DAY_MS); // day 31
+			const result = await sweepZeroCreditAccounts();
+			expect(result.deleted).toBe(1);
+			expect((await userRow('u1'))!.googleSub).toBe('deleted:u1');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	test('an unparseable created_at fails loudly for that account', async () => {
 		await seedAccount('u1', { userCreatedAt: 'not-a-date' });
 		const result = await sweepZeroCreditAccounts();
