@@ -1,11 +1,11 @@
 ---
 name: adversarial-review
-description: Run a skeptical ship/no-ship review of the branch diff before every push; fix gating findings with a failing test first.
+description: Run a skeptical ship/no-ship review of the branch diff when asked; fix gating findings with a failing test first.
 ---
 
 # Adversarial review
 
-Run this before every push, after `npm run check`, `npm run build` and
+Run this only when asked, after `npm run check`, `npm run build` and
 `npm run test` are green. CI runs the same review on the pull request, so a
 finding caught here saves a CI run.
 
