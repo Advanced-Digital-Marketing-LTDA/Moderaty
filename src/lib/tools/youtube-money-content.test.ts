@@ -18,7 +18,11 @@ test('the FAQ has the eight spec questions, each phrased as a question and answe
 });
 
 test('the calculator path is a site-relative path with a trailing slash', () => {
-	expect(YOUTUBE_MONEY_CALCULATOR.path).toBe('/tools/youtube-money-calculator/');
+	expect(YOUTUBE_MONEY_CALCULATOR.path).toBe('/tools/youtube-income-estimator/');
+});
+
+test('the page title is YouTube Income Estimator', () => {
+	expect(YOUTUBE_MONEY_CALCULATOR.title).toBe('YouTube Income Estimator');
 });
 
 test('every cited source is an https link', () => {
@@ -49,7 +53,7 @@ test('the OutlierKit link label says its figures are CPM, because the page does 
 
 test('the meta description is the approved sentence and fits a search snippet', () => {
 	expect(YOUTUBE_MONEY_CALCULATOR.description).toBe(
-		'Free YouTube money calculator. Enter your monthly views and Studio RPM to see daily, monthly and yearly earnings and the views you need for an income goal.'
+		'Free YouTube income estimator. Enter your monthly views and Studio RPM to see daily, monthly and yearly earnings and the views you need for an income goal.'
 	);
 	expect(YOUTUBE_MONEY_CALCULATOR.description.length).toBeLessThanOrEqual(160);
 });
