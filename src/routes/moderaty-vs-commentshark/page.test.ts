@@ -1,6 +1,7 @@
 import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
 import Page from './+page.svelte';
+import Footer from '$lib/components/landing/Footer.svelte';
 import {
 	COMMENTSHARK_ACTION_PACKS,
 	COMMENTSHARK_COMPARISON,
@@ -33,6 +34,10 @@ test('the comparison page is a public, sitemap-listed page that survives a datab
 	expect(sitemapXml()).toContain(`<loc>${pageUrl}</loc>`);
 	expect(llmsTxt()).toContain(`](${pageUrl})`);
 	expect(canonicalUrl(COMMENTSHARK_COMPARISON.path)).toBeNull();
+});
+
+test('the footer links to the comparison page so it is reachable from every public page', () => {
+	expect(render(Footer).body).toMatch(/<a href="\/moderaty-vs-commentshark\/" class="footer-link[^"]*">Moderaty vs CommentShark<\/a>/);
 });
 
 test('the title and description fit search results with the site suffix', () => {
