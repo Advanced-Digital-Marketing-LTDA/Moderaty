@@ -13,7 +13,7 @@
 
 <section id="pricing" class="section">
 	<Reveal>
-		<h2 class="section-title">$0 from Moderaty if you self-host. Five a month if we host it.</h2>
+		<h2 class="section-title">$0 from Moderaty if you self-host. Nine a month if we host it.</h2>
 	</Reveal>
 
 	<div class="split">

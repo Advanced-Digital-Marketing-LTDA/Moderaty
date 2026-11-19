@@ -6,7 +6,7 @@
 	import { TOP_UP_BUNDLES_COPY } from '$lib/landing/plans';
 	import { page } from '$app/state';
 	import Reveal from '../Reveal.svelte';
-	import { estimateHostedMonth, forecastMonths, MAX_CALCULATOR_COMMENTS, MONTHLY_PLAN_USD, validCountInput } from '$lib/landing/cost';
+	import { estimateHostedMonth, forecastMonths, INCLUDED_COMMENTS, MAX_CALCULATOR_COMMENTS, MONTHLY_PLAN_USD, validCountInput } from '$lib/landing/cost';
 
 	let moderationCount = $state<number | null | undefined>(undefined);
 	let digestCount = $state<number | null | undefined>(0);
@@ -34,8 +34,8 @@
 		<div>
 			<h2 class="section-title">Estimate your hosted month</h2>
 			<p class="section-body">
-				The hosted subscription renews at $5 a month, even with no AI classifications.
-				You get 100 credits shared by AI moderation scoring and feedback digests.
+				The hosted subscription renews at $9 a month, even with no AI classifications.
+				You get 900 credits shared by AI moderation scoring and feedback digests.
 				One moderation score uses one credit; a digest classification uses another.
 			</p>
 			<p class="section-body">
@@ -51,10 +51,10 @@
 					<span class="terminal-label">math.txt</span>
 				</div>
 				<div class="terminal-body">
-					<div><span class="t-dim">monthly subscription</span> <span class="t-lit">$5, including zero usage</span></div>
-					<div><span class="t-dim">shared allowance</span> <span class="t-lit">100 AI classifications</span></div>
+					<div><span class="t-dim">monthly subscription</span> <span class="t-lit">$9, including zero usage</span></div>
+					<div><span class="t-dim">shared allowance</span> <span class="t-lit">900 AI classifications</span></div>
 					<div><span class="t-dim">top-up bundles</span> <span class="t-lit">{TOP_UP_BUNDLES_COPY}</span></div>
-					<div class="t-note">$5/mo renews. automatic top-up is opt-in.</div>
+					<div class="t-note">$9/mo renews. automatic top-up is opt-in.</div>
 				</div>
 			</div>
 		</div>
@@ -81,7 +81,7 @@
 					<dl class="estimate-breakdown">
 						<div><dt>Subscription</dt><dd>{formatUsd(MONTHLY_PLAN_USD)}</dd></div>
 						<div><dt>AI classifications</dt><dd>{monthEstimate.classifications.toLocaleString(locale)}</dd></div>
-						<div><dt>Included used</dt><dd>{monthEstimate.includedUsed.toLocaleString(locale)} / 100</dd></div>
+						<div><dt>Included used</dt><dd>{monthEstimate.includedUsed.toLocaleString(locale)} / {INCLUDED_COMMENTS.toLocaleString(locale)}</dd></div>
 						<div><dt>Purchased credits used</dt><dd>{monthEstimate.purchasedUsed.toLocaleString(locale)}</dd></div>
 						<div><dt>Top-up purchase</dt><dd>{monthEstimate.topupCredits.toLocaleString(locale)} credits ({formatUsd(monthEstimate.topupCostUsd)})</dd></div>
 						<div><dt>Purchased credits left</dt><dd>{monthEstimate.remainingPurchasedCredits.toLocaleString(locale)}</dd></div>

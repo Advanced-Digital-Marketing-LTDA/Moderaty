@@ -9,7 +9,7 @@ import { TOP_UP_BUNDLES_COPY } from './plans';
 export const PRICING_FAQ_ENTRIES: { q: string; a: string }[] = [
 	{
 		q: 'Is there a subscription?',
-		a: 'Yes. Hosted renews at $5 a month, even with no AI classifications. An eligible active paid subscription provides 100 AI classifications shared by moderation scores and enabled feedback digests. This allowance is available even when purchased credits are zero. Unused monthly allowance does not carry over. Automatic top-up is opt-in and off by default; it charges your saved card for your selected bundle when your balance drops below your chosen threshold.'
+		a: 'Yes. Hosted renews at $9 a month, even with no AI classifications. An eligible active paid subscription provides 900 AI classifications shared by moderation scores and enabled feedback digests. This allowance is available even when purchased credits are zero. Unused monthly allowance does not carry over. Automatic top-up is opt-in and off by default; it charges your saved card for your selected bundle when your balance drops below your chosen threshold.'
 	},
 	{
 		q: 'What is the $49 lifetime deal?',
@@ -24,8 +24,8 @@ export const PRICING_FAQ_ENTRIES: { q: string; a: string }[] = [
 		a: 'Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield 1.0.0 license. The license excludes using the software to provide a competing product. You provide your own hosting and OpenAI API key. Your infrastructure provider and OpenAI charge separately, and those costs vary by provider, setup, and use.'
 	},
 	{
-		q: 'What happens when my 100 AI classifications run out?',
-		a: `You can buy ${TOP_UP_BUNDLES_COPY}. One credit covers one AI moderation score; a feedback digest classification uses another. Rule and protected-handle decisions use no moderation credit, but digest classification of those comments still uses one. A requested history scan can charge again; retrying the same scan does not. For example, with the full 100-credit allowance and no purchased credits, 100 moderation scores plus 100 digest classifications need one 500-credit bundle: $${(MONTHLY_PLAN_USD + expectedBundlePriceCents(500) / 100).toFixed(2)} including the subscription, with 400 purchased credits left. Purchased credits stay on your balance. The Usage page shows your balance; automatic top-up uses your selected bundle and threshold.`
+		q: 'What happens when my 900 AI classifications run out?',
+		a: `You can buy ${TOP_UP_BUNDLES_COPY}. One credit covers one AI moderation score; a feedback digest classification uses another. Rule and protected-handle decisions use no moderation credit, but digest classification of those comments still uses one. A requested history scan can charge again; retrying the same scan does not. For example, with the full 900-credit allowance and no purchased credits, 900 moderation scores plus 100 digest classifications need one 500-credit bundle: $${(MONTHLY_PLAN_USD + expectedBundlePriceCents(500) / 100).toFixed(2)} including the subscription, with 400 purchased credits left. Purchased credits stay on your balance. The Usage page shows your balance; automatic top-up uses your selected bundle and threshold.`
 	},
 	{
 		q: 'Which one should I pick?',

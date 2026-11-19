@@ -16,6 +16,12 @@ export type LegalDoc = {
 };
 
 export const LEGAL_EFFECTIVE_DATE = '11 October 2026';
+// 1.22: HOSTED PRICE — Terms §6.1(b) now offers the hosted subscription at
+// USD 9.00 per month including 900 AI-scored comments per billing month
+// (previously USD 5.00 and 100). Material change: users without a 1.22
+// consent row are routed back through /consent. Terms §6.3 requires 30 days'
+// notice before it applies to existing subscribers. The effective date
+// constant is unchanged pending the owner's publication date.
 // 1.21: NEVER-PURCHASED RETENTION — Terms §17.3 and Privacy §7.1 extend the
 // zero-credit deletion to accounts that never purchased: 30 days from account
 // creation to make a first purchase, then the 30-day countdown with warnings
@@ -102,7 +108,7 @@ export const LEGAL_EFFECTIVE_DATE = '11 October 2026';
 // previously named only name, e-mail, purchase history, and tax ID.
 // Material change: users without a 1.17 consent row are routed back
 // through /consent.
-export const LEGAL_VERSION = '1.21';
+export const LEGAL_VERSION = '1.22';
 export const LEGAL_KICKER = 'YouTube Comment Moderation Service';
 
 /**

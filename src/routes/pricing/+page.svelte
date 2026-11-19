@@ -27,7 +27,7 @@
 	const socialImage = $derived(new URL('/og.png', pageUrl).href);
 	const socialTitle = 'Protection, priced like a utility.';
 	const socialDescription =
-		'Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted: $5 a month for 100 AI classifications shared by moderation scoring and feedback digests, or $49 once for lifetime hosting (1,000 lifetime places, your own OpenAI key).';
+		'Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted: $9 a month for 900 AI classifications shared by moderation scoring and feedback digests, or $49 once for lifetime hosting (1,000 lifetime places, your own OpenAI key).';
 	const softwareApplication = $derived(publicSoftwareSchema(pageUrl, socialDescription));
 
 	const faqPage = {

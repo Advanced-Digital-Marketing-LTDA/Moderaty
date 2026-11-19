@@ -39,7 +39,11 @@ vi.mock('$lib/server/stripe/client', () => ({
 		refunds: { create: mocks.refundsCreate }
 	})
 }));
-vi.mock('$env/dynamic/private', () => ({ env: {} }));
+vi.mock('$env/dynamic/private', () => ({ env: { STRIPE_PRICE_HOSTED_MONTHLY: 'price_hosted', STRIPE_PRICE_HOSTED_MONTHLY_LEGACY: 'price_hosted_legacy' } }));
+
+// The invoice line shape of API 2026-07-29.dahlia: the Price id sits under pricing.price_details.
+const linePricing = (price: unknown) => ({ type: 'price_details', price_details: { price, product: 'prod_hosted' } });
+const HOSTED_LINE_PRICING = linePricing('price_hosted');
 
 // claimLifetimeSlot stays a vi.fn delegate so one test can stage the
 // concurrent-loser throw — every other call runs the real implementation.
@@ -536,9 +540,32 @@ describe('paid hosted products', () => {
 
 describe('subscription lifecycle webhooks', () => {
 
+	const paidInvoice = (pricing: unknown) => ({ subscription: 'sub_1', customer: 'cus_1', payment_intent: 'pi_1', lines: { data: [{ subscription: 'sub_1', ...(pricing === undefined ? {} : { pricing }), period: { start: 1_800_000_000, end: 1_802_678_400 } }] } });
+	const periodFor = (invoiceId: string) => testDb().db.select().from(stripeSubscriptionPeriods).where(eq(stripeSubscriptionPeriods.invoiceId, invoiceId)).all();
+
+	test.each([
+		['the current hosted price', linePricing('price_hosted'), 900],
+		['the current hosted price as an expanded object', linePricing({ id: 'price_hosted' }), 900],
+		['the legacy hosted price', linePricing('price_hosted_legacy'), 100]
+	])('invoice.paid grants the allowance of %s', async (_name, pricing, included) => {
+		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1' });
+		expect(await handleStripeEvent(event('invoice.paid', 'in_priced', paidInvoice(pricing)) as never)).toBe(true);
+		expect(await periodFor('in_priced')).toMatchObject([{ includedCredits: included }]);
+	});
+
+	test.each([
+		['an unknown price', linePricing('price_other')],
+		['a line without pricing', undefined],
+		['pricing without a price id', { type: 'price_details', price_details: { product: 'prod_hosted' } }]
+	])('invoice.paid rejects %s and grants nothing', async (_name, pricing) => {
+		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1' });
+		await expect(handleStripeEvent(event('invoice.paid', 'in_unpriced', paidInvoice(pricing)) as never)).rejects.toThrow(/price/i);
+		expect(await periodFor('in_unpriced')).toHaveLength(0);
+	});
+
 	test('invoice.paid accepts the current parent subscription payload', async () => {
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1' });
-		const invoice = { parent: { type: 'subscription_details', subscription_details: { subscription: 'sub_1' } }, customer: 'cus_1', payment_intent: 'pi_1', lines: { data: [{ subscription: 'sub_1', period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
+		const invoice = { parent: { type: 'subscription_details', subscription_details: { subscription: 'sub_1' } }, customer: 'cus_1', payment_intent: 'pi_1', lines: { data: [{ subscription: 'sub_1', pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
 		expect(await handleStripeEvent(event('invoice.paid', 'in_current', invoice) as never)).toBe(true);
 		expect(await testDb().db.select().from(stripeSubscriptionPeriods).where(eq(stripeSubscriptionPeriods.invoiceId, 'in_current'))).toHaveLength(1);
 	});
@@ -551,8 +578,8 @@ describe('subscription lifecycle webhooks', () => {
 			payments: { data: [{ payment: { type: 'payment_intent', payment_intent: 'pi_current' } }] },
 			lines: {
 				data: [
-					{ subscription: 'sub_1', proration: true, period: { start: 1_700_000_000, end: 1_700_086_400 } },
-					{ subscription: 'sub_1', proration: false, period: { start: 1_800_000_000, end: 1_802_678_400 } }
+					{ subscription: 'sub_1', pricing: HOSTED_LINE_PRICING, proration: true, period: { start: 1_700_000_000, end: 1_700_086_400 } },
+					{ subscription: 'sub_1', pricing: HOSTED_LINE_PRICING, proration: false, period: { start: 1_800_000_000, end: 1_802_678_400 } }
 				]
 			}
 		};
@@ -566,7 +593,7 @@ describe('subscription lifecycle webhooks', () => {
 		const invoice = {
 			subscription: 'sub_1',
 			customer: 'cus_1',
-			lines: { data: [{ subscription: 'sub_other', period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
+			lines: { data: [{ subscription: 'sub_other', pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
 		};
 		await expect(handleStripeEvent(event('invoice.paid', 'in_missing_line', invoice) as never)).rejects.toThrow('no matching non-proration subscription line');
 	});
@@ -578,7 +605,7 @@ describe('subscription lifecycle webhooks', () => {
 			customer: 'cus_1',
 			payments: 'not-a-payments-list',
 			payment_intent: 'pi_legacy',
-			lines: { data: [{ subscription: 'sub_1', period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
+			lines: { data: [{ subscription: 'sub_1', pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
 		};
 		await expect(handleStripeEvent(event('invoice.paid', 'in_malformed_payments', invoice) as never)).rejects.toThrow('malformed object');
 	});
@@ -588,7 +615,7 @@ describe('subscription lifecycle webhooks', () => {
 		const invoice = {
 			subscription: 'sub_1',
 			customer: 'cus_1',
-			lines: { data: [{ subscription: 'sub_1', proration: false, period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
+			lines: { data: [{ subscription: 'sub_1', pricing: HOSTED_LINE_PRICING, proration: false, period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
 		};
 		expect(await handleStripeEvent(event('invoice.payment_failed', 'in_payment_failed', invoice) as never)).toBe(true);
 		const org = await testDb().db.select().from(organizations).where(eq(organizations.id, 'org-1')).get();
@@ -604,7 +631,7 @@ describe('subscription lifecycle webhooks', () => {
 		mocks.subscriptionsRetrieve.mockImplementation((id: string) => Promise.resolve(id === 'sub_current' ? { id, status: 'active' } : { id, status: 'active' }));
 		mocks.subscriptionsCancel.mockResolvedValue({ id: 'sub_old', status: 'canceled', latest_invoice: 'in_stale' });
 		mocks.invoicePaymentsList.mockResolvedValue({ data: [{ payment: { type: 'payment_intent', payment_intent: 'pi_dup' } }] });
-		const invoice = { id: 'in_stale', subscription: 'sub_old', customer: 'cus_1', payment_intent: 'pi_dup', lines: { data: [{ subscription: 'sub_old', period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
+		const invoice = { id: 'in_stale', subscription: 'sub_old', customer: 'cus_1', payment_intent: 'pi_dup', lines: { data: [{ subscription: 'sub_old', pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
 		expect(await handleStripeEvent(event('invoice.paid', 'evt_stale_invoice', invoice) as never)).toBe(true);
 		expect(await testDb().db.select().from(stripeSubscriptionPeriods)).toHaveLength(0);
 		expect(mocks.subscriptionsCancel).toHaveBeenCalledWith('sub_old');
@@ -620,7 +647,7 @@ describe('subscription lifecycle webhooks', () => {
 		// must still grant its period, not be skipped as "superseded".
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_old', stripeSubscriptionStatus: null });
 		mocks.subscriptionsRetrieve.mockImplementation((id: string) => Promise.resolve({ id, status: 'canceled' }));
-		const invoice = { id: 'in_resub', subscription: 'sub_new', customer: 'cus_1', payment_intent: 'pi_new', lines: { data: [{ subscription: 'sub_new', period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
+		const invoice = { id: 'in_resub', subscription: 'sub_new', customer: 'cus_1', payment_intent: 'pi_new', lines: { data: [{ subscription: 'sub_new', pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
 		expect(await handleStripeEvent(event('invoice.paid', 'evt_resub_invoice', invoice) as never)).toBe(true);
 		expect(await testDb().db.select().from(stripeSubscriptionPeriods).where(eq(stripeSubscriptionPeriods.invoiceId, 'in_resub'))).toHaveLength(1);
 		expect(mocks.subscriptionsCancel).not.toHaveBeenCalled();
@@ -635,7 +662,7 @@ describe('subscription lifecycle webhooks', () => {
 		const invoice = {
 			parent: { type: 'subscription_details', subscription_details: { subscription: 'sub_1' } },
 			customer: 'cus_1',
-			lines: { data: [{ parent: { type: 'subscription_item_details', subscription_item_details: { subscription: 'sub_1', proration: false } }, period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
+			lines: { data: [{ parent: { type: 'subscription_item_details', subscription_item_details: { subscription: 'sub_1', proration: false } }, pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
 		};
 		expect(await handleStripeEvent(event('invoice.paid', 'in_api_refs', invoice) as never)).toBe(true);
 		expect(mocks.invoicePaymentsList).toHaveBeenCalledWith({ invoice: 'in_api_refs', status: 'paid' });
@@ -649,7 +676,7 @@ describe('subscription lifecycle webhooks', () => {
 		const invoice = {
 			parent: { type: 'subscription_details', subscription_details: { subscription: 'sub_1' } },
 			customer: 'cus_1',
-			lines: { data: [{ subscription: 'sub_1', period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
+			lines: { data: [{ subscription: 'sub_1', pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] }
 		};
 		await expect(handleStripeEvent(event('invoice.paid', 'in_no_refs', invoice) as never)).rejects.toThrow('no usable payment reference');
 		expect(await testDb().db.select().from(stripeSubscriptionPeriods)).toHaveLength(0);
@@ -698,7 +725,7 @@ describe('subscription lifecycle webhooks', () => {
 	});
 	test('invoice.paid creates one period allowance and replay does not create another', async () => {
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1' });
-		const invoice = { subscription: 'sub_1', customer: 'cus_1', payment_intent: 'pi_1', lines: { data: [{ subscription: 'sub_1', period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
+		const invoice = { subscription: 'sub_1', customer: 'cus_1', payment_intent: 'pi_1', lines: { data: [{ subscription: 'sub_1', pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
 		const paid = event('invoice.paid', 'in_1', invoice);
 		expect(await handleStripeEvent(paid as never)).toBe(true);
 		expect(await handleStripeEvent(paid as never)).toBe(true);
@@ -888,7 +915,7 @@ describe('subscription lifecycle webhooks', () => {
 	});
 	test('a won dispute restores a subscription period allowance', async () => {
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1' });
-		await handleStripeEvent(event('invoice.paid', 'in_1', { id: 'in_1', subscription: 'sub_1', payment_intent: 'pi_1', charge: 'ch_1', period_start: 1798848000, period_end: 1801526400, lines: { data: [{ subscription: 'sub_1', period: { start: 1798848000, end: 1801526400 } }] } }) as never);
+		await handleStripeEvent(event('invoice.paid', 'in_1', { id: 'in_1', subscription: 'sub_1', payment_intent: 'pi_1', charge: 'ch_1', period_start: 1798848000, period_end: 1801526400, lines: { data: [{ subscription: 'sub_1', pricing: HOSTED_LINE_PRICING, period: { start: 1798848000, end: 1801526400 } }] } }) as never);
 		mocks.disputesRetrieve.mockResolvedValueOnce({ id: 'disp_sub', charge: 'ch_1', status: 'lost' }).mockResolvedValueOnce({ id: 'disp_sub', charge: 'ch_1', status: 'won' });
 		mocks.chargesRetrieve.mockResolvedValue({ id: 'ch_1', payment_intent: 'pi_1', amount: 500, amount_refunded: 0 });
 		await reverseDispute('disp_sub');
@@ -1216,7 +1243,7 @@ describe('fulfillCheckout', () => {
 		// monthly allowance on top of the test credit.
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1' });
 		mocks.subscriptionsRetrieve.mockResolvedValue({ id: 'sub_test', status: 'active', metadata: { product: 'test' } });
-		const invoice = { id: 'in_test', subscription: 'sub_test', customer: 'cus_1', payment_intent: 'pi_test', lines: { data: [{ subscription: 'sub_test', period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
+		const invoice = { id: 'in_test', subscription: 'sub_test', customer: 'cus_1', payment_intent: 'pi_test', lines: { data: [{ subscription: 'sub_test', pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
 
 		expect(await handleStripeEvent(event('invoice.paid', 'evt_test_invoice', invoice) as never)).toBe(true);
 
@@ -1229,7 +1256,7 @@ describe('fulfillCheckout', () => {
 	test('invoice.payment_failed for a test-product subscription is ignored, not recorded as past_due', async () => {
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1' });
 		mocks.subscriptionsRetrieve.mockResolvedValue({ id: 'sub_test', status: 'active', metadata: { product: 'test' } });
-		const invoice = { id: 'in_test_fail', subscription: 'sub_test', customer: 'cus_1', lines: { data: [{ subscription: 'sub_test', period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
+		const invoice = { id: 'in_test_fail', subscription: 'sub_test', customer: 'cus_1', lines: { data: [{ subscription: 'sub_test', pricing: HOSTED_LINE_PRICING, period: { start: 1_800_000_000, end: 1_802_678_400 } }] } };
 
 		expect(await handleStripeEvent(event('invoice.payment_failed', 'evt_test_fail', invoice) as never)).toBe(true);
 

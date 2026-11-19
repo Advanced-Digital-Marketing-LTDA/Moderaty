@@ -22,11 +22,11 @@ describe('subscription period entitlements', () => {
 	beforeEach(async () => seedOrg());
 
 	test('grants one idempotent 100-comment period and updates the organization cache', async () => {
-		const first = await grantSubscriptionPeriod({
+		const first = await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS,
 			orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', paymentIntentId: 'pi-1', chargeId: 'ch-1',
 			periodKey: '2026-09-01', periodStart: '2026-09-01T00:00:00.000Z', periodEnd: '2026-10-01T00:00:00.000Z', eventCreated: 100, eventId: 'evt-1'
 		});
-		const second = await grantSubscriptionPeriod({
+		const second = await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS,
 			orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', paymentIntentId: 'pi-1', chargeId: 'ch-1',
 			periodKey: '2026-09-01', periodStart: '2026-09-01T00:00:00.000Z', periodEnd: '2026-10-01T00:00:00.000Z', eventCreated: 100, eventId: 'evt-1'
 		});
@@ -39,9 +39,9 @@ describe('subscription period entitlements', () => {
 		const now = Date.now();
 		const boundary = new Date(now - 1000).toISOString();
 		const base = { orgId: 'org-1', subscriptionId: 'sub-1' };
-		expect(await grantSubscriptionPeriod({ ...base, invoiceId: 'in-1', chargeId: 'ch-1', periodKey: 'p1', periodStart: new Date(now - 86_400_000).toISOString(), periodEnd: boundary, eventCreated: 100, eventId: 'evt-1' })).toBe(true);
+		expect(await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS, ...base, invoiceId: 'in-1', chargeId: 'ch-1', periodKey: 'p1', periodStart: new Date(now - 86_400_000).toISOString(), periodEnd: boundary, eventCreated: 100, eventId: 'evt-1' })).toBe(true);
 		await testDb().db.update(stripeSubscriptionPeriods).set({ consumedCredits: 40 }).where(eq(stripeSubscriptionPeriods.invoiceId, 'in-1'));
-		expect(await grantSubscriptionPeriod({ ...base, invoiceId: 'in-2', chargeId: 'ch-2', periodKey: 'p2', periodStart: boundary, periodEnd: new Date(now + 86_400_000).toISOString(), eventCreated: 200, eventId: 'evt-2' })).toBe(true);
+		expect(await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS, ...base, invoiceId: 'in-2', chargeId: 'ch-2', periodKey: 'p2', periodStart: boundary, periodEnd: new Date(now + 86_400_000).toISOString(), eventCreated: 200, eventId: 'evt-2' })).toBe(true);
 		const periods = await testDb().db.select().from(stripeSubscriptionPeriods).all();
 		expect(periods).toHaveLength(2);
 		expect(periods.find(row => row.invoiceId === 'in-1')).toMatchObject({ includedCredits: HOSTED_INCLUDED_CREDITS, consumedCredits: 40 });
@@ -162,7 +162,7 @@ describe('subscription period entitlements', () => {
 
 	test('a refund queued before invoice fulfillment marks that period unusable', async () => {
 		await testDb().db.insert(stripePendingReversals).values({ chargeId: 'ch-1', reason: 'refund' });
-		await grantSubscriptionPeriod({
+		await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS,
 			orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', paymentIntentId: 'pi-1', chargeId: 'ch-1',
 			periodKey: 'period-1', periodStart: '2026-09-01T00:00:00.000Z', periodEnd: '2026-10-01T00:00:00.000Z', eventCreated: 100, eventId: 'evt-1'
 		});
@@ -172,7 +172,7 @@ describe('subscription period entitlements', () => {
 	});
 
 	test('a won dispute restores the subscription period allowance', async () => {
-		await grantSubscriptionPeriod({ orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', paymentIntentId: 'pi-1', chargeId: 'ch-1', periodKey: 'period-1', periodStart: '2026-09-01T00:00:00.000Z', periodEnd: '2026-10-01T00:00:00.000Z', eventCreated: 100, eventId: 'evt-1' });
+		await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS, orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', paymentIntentId: 'pi-1', chargeId: 'ch-1', periodKey: 'period-1', periodStart: '2026-09-01T00:00:00.000Z', periodEnd: '2026-10-01T00:00:00.000Z', eventCreated: 100, eventId: 'evt-1' });
 		expect(await disputeSubscriptionPeriod({ paymentIntentId: 'pi-1', chargeId: 'ch-1' })).toBe(true);
 		expect(await restoreDisputedSubscriptionPeriod({ paymentIntentId: 'pi-1', chargeId: 'ch-1' })).toBe(true);
 		const period = await testDb().db.select().from(stripeSubscriptionPeriods).where(eq(stripeSubscriptionPeriods.invoiceId, 'in-1')).get();
@@ -183,7 +183,7 @@ describe('subscription period entitlements', () => {
 	test('a won dispute recorded before invoice fulfillment keeps the period paid', async () => {
 		await testDb().db.insert(stripePendingReversals).values({ chargeId: 'ch-1', reason: 'dispute', disputeId: 'disp-1' });
 		await testDb().db.insert(stripeDisputeReversals).values({ disputeId: 'disp-1', chargeId: 'ch-1', paymentIntentId: 'pi-1', status: 'won', source: 'unknown' });
-		await grantSubscriptionPeriod({ orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', paymentIntentId: 'pi-1', chargeId: 'ch-1', periodKey: 'period-1', periodStart: '2026-09-01T00:00:00.000Z', periodEnd: '2026-10-01T00:00:00.000Z', eventCreated: 100, eventId: 'evt-1' });
+		await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS, orgId: 'org-1', subscriptionId: 'sub-1', invoiceId: 'in-1', paymentIntentId: 'pi-1', chargeId: 'ch-1', periodKey: 'period-1', periodStart: '2026-09-01T00:00:00.000Z', periodEnd: '2026-10-01T00:00:00.000Z', eventCreated: 100, eventId: 'evt-1' });
 		expect((await testDb().db.select().from(stripeSubscriptionPeriods).where(eq(stripeSubscriptionPeriods.invoiceId, 'in-1')).get())?.status).toBe('paid');
 	});
 });
@@ -339,7 +339,7 @@ describe('early entitlement refunds retain the original pause obligation', () =>
 		await testDb().db.insert(stripePendingReversals).values({ chargeId: 'ch_early', reason: 'refund', occurredAt: '2026-09-30T13:10:00.000Z' });
 		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
 		try {
-			if (kind === 'subscription') await grantSubscriptionPeriod({ orgId: 'org-1', subscriptionId: 'sub_early', invoiceId: 'in_early', chargeId: 'ch_early', periodKey: 'period', periodStart: '2026-09-01', periodEnd: '2026-10-01', eventCreated: 100, eventId: 'evt_early' });
+			if (kind === 'subscription') await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS, orgId: 'org-1', subscriptionId: 'sub_early', invoiceId: 'in_early', chargeId: 'ch_early', periodKey: 'period', periodStart: '2026-09-01', periodEnd: '2026-10-01', eventCreated: 100, eventId: 'evt_early' });
 			else await claimLifetimeSlot({ orgId: 'org-1', checkoutSessionId: 'cs_early', chargeId: 'ch_early' });
 		} finally { log.mockRestore(); }
 		expect(await testDb().db.select().from(organizations).get()).toMatchObject({ autoTopupEnabled: 0, autoTopupPauseReason: 'refund' });
@@ -350,7 +350,7 @@ describe('early entitlement refunds retain the original pause obligation', () =>
 		await seedOrg();
 		await testDb().db.update(organizations).set({ autoTopupEnabled: 1, autoTopupState: 'idle', autoTopupConsentedAt: '2026-09-30T13:11:00.000Z' });
 		await testDb().db.insert(stripePendingReversals).values({ chargeId: 'ch_early', reason: 'refund', occurredAt: '2026-09-30T13:10:00.000Z' });
-		await grantSubscriptionPeriod({ orgId: 'org-1', subscriptionId: 'sub_early', invoiceId: 'in_early', chargeId: 'ch_early', periodKey: 'period', periodStart: '2026-09-01', periodEnd: '2026-10-01', eventCreated: 100, eventId: 'evt_early' });
+		await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS, orgId: 'org-1', subscriptionId: 'sub_early', invoiceId: 'in_early', chargeId: 'ch_early', periodKey: 'period', periodStart: '2026-09-01', periodEnd: '2026-10-01', eventCreated: 100, eventId: 'evt_early' });
 		expect(await testDb().db.select().from(organizations).get()).toMatchObject({ autoTopupEnabled: 1, autoTopupPauseReason: null });
 	});
 });
@@ -359,7 +359,7 @@ test.each(['subscription', 'lifetime'])('a pending %s refund pauses automatic to
 	await seedOrg();
 	await testDb().db.update(organizations).set({ autoTopupEnabled: 1, autoTopupState: 'idle' });
 	await testDb().db.insert(stripePendingReversals).values({ chargeId: 'ch_early', reason: 'refund' });
-	if (kind === 'subscription') await grantSubscriptionPeriod({ orgId: 'org-1', subscriptionId: 'sub-early', invoiceId: 'in-early', chargeId: 'ch_early', periodKey: 'early', periodStart: '2026-09-01T00:00:00.000Z', periodEnd: '2026-10-01T00:00:00.000Z', eventCreated: 100, eventId: 'evt-early' });
+	if (kind === 'subscription') await grantSubscriptionPeriod({ includedCredits: HOSTED_INCLUDED_CREDITS, orgId: 'org-1', subscriptionId: 'sub-early', invoiceId: 'in-early', chargeId: 'ch_early', periodKey: 'early', periodStart: '2026-09-01T00:00:00.000Z', periodEnd: '2026-10-01T00:00:00.000Z', eventCreated: 100, eventId: 'evt-early' });
 	else await claimLifetimeSlot({ orgId: 'org-1', checkoutSessionId: 'cs_early', chargeId: 'ch_early' });
 	expect((await testDb().db.select().from(organizations).get())?.autoTopupEnabled).toBe(0);
 	expect(await testDb().db.select().from(stripePendingReversals)).toEqual([]);
