@@ -56,7 +56,7 @@ beforeEach(() => {
 	// the catalog; these fixtures just give every Price a retrievable shape.
 	// price_lifetime stays at its catalog 4900.
 	const bundleCents: Record<string, number> = { price_100: 500, price_500: 2040, price_2000: 6465, price_lifetime: 4900, price_test: 100 };
-	mocks.pricesRetrieve.mockImplementation(async (id: string) => id === 'price_hosted' ? { id, active: true, currency: 'usd', type: 'recurring', unit_amount: 500, recurring: { interval: 'month', interval_count: 1 } } : { id, active: true, currency: 'usd', type: 'one_time', unit_amount: bundleCents[id] ?? 100 });
+	mocks.pricesRetrieve.mockImplementation(async (id: string) => id === 'price_hosted' ? { id, active: true, currency: 'usd', type: 'recurring', unit_amount: 900, recurring: { interval: 'month', interval_count: 1 } } : { id, active: true, currency: 'usd', type: 'one_time', unit_amount: bundleCents[id] ?? 100 });
 	// The env mock object is shared: tests that change STRIPE_TEST_PRODUCT
 	// rely on this reset so one override never leaks into the next test.
 	env.STRIPE_TEST_PRODUCT = 'price_test';
@@ -195,8 +195,8 @@ describe('createPlanCheckout', () => {
 
 	test('rejects a hosted checkout when the catalog price is not the configured amount', async () => {
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org' });
-		mocks.pricesRetrieve.mockResolvedValueOnce({ id: 'price_hosted', active: true, currency: 'usd', type: 'recurring', unit_amount: 900, recurring: { interval: 'month', interval_count: 1 } });
-		await expect(createPlanCheckout('org-1', owner(), 'hosted')).rejects.toThrow('must be 500 cents');
+		mocks.pricesRetrieve.mockResolvedValueOnce({ id: 'price_hosted', active: true, currency: 'usd', type: 'recurring', unit_amount: 500, recurring: { interval: 'month', interval_count: 1 } });
+		await expect(createPlanCheckout('org-1', owner(), 'hosted')).rejects.toThrow('must be 900 cents');
 		expect(mocks.sessionsCreate).not.toHaveBeenCalled();
 	});
 

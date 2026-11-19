@@ -16,7 +16,8 @@ import { applyLedgerDelta, drainPendingReversals, findGrantForStripe, pauseForOb
 import { grantAutoTopupCredits, handleAutoTopupFailure } from '$lib/server/billing/autotopup';
 import { claimLifetimeSlot, grantSubscriptionPeriod, refundSubscriptionPeriod, disputeSubscriptionPeriod, releaseLifetimeForPayment, applySubscriptionSnapshot, revokeLifetimeForDispute, restoreLifetimeForDispute, restoreDisputedSubscriptionPeriod, stripeIdentifierPredicate, LIFETIME_SOLD_OUT_ERROR } from '$lib/server/billing/entitlements';
 import { bundleById, type CreditBundle } from '$lib/server/stripe/bundles';
-import { isActiveSubscriptionStatus } from '$lib/server/billing/plans';
+import { hostedIncludedCreditsForPrice, isActiveSubscriptionStatus } from '$lib/server/billing/plans';
+import { env } from '$env/dynamic/private';
 import { markCheckoutAttemptFulfilled, TEST_CHECKOUT_PRODUCT } from '$lib/server/billing/checkout';
 import { getStripe } from '$lib/server/stripe/client';
 import { chargeFullyRefunded, refundUngrantablePayment } from '$lib/server/stripe/refunds';
@@ -968,7 +969,8 @@ function invoiceLineIsProration(line: StripeRecord): boolean {
 	return optionalRecord(parent?.subscription_item_details)?.proration === true;
 }
 
-function invoicePeriod(invoice: StripeRecord, subscriptionId: string): { periodStart: string; periodEnd: string } {
+/** The invoice's non-proration line for one subscription; the period and the billed Price both come from it. */
+function subscriptionInvoiceLine(invoice: StripeRecord, subscriptionId: string): StripeRecord {
 	const lines = asRecord(invoice.lines);
 	const data = lines.data;
 	if (!Array.isArray(data) || data.length === 0) throw new Error('Stripe invoice has no line items');
@@ -976,8 +978,20 @@ function invoicePeriod(invoice: StripeRecord, subscriptionId: string): { periodS
 		.map(optionalRecord)
 		.find((item) => item && !invoiceLineIsProration(item) && invoiceLineSubscriptionId(item) === subscriptionId);
 	if (!line) throw new Error(INVOICE_LINE_REQUIRED_ERROR);
-	const period = asRecord(line.period);
+	return line;
+}
+
+function invoicePeriod(invoice: StripeRecord, subscriptionId: string): { periodStart: string; periodEnd: string } {
+	const period = asRecord(subscriptionInvoiceLine(invoice, subscriptionId).period);
 	return { periodStart: isoSeconds(period.start, 'subscription line period.start'), periodEnd: isoSeconds(period.end, 'subscription line period.end') };
+}
+
+/** The Price the subscription line billed (`pricing.price_details.price`, an id or an expanded Price). */
+function invoiceLinePriceId(invoice: StripeRecord, subscriptionId: string): string {
+	const price = optionalRecord(optionalRecord(subscriptionInvoiceLine(invoice, subscriptionId).pricing)?.price_details)?.price;
+	const priceId = stripeId(price);
+	if (!priceId) throw new Error(`invoice ${stripeId(invoice.id) ?? ''} subscription line has no price id under pricing.price_details.price`);
+	return priceId;
 }
 
 /**
@@ -1563,8 +1577,9 @@ async function handleInvoicePaid(event: Stripe.Event): Promise<void> {
 		return;
 	}
 	const { periodStart, periodEnd } = invoicePeriod(invoice, subscriptionId);
+	const includedCredits = hostedIncludedCreditsForPrice(invoiceLinePriceId(invoice, subscriptionId), { current: env.STRIPE_PRICE_HOSTED_MONTHLY, legacy: env.STRIPE_PRICE_HOSTED_MONTHLY_LEGACY });
 	const payment = await invoicePaymentReferences(invoice, invoiceId);
-	await grantSubscriptionPeriod({ orgId: org.id, subscriptionId, invoiceId, ...payment, periodKey: `${periodStart}/${periodEnd}`, periodStart, periodEnd, eventCreated: event.created, eventId: event.id });
+	await grantSubscriptionPeriod({ orgId: org.id, subscriptionId, invoiceId, includedCredits, ...payment, periodKey: `${periodStart}/${periodEnd}`, periodStart, periodEnd, eventCreated: event.created, eventId: event.id });
 }
 
 async function handleInvoicePaymentFailed(event: Stripe.Event): Promise<void> {

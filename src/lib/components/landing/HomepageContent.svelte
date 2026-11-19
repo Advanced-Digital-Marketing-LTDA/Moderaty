@@ -167,9 +167,9 @@
 		</article>
 		<article class="plan panel">
 			<p class="plan-tag">Hosted</p>
-			<p class="plan-price">$5 <span>per month</span></p>
+			<p class="plan-price">$9 <span>per month</span></p>
 			<p>
-				Moderaty operates the service. The subscription includes 100 AI
+				Moderaty operates the service. The subscription includes 900 AI
 				classifications per month, shared between moderation scoring and
 				enabled feedback digests. Additional credits are sold in bundles.
 				Automatic top-up is optional and off by default.

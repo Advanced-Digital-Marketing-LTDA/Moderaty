@@ -39,7 +39,7 @@ const FAQ_COPY: [question: string, answer: string][] = [
 	],
 	[
 		'Is Moderaty really free?',
-		'Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted is $5 a month with 100 AI classifications shared by moderation scoring and enabled feedback digests, or $49 once for one of 1,000 lifetime places, using your own OpenAI key.'
+		'Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted is $9 a month with 900 AI classifications shared by moderation scoring and enabled feedback digests, or $49 once for one of 1,000 lifetime places, using your own OpenAI key.'
 	],
 	[
 		'How is Moderaty different from CommentShark or YouTube Studio?',
