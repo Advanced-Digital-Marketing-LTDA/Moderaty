@@ -22,7 +22,8 @@ const mocks = vi.hoisted(() => ({
 	invoicesRetrieve: vi.fn(),
 	invoicesList: vi.fn(),
 	paymentMethodsAttach: vi.fn(),
-	refundsCreate: vi.fn()
+	refundsCreate: vi.fn(),
+	pricesRetrieve: vi.fn()
 }));
 
 vi.mock('$lib/server/stripe/client', () => ({
@@ -36,10 +37,11 @@ vi.mock('$lib/server/stripe/client', () => ({
 		invoicePayments: { list: mocks.invoicePaymentsList },
 		invoices: { retrieve: mocks.invoicesRetrieve, list: mocks.invoicesList },
 		paymentMethods: { attach: mocks.paymentMethodsAttach },
-		refunds: { create: mocks.refundsCreate }
+		refunds: { create: mocks.refundsCreate },
+		prices: { retrieve: mocks.pricesRetrieve }
 	})
 }));
-vi.mock('$env/dynamic/private', () => ({ env: { STRIPE_PRICE_HOSTED_MONTHLY: 'price_hosted', STRIPE_PRICE_HOSTED_MONTHLY_LEGACY: 'price_hosted_legacy' } }));
+vi.mock('$env/dynamic/private', () => ({ env: { STRIPE_PRICE_HOSTED_MONTHLY: 'price_hosted' } }));
 
 // The invoice line shape of API 2026-07-29.dahlia: the Price id sits under pricing.price_details.
 const linePricing = (price: unknown) => ({ type: 'price_details', price_details: { price, product: 'prod_hosted' } });
@@ -102,6 +104,8 @@ beforeEach(() => {
 	mocks.invoicesList.mockReset().mockResolvedValue({ data: [] });
 	mocks.subscriptionsRetrieve.mockReset();
 	mocks.subscriptionsCancel.mockReset();
+	// A hosted Price declares its own allowance in metadata; tests override per Price.
+	mocks.pricesRetrieve.mockReset().mockImplementation(async (id: string) => ({ id, metadata: { included_credits: '900' } }));
 	// Stripe's real refunds.create resolves a Refund — the status drives the
 	// helper's validate-before-ACK contract.
 	mocks.refundsCreate.mockResolvedValue({ id: 're_1', status: 'succeeded' });
@@ -544,23 +548,35 @@ describe('subscription lifecycle webhooks', () => {
 	const periodFor = (invoiceId: string) => testDb().db.select().from(stripeSubscriptionPeriods).where(eq(stripeSubscriptionPeriods.invoiceId, invoiceId)).all();
 
 	test.each([
-		['the current hosted price', linePricing('price_hosted'), 900],
-		['the current hosted price as an expanded object', linePricing({ id: 'price_hosted' }), 900],
-		['the legacy hosted price', linePricing('price_hosted_legacy'), 100]
-	])('invoice.paid grants the allowance of %s', async (_name, pricing, included) => {
+		['a Price declaring 900', linePricing('price_hosted'), '900', 900],
+		['an expanded Price object declaring 900', linePricing({ id: 'price_hosted' }), '900', 900],
+		['a Price declaring 100', linePricing('price_hosted_legacy'), '100', 100]
+	])('invoice.paid grants the allowance declared by %s', async (_name, pricing, declared, included) => {
+		const priceId = (pricing as { price_details: { price: string | { id: string } } }).price_details.price;
+		mocks.pricesRetrieve.mockResolvedValue({ id: typeof priceId === 'string' ? priceId : priceId.id, metadata: { included_credits: declared } });
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1' });
 		expect(await handleStripeEvent(event('invoice.paid', 'in_priced', paidInvoice(pricing)) as never)).toBe(true);
+		expect(mocks.pricesRetrieve).toHaveBeenCalledWith(typeof priceId === 'string' ? priceId : priceId.id);
 		expect(await periodFor('in_priced')).toMatchObject([{ includedCredits: included }]);
 	});
 
 	test.each([
-		['an unknown price', linePricing('price_other')],
-		['a line without pricing', undefined],
-		['pricing without a price id', { type: 'price_details', price_details: { product: 'prod_hosted' } }]
-	])('invoice.paid rejects %s and grants nothing', async (_name, pricing) => {
+		['a Price with no allowance metadata', linePricing('price_bare'), { id: 'price_bare', metadata: {} }, /price_bare.*included_credits/s],
+		['a Price with an invalid allowance', linePricing('price_typo'), { id: 'price_typo', metadata: { included_credits: '9OO' } }, /price_typo.*included_credits/s],
+		['a line without pricing', undefined, { id: 'unused', metadata: { included_credits: '900' } }, /price/i],
+		['pricing without a price id', { type: 'price_details', price_details: { product: 'prod_hosted' } }, { id: 'unused', metadata: { included_credits: '900' } }, /price/i]
+	])('invoice.paid rejects %s and grants nothing', async (_name, pricing, price, message) => {
+		mocks.pricesRetrieve.mockResolvedValue(price);
 		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1' });
-		await expect(handleStripeEvent(event('invoice.paid', 'in_unpriced', paidInvoice(pricing)) as never)).rejects.toThrow(/price/i);
+		await expect(handleStripeEvent(event('invoice.paid', 'in_unpriced', paidInvoice(pricing)) as never)).rejects.toThrow(message);
 		expect(await periodFor('in_unpriced')).toHaveLength(0);
+	});
+
+	test('invoice.paid fails loudly and grants nothing when Stripe cannot return the Price', async () => {
+		mocks.pricesRetrieve.mockRejectedValue(new Error('stripe unavailable'));
+		await testDb().db.insert(organizations).values({ id: 'org-1', name: 'Org', stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1' });
+		await expect(handleStripeEvent(event('invoice.paid', 'in_noprice', paidInvoice(HOSTED_LINE_PRICING)) as never)).rejects.toThrow(/stripe unavailable/);
+		expect(await periodFor('in_noprice')).toHaveLength(0);
 	});
 
 	test('invoice.paid accepts the current parent subscription payload', async () => {

@@ -1,6 +1,4 @@
 export const HOSTED_INCLUDED_CREDITS = 900;
-// The allowance of the retired $5 plan, still granted to its renewals until every subscription has moved to the current Price.
-export const LEGACY_HOSTED_INCLUDED_CREDITS = 100;
 const HOSTED_PRICE_CENTS = 900;
 const LIFETIME_PRICE_CENTS = 4900;
 export const LIFETIME_SLOT_LIMIT = 1000;
@@ -42,14 +40,18 @@ export function validatePlanPrice(plan: PaidPlan, price: PriceLike): void {
 	if (price.type !== 'one_time') throw new Error(LIFETIME_PRICE_ONE_TIME_ERROR);
 }
 
+/** Stripe Price metadata key holding the comments a paid period of that Price includes. */
+export const INCLUDED_CREDITS_METADATA_KEY = 'included_credits';
+
 /**
- * Allowance for one paid hosted renewal, decided by the Price the invoice
- * billed. An unknown Price throws: a renewal must never receive an allowance
- * the customer did not pay for, nor lose the one they did.
+ * Allowance for one paid hosted renewal, declared by the Price the invoice
+ * billed. A Price without a valid declaration throws: a renewal must never
+ * receive an allowance the customer did not pay for, nor lose the one they did.
  */
-export function hostedIncludedCreditsForPrice(priceId: string, prices: { current?: string; legacy?: string }): number {
-	if (!prices.current) throw new Error('STRIPE_PRICE_HOSTED_MONTHLY is not configured; cannot grant a hosted allowance');
-	if (priceId === prices.current) return HOSTED_INCLUDED_CREDITS;
-	if (prices.legacy && priceId === prices.legacy) return LEGACY_HOSTED_INCLUDED_CREDITS;
-	throw new Error(`invoice price ${priceId} is neither STRIPE_PRICE_HOSTED_MONTHLY nor STRIPE_PRICE_HOSTED_MONTHLY_LEGACY`);
+export function includedCreditsFromPriceMetadata(priceId: string, metadata: unknown): number {
+	const declared = typeof metadata === 'object' && metadata !== null ? (metadata as Record<string, unknown>)[INCLUDED_CREDITS_METADATA_KEY] : undefined;
+	if (typeof declared !== 'string' || !/^[1-9]\d*$/.test(declared)) {
+		throw new Error(`Stripe Price ${priceId} must carry metadata ${INCLUDED_CREDITS_METADATA_KEY} set to a positive whole number of comments; got ${JSON.stringify(declared)}`);
+	}
+	return Number(declared);
 }
