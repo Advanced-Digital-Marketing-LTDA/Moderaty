@@ -2,6 +2,7 @@
 	import { GITHUB_URL, POLYFORM_URL, CONTACT_URL } from '$lib/landing/links';
 	import AnalyticsPreference from '$lib/components/AnalyticsPreference.svelte';
 	import { LEGAL_DOCS } from '$lib/landing/legal';
+	import { COMMENTSHARK_COMPARISON } from '$lib/blogs/commentshark-comparison';
 	import { YOUTUBE_MONEY_CALCULATOR } from '$lib/tools/youtube-money-content';
 
 	// Illustrative "quiet night": 24 hourly bars, comments handled while the
@@ -49,6 +50,7 @@
 				<a href="/blogs/" class="footer-link">Blogs</a>
 				<a href="/guides/" class="footer-link">Guides</a>
 				<a href={YOUTUBE_MONEY_CALCULATOR.path} class="footer-link">{YOUTUBE_MONEY_CALCULATOR.title}</a>
+				<a href={COMMENTSHARK_COMPARISON.path} class="footer-link">{COMMENTSHARK_COMPARISON.title}</a>
 				{#each LEGAL_DOCS as doc (doc.slug)}
 					<a href="/{doc.slug}" class="footer-link">{doc.label}</a>
 				{/each}

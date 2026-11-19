@@ -28,7 +28,7 @@ export const TICKS_SELF_HOSTED_DETAILED = [
 ];
 
 export const TICKS_HOSTED = [
-	'Auto-renews monthly, 100 AI classifications included',
+	'Auto-renews monthly, 900 AI classifications included',
 	TOP_UP_BUNDLES_COPY,
 	'Automatic top-up is opt-in',
 	'Same rules, same model, same audit log'
@@ -38,7 +38,7 @@ export const TICKS_HOSTED_DETAILED = [
 	'Everything in self-hosted',
 	'We run it, patch it, and keep it awake',
 	'One-click YouTube OAuth',
-	'100 AI classifications per paid month, shared by moderation scoring and enabled feedback digests',
+	'900 AI classifications per paid month, shared by moderation scoring and enabled feedback digests',
 	`${TOP_UP_BUNDLES_COPY} when you need more`,
 	'Automatic top-up is opt-in, off by default'
 ];
