@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { HOSTED_INCLUDED_CREDITS, LEGACY_HOSTED_INCLUDED_CREDITS, LIFETIME_SLOT_LIMIT, hostedIncludedCreditsForPrice, planPriceEnv, validatePlanPrice } from './plans';
+import { HOSTED_INCLUDED_CREDITS, INCLUDED_CREDITS_METADATA_KEY, LIFETIME_SLOT_LIMIT, includedCreditsFromPriceMetadata, planPriceEnv, validatePlanPrice } from './plans';
 
 describe('plan catalog', () => {
 	test('defines the advertised hosted and lifetime contracts', () => {
 		expect(HOSTED_INCLUDED_CREDITS).toBe(900);
-		expect(LEGACY_HOSTED_INCLUDED_CREDITS).toBe(100);
 		expect(LIFETIME_SLOT_LIMIT).toBe(1000);
 		expect(planPriceEnv('hosted')).toBe('STRIPE_PRICE_HOSTED_MONTHLY');
 		expect(planPriceEnv('lifetime')).toBe('STRIPE_PRICE_LIFETIME');
@@ -25,26 +24,26 @@ describe('plan catalog', () => {
 	});
 });
 
-describe('hostedIncludedCreditsForPrice', () => {
-	const prices = { current: 'price_new', legacy: 'price_old' };
-
-	test('grants the full allowance for the current hosted price', () => {
-		expect(hostedIncludedCreditsForPrice('price_new', prices)).toBe(900);
+describe('includedCreditsFromPriceMetadata', () => {
+	test('reads the allowance the Price itself declares', () => {
+		expect(INCLUDED_CREDITS_METADATA_KEY).toBe('included_credits');
+		expect(includedCreditsFromPriceMetadata('price_new', { included_credits: '900' })).toBe(900);
+		expect(includedCreditsFromPriceMetadata('price_old', { included_credits: '100' })).toBe(100);
 	});
 
-	test('grants the old allowance for the legacy price during the migration window', () => {
-		expect(hostedIncludedCreditsForPrice('price_old', prices)).toBe(100);
-	});
-
-	test('rejects the legacy price once no legacy price is configured', () => {
-		expect(() => hostedIncludedCreditsForPrice('price_old', { current: 'price_new' })).toThrow(/price_old/);
-	});
-
-	test('rejects an unknown price instead of defaulting to an allowance', () => {
-		expect(() => hostedIncludedCreditsForPrice('price_other', prices)).toThrow(/price_other/);
-	});
-
-	test('fails loudly when the hosted price is not configured', () => {
-		expect(() => hostedIncludedCreditsForPrice('price_new', {})).toThrow(/STRIPE_PRICE_HOSTED_MONTHLY/);
+	test.each([
+		['no metadata at all', undefined],
+		['null metadata', null],
+		['metadata without the key', { other: '900' }],
+		['an empty value', { included_credits: '' }],
+		['a non-numeric value', { included_credits: 'nine hundred' }],
+		['zero', { included_credits: '0' }],
+		['a negative value', { included_credits: '-100' }],
+		['a fractional value', { included_credits: '9.5' }],
+		['scientific notation', { included_credits: '9e2' }],
+		['surrounding whitespace', { included_credits: ' 900 ' }],
+		['a non-string value', { included_credits: 900 }]
+	])('rejects %s and names the Price and the key', (_name, metadata) => {
+		expect(() => includedCreditsFromPriceMetadata('price_bad', metadata)).toThrow(/price_bad.*included_credits/s);
 	});
 });

@@ -16,8 +16,7 @@ import { applyLedgerDelta, drainPendingReversals, findGrantForStripe, pauseForOb
 import { grantAutoTopupCredits, handleAutoTopupFailure } from '$lib/server/billing/autotopup';
 import { claimLifetimeSlot, grantSubscriptionPeriod, refundSubscriptionPeriod, disputeSubscriptionPeriod, releaseLifetimeForPayment, applySubscriptionSnapshot, revokeLifetimeForDispute, restoreLifetimeForDispute, restoreDisputedSubscriptionPeriod, stripeIdentifierPredicate, LIFETIME_SOLD_OUT_ERROR } from '$lib/server/billing/entitlements';
 import { bundleById, type CreditBundle } from '$lib/server/stripe/bundles';
-import { hostedIncludedCreditsForPrice, isActiveSubscriptionStatus } from '$lib/server/billing/plans';
-import { env } from '$env/dynamic/private';
+import { includedCreditsFromPriceMetadata, isActiveSubscriptionStatus } from '$lib/server/billing/plans';
 import { markCheckoutAttemptFulfilled, TEST_CHECKOUT_PRODUCT } from '$lib/server/billing/checkout';
 import { getStripe } from '$lib/server/stripe/client';
 import { chargeFullyRefunded, refundUngrantablePayment } from '$lib/server/stripe/refunds';
@@ -1577,7 +1576,8 @@ async function handleInvoicePaid(event: Stripe.Event): Promise<void> {
 		return;
 	}
 	const { periodStart, periodEnd } = invoicePeriod(invoice, subscriptionId);
-	const includedCredits = hostedIncludedCreditsForPrice(invoiceLinePriceId(invoice, subscriptionId), { current: env.STRIPE_PRICE_HOSTED_MONTHLY, legacy: env.STRIPE_PRICE_HOSTED_MONTHLY_LEGACY });
+	const priceId = invoiceLinePriceId(invoice, subscriptionId);
+	const includedCredits = includedCreditsFromPriceMetadata(priceId, (await getStripe().prices.retrieve(priceId)).metadata);
 	const payment = await invoicePaymentReferences(invoice, invoiceId);
 	await grantSubscriptionPeriod({ orgId: org.id, subscriptionId, invoiceId, includedCredits, ...payment, periodKey: `${periodStart}/${periodEnd}`, periodStart, periodEnd, eventCreated: event.created, eventId: event.id });
 }

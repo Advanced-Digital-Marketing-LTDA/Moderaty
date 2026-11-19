@@ -34,7 +34,6 @@ export const variables = defineEnvVars({
 	STRIPE_PRICE_CREDITS_500: optional,
 	STRIPE_PRICE_CREDITS_2000: optional,
 	STRIPE_PRICE_HOSTED_MONTHLY: optional,
-	STRIPE_PRICE_HOSTED_MONTHLY_LEGACY: optional,
 	STRIPE_PRICE_LIFETIME: optional,
 	STRIPE_SECRET_KEY: optional,
 	STRIPE_TEST_PRODUCT: optional,
