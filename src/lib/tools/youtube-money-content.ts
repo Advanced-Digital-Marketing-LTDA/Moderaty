@@ -4,7 +4,7 @@ export const YOUTUBE_MONEY_CALCULATOR = {
 	path: '/tools/youtube-income-estimator/',
 	title: 'YouTube Income Estimator',
 	description:
-		'Free YouTube money calculator. Enter your monthly views and Studio RPM to see daily, monthly and yearly earnings and the views you need for an income goal.'
+		'Free YouTube income estimator. Enter your monthly views and Studio RPM to see daily, monthly and yearly earnings and the views you need for an income goal.'
 } as const;
 
 export const YOUTUBE_MONEY_EDITION = { updated: '2026-11-10' } as const;

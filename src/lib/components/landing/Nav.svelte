@@ -13,7 +13,7 @@
 
 	// Tools sits right after this link in both the desktop bar and the mobile list.
 	const TOOLS_AFTER = '/pricing';
-	const TOOLS = [{ label: 'YouTube money calculator', href: '/tools/youtube-income-estimator/' }];
+	const TOOLS = [{ label: 'YouTube income estimator', href: '/tools/youtube-income-estimator/' }];
 
 	let open = $state(false);
 	let toolsOpen = $state(false);

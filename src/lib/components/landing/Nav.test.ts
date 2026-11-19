@@ -166,7 +166,7 @@ describe('tools menu', () => {
 	});
 
 	it('lists the calculator as the tools destination and dismisses on Escape and outside clicks', () => {
-		expect(source).toContain("href: '/tools/youtube-income-estimator/'");
+		expect(source).toContain("label: 'YouTube income estimator', href: '/tools/youtube-income-estimator/'");
 		expect(source).toMatch(/<svelte:window[^>]*onkeydown=/);
 		expect(source).toMatch(/<svelte:window[^>]*onclick=/);
 	});

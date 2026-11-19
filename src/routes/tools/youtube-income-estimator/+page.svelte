@@ -25,7 +25,7 @@
 		'@graph': [
 			{
 				'@type': 'WebApplication',
-				name: 'YouTube money calculator',
+				name: 'YouTube income estimator',
 				url: pageUrl,
 				applicationCategory: 'FinanceApplication',
 				operatingSystem: 'Any',
@@ -132,7 +132,7 @@
 />
 
 <nav class="breadcrumbs" aria-label="Breadcrumb">
-	<ol><li><a href="/">Home</a></li><li aria-current="page">YouTube money calculator</li></ol>
+	<ol><li><a href="/">Home</a></li><li aria-current="page">YouTube income estimator</li></ol>
 </nav>
 
 <h1>YouTube Income Estimator</h1>

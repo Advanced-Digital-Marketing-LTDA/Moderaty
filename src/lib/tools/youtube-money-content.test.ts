@@ -53,7 +53,7 @@ test('the OutlierKit link label says its figures are CPM, because the page does 
 
 test('the meta description is the approved sentence and fits a search snippet', () => {
 	expect(YOUTUBE_MONEY_CALCULATOR.description).toBe(
-		'Free YouTube money calculator. Enter your monthly views and Studio RPM to see daily, monthly and yearly earnings and the views you need for an income goal.'
+		'Free YouTube income estimator. Enter your monthly views and Studio RPM to see daily, monthly and yearly earnings and the views you need for an income goal.'
 	);
 	expect(YOUTUBE_MONEY_CALCULATOR.description.length).toBeLessThanOrEqual(160);
 });

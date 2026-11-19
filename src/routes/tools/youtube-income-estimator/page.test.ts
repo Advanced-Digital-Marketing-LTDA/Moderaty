@@ -28,7 +28,7 @@ test('the JSON-LD graph carries a WebApplication and an FAQPage whose questions 
 	const graph = jsonLdBlocks(head).find((block) => (block as { '@graph'?: unknown[] })['@graph']) as { '@graph': Record<string, unknown>[] };
 	const app = graph['@graph'].find((node) => node['@type'] === 'WebApplication');
 	const faq = graph['@graph'].find((node) => node['@type'] === 'FAQPage') as { mainEntity: { name: string }[] };
-	expect(app).toMatchObject({ name: 'YouTube money calculator', url: articleUrl, applicationCategory: 'FinanceApplication' });
+	expect(app).toMatchObject({ name: 'YouTube income estimator', url: articleUrl, applicationCategory: 'FinanceApplication' });
 	expect(faq.mainEntity.map((question) => question.name)).toEqual(YOUTUBE_MONEY_FAQ.map((entry) => entry.q));
 	for (const entry of YOUTUBE_MONEY_FAQ) expect(body).toContain(`>${entry.q}</summary>`);
 });
@@ -212,6 +212,10 @@ test('the H1 and the title tag are exactly YouTube Income Estimator', () => {
 	const { head, body } = rendered();
 	expect(body).toMatch(/<h1>YouTube Income Estimator<\/h1>/);
 	expect(head).toContain('<title>YouTube Income Estimator | Moderaty</title>');
+});
+
+test('the breadcrumb names the page the same way as the title', () => {
+	expect(rendered().body).toContain('<li aria-current="page">YouTube income estimator</li>');
 });
 
 test('YouTube Income Estimator appears within the first 100 characters of the page text', () => {
