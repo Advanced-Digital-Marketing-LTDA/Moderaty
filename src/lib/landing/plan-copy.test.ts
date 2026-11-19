@@ -3,12 +3,13 @@ import { expect, test, vi } from 'vitest';
 import PlanHosted from '$lib/components/landing/PlanHosted.svelte';
 import PricingHero from '$lib/components/landing/pricing/PricingHero.svelte';
 import { HOSTED_INCLUDED_CREDITS, validatePlanPrice } from '$lib/server/billing/plans';
+import { visibleText } from '../../routes/blogs/article-text';
 import { INCLUDED_COMMENTS, MONTHLY_PLAN_USD } from './cost';
 import { PRICING_FAQ_ENTRIES } from './pricing-faq';
 
 vi.mock('$env/dynamic/private', () => ({ env: { APP_URL: 'https://preview.example' } }));
 
-const text = (html: string) => html.replace(/<!--.*?-->/gs, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+const text = (html: string) => visibleText(html).replace(/\s+/g, ' ');
 
 test('the displayed plan and the server grant describe the same hosted plan', () => {
 	expect(INCLUDED_COMMENTS).toBe(HOSTED_INCLUDED_CREDITS);
