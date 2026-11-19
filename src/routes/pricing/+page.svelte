@@ -12,7 +12,7 @@
 	import FinalCta from '$lib/components/landing/FinalCta.svelte';
 	import Footer from '$lib/components/landing/Footer.svelte';
 	import { PRICING_FAQ_ENTRIES } from '$lib/landing/pricing-faq';
-	import { TOP_UP_BUNDLES_COPY } from '$lib/landing/plans';
+	import { INCLUDED_COMMENTS, MONTHLY_PLAN_USD } from '$lib/landing/cost';
 	import { jsonLd } from '$lib/landing/json-ld';
 	import { publicSoftwareSchema } from '$lib/landing/public-schema';
 	import { page } from '$app/state';
@@ -45,7 +45,7 @@
 	<title>Pricing | Moderaty</title>
 	<meta
 		name="description"
-		content={`Self-hosted Moderaty costs $0 from Moderaty under the source-available PolyForm Shield license; infrastructure and OpenAI charges are separate. Hosted: $5 a month for 100 AI classifications shared by moderation scoring and feedback digests; top-ups: ${TOP_UP_BUNDLES_COPY}. 1,000 lifetime places: $49 once for lifetime hosting, with your own OpenAI key.`}
+		content={`Self-hosted Moderaty costs $0 from us. Hosted is $${MONTHLY_PLAN_USD} a month for ${INCLUDED_COMMENTS} AI classifications, or $49 once for lifetime hosting with your own OpenAI key.`}
 	/>
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content="Moderaty" />
