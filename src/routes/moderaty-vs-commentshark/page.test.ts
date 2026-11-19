@@ -2,6 +2,7 @@ import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
 import Page from './+page.svelte';
 import Footer from '$lib/components/landing/Footer.svelte';
+import { visibleText } from '../blogs/article-text';
 import {
 	COMMENTSHARK_ACTION_PACKS,
 	COMMENTSHARK_COMPARISON,
@@ -21,7 +22,8 @@ vi.mock('$env/dynamic/private', () => ({ env: { APP_URL: 'https://preview.exampl
 const data = { siteOrigin: 'https://preview.example', canonical: null, locale: 'en' as const };
 const pageUrl = `https://preview.example${COMMENTSHARK_COMPARISON.path}`;
 const rendered = () => render(Page, { props: { data } });
-const text = (html: string) => html.replace(/<!--.*?-->/gs, '').replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+const text = (html: string) => visibleText(html).replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+const cellsOf = (row: string) => [...row.matchAll(/<t[hd]\b[^>]*>(.*?)<\/t[hd]>/gs)].map(([, cell]) => text(cell).trim());
 const rowsOf = (html: string, captionId: string) => {
 	const table = html.match(new RegExp(`<table>\\s*<caption id="${captionId}">.*?</table>`, 's'))?.[0] ?? '';
 	return [...table.matchAll(/<tbody>(.*?)<\/tbody>/gs)].flatMap(([, body]) => [...body.matchAll(/<tr>(.*?)<\/tr>/gs)].map(([, row]) => row));
@@ -56,8 +58,7 @@ test('the comparison table renders every row of the data, in both columns', () =
 	const rows = rowsOf(rendered().body, 'at-a-glance-caption');
 	expect(rows).toHaveLength(COMPARISON_ROWS.length);
 	COMPARISON_ROWS.forEach((row, index) => {
-		const cells = [...rows[index].matchAll(/<t[hd]\b[^>]*>(.*?)<\/t[hd]>/gs)].map(([, cell]) => text(cell).trim());
-		expect(cells).toEqual([row.topic, row.moderaty, row.commentshark]);
+		expect(cellsOf(rows[index])).toEqual([row.topic, row.moderaty, row.commentshark]);
 	});
 });
 
@@ -65,8 +66,7 @@ test('the CommentShark plan table lists every plan with its price and limits', (
 	const rows = rowsOf(rendered().body, 'commentshark-plans-caption');
 	expect(rows).toHaveLength(COMMENTSHARK_PLANS.length);
 	COMMENTSHARK_PLANS.forEach((plan, index) => {
-		const cells = [...rows[index].matchAll(/<t[hd]\b[^>]*>(.*?)<\/t[hd]>/gs)].map(([, cell]) => text(cell).trim());
-		expect(cells).toEqual([plan.name, plan.price, plan.rules, plan.actions, plan.checks]);
+		expect(cellsOf(rows[index])).toEqual([plan.name, plan.price, plan.rules, plan.actions, plan.checks]);
 	});
 	const prose = text(rendered().body);
 	for (const pack of COMMENTSHARK_ACTION_PACKS) expect(prose).toContain(`${pack.name}, ${pack.actions} actions for ${pack.price}`);
