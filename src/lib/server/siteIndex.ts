@@ -6,6 +6,7 @@ import { MODERATION_GUIDE } from '$lib/blogs/moderation-guide';
 import { GUIDES_INDEX } from '$lib/blogs/guides-index';
 import { COMMENT_SETTINGS_GUIDE } from '$lib/blogs/comment-settings-guide';
 import { COMMENT_REVIEW_ROUTINE } from '$lib/blogs/comment-review-routine';
+import { COMMENTSHARK_COMPARISON } from '$lib/blogs/commentshark-comparison';
 import { YOUTUBE_MONEY_CALCULATOR } from '$lib/tools/youtube-money-content';
 
 // The crawlable surface: marketing, legal, public utility and editorial
@@ -28,11 +29,12 @@ export const PUBLIC_PAGES = [
 	MODERATION_GUIDE.path,
 	COMMENT_SETTINGS_GUIDE.path,
 	COMMENT_REVIEW_ROUTINE.path,
-	YOUTUBE_MONEY_CALCULATOR.path
+	YOUTUBE_MONEY_CALCULATOR.path,
+	COMMENTSHARK_COMPARISON.path
 ] as const;
 
 // Pages whose own route renders <link rel="canonical">; the root layout covers the rest.
-const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path, GUIDES_INDEX.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path, COMMENT_REVIEW_ROUTINE.path, YOUTUBE_MONEY_CALCULATOR.path];
+const SELF_CANONICAL_PAGES: readonly string[] = ['/', '/blogs/', HATE_COMMENTS.path, SPAM_COMMENTS.path, GUIDES_INDEX.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path, COMMENT_REVIEW_ROUTINE.path, YOUTUBE_MONEY_CALCULATOR.path, COMMENTSHARK_COMPARISON.path];
 const LAYOUT_CANONICAL_PAGES = PUBLIC_PAGES.filter((path) => !SELF_CANONICAL_PAGES.includes(path));
 
 // Runtime-rendered editorial and legal pages need the configured origin, not a session or DB.
@@ -48,6 +50,7 @@ export const PUBLIC_BLOG_ROUTE_IDS = [
 	YOUTUBE_MONEY_CALCULATOR.path.slice(0, -1),
 	// Retired slug: its redirect must keep working while the database is down.
 	'/tools/youtube-money-calculator',
+	COMMENTSHARK_COMPARISON.path.slice(0, -1),
 	'/privacy',
 	'/terms',
 	'/dpa'
@@ -168,6 +171,7 @@ export function llmsTxt(): string {
 		`- [${COMMENT_SETTINGS_GUIDE.title}](${link(COMMENT_SETTINGS_GUIDE.path)}) — video comment settings and Community viewer-post controls`,
 		`- [${COMMENT_REVIEW_ROUTINE.title}](${link(COMMENT_REVIEW_ROUTINE.path)}) — a timed routine for held and published comments`,
 		`- [${YOUTUBE_MONEY_CALCULATOR.title}](${link(YOUTUBE_MONEY_CALCULATOR.path)}) — free estimate from your views and your own RPM`,
+		`- [${COMMENTSHARK_COMPARISON.title}](${link(COMMENTSHARK_COMPARISON.path)}) — what each does, how each bills, and which fits your channel`,
 		'',
 		'## Legal',
 		'',
