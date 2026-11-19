@@ -23,3 +23,16 @@ export function readingText(html: string): string {
 	if (end === -1) throw new Error('Article contents rail has no closing mobile disclosure');
 	return visibleText(html.slice(0, start) + html.slice(end + close.length));
 }
+
+// Removes every HTML comment by scanning, repeating until none remain so that
+// removing one comment can never assemble another. An unclosed comment throws.
+export function withoutHtmlComments(html: string): string {
+	let out = html;
+	for (;;) {
+		const start = out.indexOf('<!--');
+		if (start === -1) return out;
+		const end = out.indexOf('-->', start + 4);
+		if (end === -1) throw new Error('Unterminated HTML comment in rendered markup');
+		out = out.slice(0, start) + out.slice(end + 3);
+	}
+}

@@ -178,7 +178,12 @@ test.each(PAGES)('$name links to homepage sections only when the homepage define
 test.each(PAGES)('$name never links to a hard-coded production host', ({ render: renderPage }) => {
 	const { body, head } = renderPage();
 	const hrefs = [...`${body}${head}`.matchAll(/href="([^"]*)"/g)].map(([, href]) => href);
-	expect(hrefs.filter((href) => href.includes('moderaty.com'))).toEqual([]);
+	// Compare the parsed host, not a substring of the link, so a path or query that merely mentions the name is not mistaken for the host.
+	const isProductionHost = (href: string) => {
+		const { hostname } = new URL(href, ORIGIN);
+		return hostname === 'moderaty.com' || hostname.endsWith('.moderaty.com');
+	};
+	expect(hrefs.filter(isProductionHost)).toEqual([]);
 });
 
 test('the homepage FAQ structured data mirrors the homepage FAQ constant', () => {
