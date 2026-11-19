@@ -91,18 +91,8 @@ function expectSearchResultLengths(head: string) {
 	expect((description ?? '').length, `description is ${(description ?? '').length} characters: ${description}`).toBeLessThanOrEqual(MAX_DESCRIPTION_LENGTH);
 }
 
-// A page listed here is over a limit and its fix is not yet approved. Its
-// test.fails entry below turns red the moment it is fixed, so the entry is
-// removed instead of lingering as a silent exemption.
-const KNOWN_OVER_LIMIT = new Set(['comment review routine guide']);
-
-test.each([...PAGES, ...LEGAL_PAGES].filter(({ name }) => !KNOWN_OVER_LIMIT.has(name)))(
+test.each([...PAGES, ...LEGAL_PAGES])(
 	'$name keeps its title and meta description inside search-result limits',
-	({ render: renderPage }) => expectSearchResultLengths(renderPage().head)
-);
-
-test.fails.each([...PAGES].filter(({ name }) => KNOWN_OVER_LIMIT.has(name)))(
-	'$name is a known gap: its title or description is still over the search-result limits',
 	({ render: renderPage }) => expectSearchResultLengths(renderPage().head)
 );
 
