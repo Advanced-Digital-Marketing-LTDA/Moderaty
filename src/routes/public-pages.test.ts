@@ -12,6 +12,9 @@ import RoutineGuide from './guides/comment-review-routine/+page.svelte';
 import ModerationGuide from './guides/youtube-comment-moderation/+page.svelte';
 import SettingsGuide from './guides/youtube-comment-moderation-settings/+page.svelte';
 import CommentSharkComparison from './moderaty-vs-commentshark/+page.svelte';
+import TermsPage from './terms/+page.svelte';
+import DpaPage from './dpa/+page.svelte';
+import PrivacyPage from './privacy/+page.svelte';
 import Terms from '$lib/components/landing/legal/Terms.svelte';
 import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 import { PRICING_FAQ_ENTRIES } from '$lib/landing/pricing-faq';
@@ -71,6 +74,30 @@ const PAGES = [
 	{ name: 'comment settings guide', path: COMMENT_SETTINGS_GUIDE.path, render: () => render(SettingsGuide, { props: { data: articleData } }) },
 	{ name: 'CommentShark comparison', path: COMMENTSHARK_COMPARISON.path, render: () => render(CommentSharkComparison, { props: { data: articleData } }) }
 ] as const;
+
+const LEGAL_PAGES = [
+	{ name: 'terms', render: () => render(TermsPage) },
+	{ name: 'DPA', render: () => render(DpaPage) },
+	{ name: 'privacy', render: () => render(PrivacyPage) }
+] as const;
+
+// Search results cut a longer title or snippet off mid-phrase.
+const MAX_TITLE_LENGTH = 60;
+const MAX_DESCRIPTION_LENGTH = 160;
+
+function expectSearchResultLengths(head: string) {
+	const title = head.match(/<title>(.*?)<\/title>/)?.[1];
+	const description = attribute(head, 'name', 'description', 'content');
+	expect(title, 'missing <title>').toBeDefined();
+	expect(description, 'missing meta description').toBeDefined();
+	expect((title ?? '').length, `title is ${(title ?? '').length} characters: ${title}`).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+	expect((description ?? '').length, `description is ${(description ?? '').length} characters: ${description}`).toBeLessThanOrEqual(MAX_DESCRIPTION_LENGTH);
+}
+
+test.each([...PAGES, ...LEGAL_PAGES])(
+	'$name keeps its title and meta description inside search-result limits',
+	({ render: renderPage }) => expectSearchResultLengths(renderPage().head)
+);
 
 // These pages leave the canonical tag to the root layout (see how-it-works
 // /page.test history); their social URL must still match the address they serve.

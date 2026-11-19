@@ -48,6 +48,8 @@ export const PUBLIC_BLOG_ROUTE_IDS = [
 	COMMENT_SETTINGS_GUIDE.path.slice(0, -1),
 	COMMENT_REVIEW_ROUTINE.path.slice(0, -1),
 	YOUTUBE_MONEY_CALCULATOR.path.slice(0, -1),
+	// Retired slug: its redirect must keep working while the database is down.
+	'/tools/youtube-money-calculator',
 	COMMENTSHARK_COMPARISON.path.slice(0, -1),
 	'/privacy',
 	'/terms',
