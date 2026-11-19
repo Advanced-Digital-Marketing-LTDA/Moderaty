@@ -15,6 +15,9 @@ import CommentSharkComparison from './moderaty-vs-commentshark/+page.svelte';
 import TermsPage from './terms/+page.svelte';
 import DpaPage from './dpa/+page.svelte';
 import PrivacyPage from './privacy/+page.svelte';
+import ContactPage from './contact/+page.svelte';
+import LoginPage from './login/+page.svelte';
+import EstimatorPage from './tools/youtube-income-estimator/+page.svelte';
 import Terms from '$lib/components/landing/legal/Terms.svelte';
 import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 import { PRICING_FAQ_ENTRIES } from '$lib/landing/pricing-faq';
@@ -26,7 +29,8 @@ import { COMMENT_SETTINGS_GUIDE, COMMENT_SETTINGS_GUIDE_EDITION } from '$lib/blo
 import { COMMENTSHARK_COMPARISON, COMMENTSHARK_COMPARISON_EDITION } from '$lib/blogs/commentshark-comparison';
 import { GUIDES_INDEX } from '$lib/blogs/guides-index';
 import { BLOG_AUTHOR } from '$lib/blogs/author';
-import { PUBLIC_BLOG_ROUTE_IDS, llmsTxt, sitemapXml } from '$lib/server/siteIndex';
+import { YOUTUBE_MONEY_CALCULATOR } from '$lib/tools/youtube-money-content';
+import { PUBLIC_BLOG_ROUTE_IDS, PUBLIC_PAGES, llmsTxt, sitemapXml } from '$lib/server/siteIndex';
 import { createRawSnippet } from 'svelte';
 import Layout from './+layout.svelte';
 
@@ -76,28 +80,52 @@ const PAGES = [
 ] as const;
 
 const LEGAL_PAGES = [
-	{ name: 'terms', render: () => render(TermsPage) },
-	{ name: 'DPA', render: () => render(DpaPage) },
-	{ name: 'privacy', render: () => render(PrivacyPage) }
+	{ name: 'terms', path: '/terms', render: () => render(TermsPage) },
+	{ name: 'DPA', path: '/dpa', render: () => render(DpaPage) },
+	{ name: 'privacy', path: '/privacy', render: () => render(PrivacyPage) }
+] as const;
+
+// Public pages outside the article layout. The sign-in page carries no meta
+// description today, so only its title and, when present, its description are measured.
+const UTILITY_PAGES = [
+	{ name: 'contact', path: '/contact', requireDescription: true, render: () => render(ContactPage, { props: { data: { canonical: null, locale: 'en' as const, optInText: 'I agree to be contacted.', sent: false }, form: null } }) },
+	{ name: 'sign in', path: '/login', requireDescription: false, render: () => render(LoginPage, { props: { data: { canonical: null, locale: 'en' as const } } }) },
+	{ name: 'income estimator', path: YOUTUBE_MONEY_CALCULATOR.path, requireDescription: true, render: () => render(EstimatorPage, { props: { data: articleData } }) }
 ] as const;
 
 // Search results cut a longer title or snippet off mid-phrase.
 const MAX_TITLE_LENGTH = 60;
 const MAX_DESCRIPTION_LENGTH = 160;
 
-function expectSearchResultLengths(head: string) {
+function expectSearchResultLengths(head: string, requireDescription = true) {
 	const title = head.match(/<title>(.*?)<\/title>/)?.[1];
 	const description = attribute(head, 'name', 'description', 'content');
 	expect(title, 'missing <title>').toBeDefined();
-	expect(description, 'missing meta description').toBeDefined();
+	if (requireDescription) expect(description, 'missing meta description').toBeDefined();
 	expect((title ?? '').length, `title is ${(title ?? '').length} characters: ${title}`).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
 	expect((description ?? '').length, `description is ${(description ?? '').length} characters: ${description}`).toBeLessThanOrEqual(MAX_DESCRIPTION_LENGTH);
 }
 
-test.each([...PAGES, ...LEGAL_PAGES])(
+test.each([...PAGES, ...LEGAL_PAGES, ...UTILITY_PAGES])(
 	'$name keeps its title and meta description inside search-result limits',
-	({ render: renderPage }) => expectSearchResultLengths(renderPage().head)
+	(page) => expectSearchResultLengths(page.render().head, 'requireDescription' in page ? page.requireDescription : true)
 );
+
+test('the length guard renders every page in the sitemap', () => {
+	const guarded = [...PAGES, ...LEGAL_PAGES, ...UTILITY_PAGES].map(({ path }) => path as string).sort();
+	expect(guarded).toEqual([...PUBLIC_PAGES].sort());
+});
+
+test('the routine guide keeps its visible headline apart from the short search title', () => {
+	const { head, body } = render(RoutineGuide, { props: { data: articleData } });
+	expect(COMMENT_REVIEW_ROUTINE.metaTitle).not.toBe(COMMENT_REVIEW_ROUTINE.title);
+	expect(body).toContain(`<h1>${COMMENT_REVIEW_ROUTINE.title}</h1>`);
+	expect(head).toContain(`<title>${COMMENT_REVIEW_ROUTINE.metaTitle} | Moderaty</title>`);
+	expect(attribute(head, 'property', 'og:title', 'content')).toBe(`${COMMENT_REVIEW_ROUTINE.metaTitle} | Moderaty`);
+	expect(attribute(head, 'name', 'twitter:title', 'content')).toBe(`${COMMENT_REVIEW_ROUTINE.metaTitle} | Moderaty`);
+	const schema = JSON.parse(head.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)?.[1] ?? 'null');
+	expect(schema.headline).toBe(COMMENT_REVIEW_ROUTINE.title);
+});
 
 // These pages leave the canonical tag to the root layout (see how-it-works
 // /page.test history); their social URL must still match the address they serve.

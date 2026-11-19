@@ -88,7 +88,7 @@ test.describe('the retired calculator path', () => {
 			const slashed = await request.get(`${app.baseURL}/tools/youtube-money-calculator/?utm_source=newsletter`, { maxRedirects: 0 });
 			expect(slashed.status()).toBe(301);
 			await page.goto(`${app.baseURL}${oldPath}`);
-			await expect(page).toHaveURL(new RegExp('/tools/youtube-income-estimator/$'));
+			await expect(page).toHaveURL(/\/tools\/youtube-income-estimator\/$/);
 			await expect(page.getByRole('heading', { name: 'YouTube Income Estimator', level: 1, exact: true })).toBeVisible();
 		});
 	}
