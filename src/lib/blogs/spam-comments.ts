@@ -1,6 +1,6 @@
 export const SPAM_COMMENTS = {
 	path: '/blogs/how-to-stop-spam-and-scam-comments-on-youtube/',
-	title: 'How to stop spam and scam comments on your YouTube channel',
+	title: 'How to stop spam and scam YouTube comments',
 	description: 'Start with YouTube’s native controls, add narrow rules for scam patterns, and let Moderaty’s AI scoring check published top-level comments for toxicity.'
 } as const;
 

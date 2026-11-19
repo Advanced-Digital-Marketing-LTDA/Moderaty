@@ -127,7 +127,7 @@ export const TERMS_DOC: LegalDoc = defineDoc(
 	'terms',
 	'Terms',
 	'Terms of Service',
-	'The binding contract for using Moderaty: eligibility, the service, YouTube API terms, plans, billing and auto top-up, refunds, acceptable use, liability, and governing law (Brazil).',
+	'The binding contract for using Moderaty: eligibility, the service, YouTube API terms, plans, billing, refunds, acceptable use, liability and governing law.',
 	[
 		{ id: 's1', label: '1. Agreement and Acceptance' },
 		{ id: 's2', label: '2. Definitions' },
@@ -180,7 +180,7 @@ export const DPA_DOC: LegalDoc = defineDoc(
 	'dpa',
 	'DPA',
 	'Data Processing Agreement',
-	'The LGPD data processing agreement between you (controller) and Moderaty (processor) for YouTube comment data: comment-data minimization (commenter handles appear in the activity log for up to 30 days, then are erased automatically, and can be erased on demand; no other author identifiers stored), sub-processors, and ANPD transfer clauses.',
+	'The LGPD data processing agreement between you (controller) and Moderaty (processor) for YouTube comment data, with sub-processors and ANPD transfer clauses.',
 	[
 		{ id: 's1', label: '1. Purpose and Scope' },
 		{ id: 's2', label: '2. Definitions' },
