@@ -1,7 +1,7 @@
 import { purchasableCreditEstimate } from '$lib/credit-pricing';
 
-export const MONTHLY_PLAN_USD = 5;
-export const INCLUDED_COMMENTS = 100;
+export const MONTHLY_PLAN_USD = 9;
+export const INCLUDED_COMMENTS = 900;
 export const MAX_CALCULATOR_COMMENTS = 10_000_000;
 
 /** Blank form inputs are incomplete, not invalid; zero remains a real count. */

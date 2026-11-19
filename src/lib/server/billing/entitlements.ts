@@ -9,7 +9,7 @@ import {
 	stripeDisputeReversals
 } from '$lib/server/db/schema';
 import { pauseAutoTopupForRefund, pauseForObservedStripeRefund } from './ledger';
-import { HOSTED_INCLUDED_CREDITS, isActiveSubscriptionStatus } from './plans';
+import { isActiveSubscriptionStatus } from './plans';
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -123,6 +123,8 @@ export interface SubscriptionPeriodGrant {
 	orgId: string;
 	subscriptionId: string;
 	invoiceId: string;
+	/** Allowance this paid period grants; the caller derives it from the Price the invoice billed. */
+	includedCredits: number;
 	paymentIntentId?: string;
 	chargeId?: string;
 	periodKey: string;
@@ -150,7 +152,7 @@ export async function grantSubscriptionPeriod(input: SubscriptionPeriodGrant): P
 		const reversal = await pendingReversalState(tx, input.orgId, input.chargeId);
 		if (input.chargeId) await pauseForObservedStripeRefund(tx, input.orgId, input.chargeId, undefined, undefined, input.paymentIntentId ? { id: input.paymentIntentId, metadata: null } : undefined);
 		const periodStatus = reversal.hasRefund ? 'refunded' : reversal.wonDispute || !reversal.disputeId ? 'paid' : 'disputed';
-		const inserted = await tx.insert(stripeSubscriptionPeriods).values({ orgId: input.orgId, subscriptionId: input.subscriptionId, invoiceId: input.invoiceId, paymentIntentId: input.paymentIntentId, chargeId: input.chargeId, periodKey: input.periodKey, periodStart: input.periodStart, periodEnd: input.periodEnd, includedCredits: HOSTED_INCLUDED_CREDITS, consumedCredits: 0, status: periodStatus }).onConflictDoNothing().returning({ id: stripeSubscriptionPeriods.id });
+		const inserted = await tx.insert(stripeSubscriptionPeriods).values({ orgId: input.orgId, subscriptionId: input.subscriptionId, invoiceId: input.invoiceId, paymentIntentId: input.paymentIntentId, chargeId: input.chargeId, periodKey: input.periodKey, periodStart: input.periodStart, periodEnd: input.periodEnd, includedCredits: input.includedCredits, consumedCredits: 0, status: periodStatus }).onConflictDoNothing().returning({ id: stripeSubscriptionPeriods.id });
 		if (reversal.pending.length && input.chargeId) await tx.delete(stripePendingReversals).where(eq(stripePendingReversals.chargeId, input.chargeId));
 		if (reversal.disputeId) await tx.update(stripeDisputeReversals).set({ source: 'subscription', status: reversal.hasRefund ? 'ignored' : reversal.wonDispute ? 'restored' : 'reversed' }).where(eq(stripeDisputeReversals.disputeId, reversal.disputeId));
 		await applySubscriptionSnapshotTx(tx, { orgId: input.orgId, subscriptionId: input.subscriptionId, status: 'active', periodStart: input.periodStart, periodEnd: input.periodEnd, cancelAtPeriodEnd: false, eventCreated: input.eventCreated, eventId: input.eventId });

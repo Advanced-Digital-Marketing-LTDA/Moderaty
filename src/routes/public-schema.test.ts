@@ -99,7 +99,7 @@ describe.each(pages)('%s public structured data', (_name, renderPage, faqEntries
 		expect(app.offers).toHaveLength(3);
 		const offers = app.offers;
 		expect(offers.map((item) => [item.name, item.price, item.priceCurrency])).toEqual([
-			['Self-hosted', '0', 'USD'], ['Hosted', '5', 'USD'], ['Lifetime', '49', 'USD']
+			['Self-hosted', '0', 'USD'], ['Hosted', '9', 'USD'], ['Lifetime', '49', 'USD']
 		]);
 		const [selfHosted, hosted, lifetime] = offers;
 		expect(selfHosted.description).toMatch(/own infrastructure/i);
@@ -108,10 +108,10 @@ describe.each(pages)('%s public structured data', (_name, renderPage, faqEntries
 		expect(selfHosted.description).toContain('PolyForm Shield 1.0.0');
 		expect(selfHosted).not.toHaveProperty('priceSpecification');
 		expect(hosted.description).toMatch(/renews monthly/i);
-		expect(hosted.description).toMatch(/100 AI classifications.*shared.*moderation scoring.*enabled feedback digests/i);
+		expect(hosted.description).toMatch(/900 AI classifications.*shared.*moderation scoring.*enabled feedback digests/i);
 		expect(hosted.description).toMatch(/unused.*does not carry over/i);
 		expect(hosted.priceSpecification).toEqual({
-			'@type': 'UnitPriceSpecification', price: '5', priceCurrency: 'USD',
+			'@type': 'UnitPriceSpecification', price: '9', priceCurrency: 'USD',
 			referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON', unitText: 'month' }
 		});
 		expect(lifetime.description).toMatch(/one-time.*lifetime hosting/i);

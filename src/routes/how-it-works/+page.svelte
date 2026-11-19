@@ -237,7 +237,7 @@
 			</article>
 			<article class="plan-card">
 				<h3>Hosted monthly</h3>
-				<p><strong>$5 per month.</strong> Moderaty runs the service and supplies the AI key. The paid month includes 100 AI classifications shared by moderation scoring and enabled feedback digests.</p>
+				<p><strong>$9 per month.</strong> Moderaty runs the service and supplies the AI key. The paid month includes 900 AI classifications shared by moderation scoring and enabled feedback digests.</p>
 				<a href="/pricing">See current plan details and top-up prices.</a>
 			</article>
 			<article class="plan-card">

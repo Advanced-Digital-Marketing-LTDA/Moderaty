@@ -94,7 +94,7 @@ beforeEach(() => {
 	// the catalog; these fixtures just give every Price a retrievable shape.
 	// price_lifetime stays at its catalog 4900.
 	const bundleCents: Record<string, number> = { price_100: 500, price_500: 2040, price_2000: 6465, price_lifetime: 4900, price_test: 100 };
-	mocks.pricesRetrieve.mockImplementation(async (id: string) => id === 'price_hosted' ? { id, active: true, currency: 'usd', type: 'recurring', unit_amount: 500, recurring: { interval: 'month', interval_count: 1 } } : { id, active: true, currency: 'usd', type: 'one_time', unit_amount: bundleCents[id] ?? 100 });
+	mocks.pricesRetrieve.mockImplementation(async (id: string) => id === 'price_hosted' ? { id, active: true, currency: 'usd', type: 'recurring', unit_amount: 900, recurring: { interval: 'month', interval_count: 1 } } : { id, active: true, currency: 'usd', type: 'one_time', unit_amount: bundleCents[id] ?? 100 });
 	mocks.paymentMethodsRetrieve.mockResolvedValue({ id: 'pm_1', type: 'card', card: { brand: 'visa', last4: '4242' } });
 	// The env mock object is shared: a test that unsets STRIPE_TEST_PRODUCT
 	// must not leak that into the next test.

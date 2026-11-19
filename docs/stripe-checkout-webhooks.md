@@ -43,7 +43,7 @@ Stripe's official fulfillment/"payment success" guide: https://docs.stripe.com/p
 
 Moderaty keeps billing state in its database; Stripe is the payment evidence and event source.
 
-- Hosted checkout uses the configured recurring USD 5 Price. Checkout completion records the subscription and grants no allowance. `invoice.paid` creates one period row with 100 included comments. The period key and invoice ID are unique, and consumption updates the period counter atomically before purchased-credit overage.
+- Hosted checkout uses the configured recurring USD 9 Price. Checkout completion records the subscription and grants no allowance. `invoice.paid` creates one period row whose included comments come from the Price the invoice billed: 900 for `STRIPE_PRICE_HOSTED_MONTHLY`, 100 for `STRIPE_PRICE_HOSTED_MONTHLY_LEGACY` while it is set. An invoice on any other Price, or a line without one, is rejected and grants nothing. The period key and invoice ID are unique, and consumption updates the period counter atomically before purchased-credit overage.
 - Lifetime checkout uses the configured one-time USD 49 Price. A transaction claims the lowest free slot from the pre-created 1,000-slot pool. Replaying the same Checkout Session returns the existing entitlement without claiming another slot.
 - Subscription snapshots are applied only when `(event.created, event.id)` is newer than the stored snapshot. Active lifetime access takes precedence over hosted access; the organization plan field is only a derived cache.
 - Full refunds release lifetime slots and revoke unused subscription-period allowance. Disputes release lifetime slots and revoke the matching period. Partial refunds do not revoke credits.

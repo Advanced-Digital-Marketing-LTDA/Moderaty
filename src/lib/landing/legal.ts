@@ -96,7 +96,12 @@ export const LEGAL_EFFECTIVE_DATE = '11 October 2026';
 // previously named only name, e-mail, purchase history, and tax ID.
 // Material change: users without a 1.17 consent row are routed back
 // through /consent.
-export const LEGAL_VERSION = '1.20';
+// 1.21: HOSTED PRICE — Terms §6.1(b) now offers the hosted subscription at
+// USD 9.00 per month including 900 AI-scored comments per billing month
+// (previously USD 5.00 and 100). Material change: users without a 1.21
+// consent row are routed back through /consent. Terms §6.3 requires 30 days'
+// notice before it applies to existing subscribers.
+export const LEGAL_VERSION = '1.21';
 export const LEGAL_KICKER = 'YouTube Comment Moderation Service';
 
 /**

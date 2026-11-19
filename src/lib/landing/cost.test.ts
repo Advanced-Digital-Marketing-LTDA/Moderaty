@@ -21,47 +21,50 @@ describe('calculator number inputs', () => {
 });
 
 describe('hosted cost calculator', () => {
-	test('an active hosted subscription costs $5 even with zero classifications', () => {
-		expect(hostedCostUsd(0)).toBe(5);
-		expect(hostedCostUsd(100)).toBe(5);
+	// Prices below are worked by hand from the published plan: $9 covers the first
+	// 900 classifications, and only the 500-for-$20.40 and 2,000-for-$64.65
+	// bundles can be bought beyond that.
+	test('an active hosted subscription costs $9 even with zero classifications', () => {
+		expect(hostedCostUsd(0)).toBe(9);
+		expect(hostedCostUsd(900)).toBe(9);
 		// 10 top-up credits can't be bought individually — the smallest
 		// purchasable bundle is 500 credits for $20.40 (the 100-credit size
 		// is retained for historical grants; the remainder carries over).
-		expect(hostedCostUsd(110)).toBeCloseTo(25.4, 5);
+		expect(hostedCostUsd(910)).toBeCloseTo(29.4, 5);
 	});
 
 	test.each([
-		[99, 5], [100, 5], [101, 25.4], [599, 25.4], [600, 25.4],
-		[601, 45.8], [1100, 45.8], [1101, 66.2], [1600, 66.2],
-		[1601, 69.65], [2100, 69.65], [2101, 90.05], [10000, 328.25]
+		[99, 9], [100, 9], [900, 9], [901, 29.4], [1400, 29.4],
+		[1401, 49.8], [1900, 49.8], [1901, 70.2], [2400, 70.2],
+		[2401, 73.65], [2900, 73.65], [2901, 94.05], [10000, 328.8]
 	])('preserves the purchasable-bundle boundary at %i classifications', (classifications, cost) => {
 		expect(hostedCostUsd(classifications)).toBeCloseTo(cost, 5);
 	});
 
 	test('digest classifications share the allowance and add to moderation scoring', () => {
-		expect(hostedCostUsd(100, 0)).toBe(5);
-		expect(hostedCostUsd(100, 100)).toBeCloseTo(25.4, 5);
-		expect(hostedCostUsd(0, 100)).toBe(5);
-		expect(hostedCostUsd(0, 101)).toBeCloseTo(25.4, 5);
-		expect(hostedCostUsd(100, 500)).toBeCloseTo(25.4, 5);
-		expect(hostedCostUsd(100, 501)).toBeCloseTo(45.8, 5);
+		expect(hostedCostUsd(900, 0)).toBe(9);
+		expect(hostedCostUsd(900, 100)).toBeCloseTo(29.4, 5);
+		expect(hostedCostUsd(0, 900)).toBe(9);
+		expect(hostedCostUsd(0, 901)).toBeCloseTo(29.4, 5);
+		expect(hostedCostUsd(900, 500)).toBeCloseTo(29.4, 5);
+		expect(hostedCostUsd(900, 501)).toBeCloseTo(49.8, 5);
 	});
 
 	test('separates cash purchases, consumed credits and the purchased balance left', () => {
-		expect(estimateHostedMonth(100, 100)).toEqual({
-			classifications: 200,
-			includedUsed: 100,
+		expect(estimateHostedMonth(900, 100)).toEqual({
+			classifications: 1000,
+			includedUsed: 900,
 			purchasedUsed: 100,
 			topupCredits: 500,
 			topupCostUsd: 20.4,
 			remainingPurchasedCredits: 400,
-			cashCostUsd: 25.4
+			cashCostUsd: 29.4
 		});
 		expect(estimateHostedMonth(0)).toEqual({
 			classifications: 0, includedUsed: 0, purchasedUsed: 0,
-			topupCredits: 0, topupCostUsd: 0, remainingPurchasedCredits: 0, cashCostUsd: 5
+			topupCredits: 0, topupCostUsd: 0, remainingPurchasedCredits: 0, cashCostUsd: 9
 		});
-		expect(estimateHostedMonth(1601).remainingPurchasedCredits).toBe(499);
+		expect(estimateHostedMonth(2401).remainingPurchasedCredits).toBe(499);
 	});
 
 	test('rejects invalid counts in either scoring input without changing them', () => {
@@ -74,21 +77,22 @@ describe('hosted cost calculator', () => {
 	test('accepts the maximum moderation and digest counts without losing integer precision', () => {
 		const estimate = estimateHostedMonth(MAX_CALCULATOR_COMMENTS, MAX_CALCULATOR_COMMENTS);
 		expect(estimate.classifications).toBe(20_000_000);
-		expect(estimate.purchasedUsed).toBe(19_999_900);
-		expect(estimate.topupCredits).toBe(20_000_000);
-		expect(estimate.cashCostUsd).toBe(646_505);
-		expect(estimate.remainingPurchasedCredits).toBe(100);
+		expect(estimate.purchasedUsed).toBe(19_999_100);
+		// 9,999 two-thousand bundles cover 19,998,000; the last 1,100 are cheapest as three 500 bundles.
+		expect(estimate.topupCredits).toBe(19_999_500);
+		expect(estimate.cashCostUsd).toBeCloseTo(646_505.55, 2);
+		expect(estimate.remainingPurchasedCredits).toBe(400);
 	});
 
 	test('top-up comments price as the cheapest purchasable bundle combination', () => {
 		// Manual credits only exist as fixed 500/2,000 bundles — the forecast
 		// is the cheapest combination covering the usage, never a per-credit
 		// rate nobody can buy (codex). Carry-over is real: leftovers persist.
-		expect(hostedCostUsd(200)).toBeCloseTo(25.4, 5); // 100 top-up = one 500-bundle
-		expect(hostedCostUsd(110)).toBeCloseTo(25.4, 5); // 10 top-up credits still need the whole bundle
-		expect(hostedCostUsd(600)).toBeCloseTo(25.4, 5); // 500-bundle exactly
-		expect(hostedCostUsd(1100)).toBeCloseTo(45.8, 5); // 1,000 top-up = two 500-bundles
-		expect(hostedCostUsd(2100)).toBeCloseTo(69.65, 5); // 2,000-bundle
+		expect(hostedCostUsd(1000)).toBeCloseTo(29.4, 5); // 100 top-up = one 500-bundle
+		expect(hostedCostUsd(910)).toBeCloseTo(29.4, 5); // 10 top-up credits still need the whole bundle
+		expect(hostedCostUsd(1400)).toBeCloseTo(29.4, 5); // 500-bundle exactly
+		expect(hostedCostUsd(1900)).toBeCloseTo(49.8, 5); // 1,000 top-up = two 500-bundles
+		expect(hostedCostUsd(2900)).toBeCloseTo(73.65, 5); // 2,000-bundle
 	});
 
 	test('rejects fractional, negative, unsafe, and unbounded inputs', () => {
@@ -98,14 +102,14 @@ describe('hosted cost calculator', () => {
 	});
 
 	test('returns a three-month average and a conservative low/high range', () => {
-		const forecast = forecastCost([100, 200, 300]);
-		expect(forecast.averageComments).toBe(200);
-		expect(forecast.lowComments).toBe(100);
-		expect(forecast.highComments).toBe(300);
-		expect(forecast.lowCostUsd).toBe(5);
-		expect(forecast.averageCostUsd).toBeCloseTo(25.4, 5);
-		// 300 comments = $5 plan + 200 top-up credits = one 500-bundle ($20.40).
-		expect(forecast.highCostUsd).toBeCloseTo(25.4, 5);
+		const forecast = forecastCost([500, 1000, 1500]);
+		expect(forecast.averageComments).toBe(1000);
+		expect(forecast.lowComments).toBe(500);
+		expect(forecast.highComments).toBe(1500);
+		expect(forecast.lowCostUsd).toBe(9);
+		expect(forecast.averageCostUsd).toBeCloseTo(29.4, 5);
+		// 1,500 comments = $9 plan + 600 top-up credits = two 500-bundles ($40.80).
+		expect(forecast.highCostUsd).toBeCloseTo(49.8, 5);
 	});
 });
 
@@ -121,8 +125,8 @@ describe('three-month forecast gate', () => {
 	});
 
 	test('zero months each retain the recurring subscription in the independent scenarios', () => {
-		expect(forecastCost([0, 0, 0])).toMatchObject({ lowCostUsd: 5, averageCostUsd: 5, highCostUsd: 5 });
-		expect(forecastCost([0, 100, 200])).toMatchObject({ lowCostUsd: 5, averageCostUsd: 5, highCostUsd: 25.4 });
+		expect(forecastCost([0, 0, 0])).toMatchObject({ lowCostUsd: 9, averageCostUsd: 9, highCostUsd: 9 });
+		expect(forecastCost([0, 600, 1200])).toMatchObject({ lowCostUsd: 9, averageCostUsd: 9, highCostUsd: 29.4 });
 	});
 
 	test('returns null when any filled month is invalid, and the forecast when all three are valid', () => {

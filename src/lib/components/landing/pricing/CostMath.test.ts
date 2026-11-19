@@ -48,9 +48,9 @@ function renderEstimate(moderation: number, digest: number) {
 }
 
 const MONTHLY_CASES = [
-	{ moderation: 0, digest: 0, total: '$5.00', credits: '0', topup: '$0.00' },
-	{ moderation: 80, digest: 20, total: '$5.00', credits: '0', topup: '$0.00' },
-	{ moderation: 100, digest: 100, total: '$25.40', credits: '500', topup: '$20.40' }
+	{ moderation: 0, digest: 0, total: '$9.00', credits: '0', topup: '$0.00' },
+	{ moderation: 400, digest: 100, total: '$9.00', credits: '0', topup: '$0.00' },
+	{ moderation: 900, digest: 100, total: '$29.40', credits: '500', topup: '$20.40' }
 ];
 
 it.each(MONTHLY_CASES)('identifies the full monthly total for $moderation moderation / $digest digest classifications', ({ moderation, digest, total }) => {
@@ -63,6 +63,6 @@ it.each(MONTHLY_CASES)('identifies the full monthly total for $moderation modera
 
 it.each(MONTHLY_CASES)('shows subscription separately from top-up for $moderation moderation / $digest digest classifications', ({ moderation, digest, credits, topup }) => {
 	const body = renderEstimate(moderation, digest).replace(/<!--[\s\S]*?-->/g, '');
-	expect(body).toMatch(/<dt\b[^>]*>Subscription<\/dt>\s*<dd\b[^>]*>\$5\.00<\/dd>/);
+	expect(body).toMatch(/<dt\b[^>]*>Subscription<\/dt>\s*<dd\b[^>]*>\$9\.00<\/dd>/);
 	expect(body).toContain(`${credits} credits (${topup})`);
 });

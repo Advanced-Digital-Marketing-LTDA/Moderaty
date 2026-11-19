@@ -34,7 +34,7 @@ MOD-191 (refund/cancellation workflow).
 
 | Path | Provider objects | Payment evidence | Amount/currency |
 |---|---|---|---|
-| Hosted subscription (USD 5/mo, `STRIPE_PRICE_HOSTED_MONTHLY`) | Checkout `mode: 'subscription'` → Subscription → monthly Invoice | `invoice.paid` on the org's *tracked* subscription (`handleInvoicePaid`) | `invoice.amount_paid`, USD |
+| Hosted subscription (USD 9/mo, `STRIPE_PRICE_HOSTED_MONTHLY`) | Checkout `mode: 'subscription'` → Subscription → monthly Invoice | `invoice.paid` on the org's *tracked* subscription (`handleInvoicePaid`) | `invoice.amount_paid`, USD |
 | Lifetime (USD 49 one-time, `STRIPE_PRICE_LIFETIME`) | Checkout `mode: 'payment'` | `checkout.session.completed` (or `async_payment_succeeded`) with `payment_status = 'paid'` | `session.amount_total`, USD |
 | Credit bundle (`credits_500` USD 20.40, `credits_2000` USD 64.65; `credits_100` USD 5.00 is hidden from purchase) | Checkout `mode: 'payment'` | same as lifetime | `session.amount_total`, USD |
 | Auto top-up (credits_500/credits_2000) | off-session `paymentIntents.create` | `payment_intent.succeeded` with `metadata.type = 'auto_topup'` | `payment_intent.amount`, USD |

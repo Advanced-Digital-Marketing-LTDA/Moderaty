@@ -92,7 +92,7 @@ on the public pricing page:
   top-up is opt-in and off by default: it charges your saved card for the chosen
   bundle when the balance drops below your threshold
   ([docs/stripe-auto-topup.md](docs/stripe-auto-topup.md)).
-- **Hosted monthly plan.** $5 a month with 100 AI classifications shared by
+- **Hosted monthly plan.** $9 a month with 900 AI classifications shared by
   moderation scoring and feedback digests.
 - **Lifetime.** $49 once, capped at 1,000 places, using your own OpenAI key
   stored per organization on the Team page.
