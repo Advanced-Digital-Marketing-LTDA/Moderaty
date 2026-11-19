@@ -1,6 +1,6 @@
 export const COMMENT_REVIEW_ROUTINE = {
 	path: '/guides/comment-review-routine/',
-	title: 'YouTube Comment Review Routine: Timer On, Endless Scrolling Off',
+	title: 'YouTube comment review routine with a timer',
 	description: 'Run a 15-minute YouTube comment review routine on a timer: clear Held for review first, skim published comments next, then turn repeat trolls into rules.'
 } as const;
 

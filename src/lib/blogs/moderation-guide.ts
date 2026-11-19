@@ -1,6 +1,6 @@
 export const MODERATION_GUIDE = {
 	path: '/guides/youtube-comment-moderation/',
-	title: 'YouTube comment moderation: settings, filters and tools',
+	title: 'YouTube comment moderation: settings and tools',
 	description: 'Learn how to moderate YouTube comments, choose Basic or Strict filters, review held comments, add moderators and test automation for your channel.'
 } as const;
 

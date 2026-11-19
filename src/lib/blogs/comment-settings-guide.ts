@@ -1,6 +1,6 @@
 export const COMMENT_SETTINGS_GUIDE = {
 	path: '/guides/youtube-comment-moderation-settings/',
-	title: 'YouTube Comment Settings: Basic, Strict, Hold All, and Community Viewer Posts',
+	title: 'YouTube comment settings: Basic, Strict, Hold All',
 	description: 'Compare YouTube comment moderation settings, blocked words and held comments, and learn how viewer-post controls differ.'
 } as const;
 

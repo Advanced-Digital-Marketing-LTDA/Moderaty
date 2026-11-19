@@ -171,9 +171,9 @@
 					<form method="POST" action="?/buyPlan" use:enhance={submitting}>
 						<input type="hidden" name="plan" value="hosted" />
 						<input type="hidden" name="attempt_id" value={checkoutAttempts.hosted ?? ''} />
-						<button class="btn secondary" type="submit" disabled={pending}>Start hosted · $5/month</button>
+						<button class="btn secondary" type="submit" disabled={pending}>Start hosted · $9/month</button>
 					</form>
-					<p class="muted">100 included comments per billing period. Unused comments do not roll over; prepaid credits cover overage.</p>
+					<p class="muted">900 included comments per billing period. Unused comments do not roll over; prepaid credits cover overage.</p>
 				{/if}
 				{#if data.plans.lifetime}
 					{@render lifetimeOffer()}

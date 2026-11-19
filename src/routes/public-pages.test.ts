@@ -11,6 +11,10 @@ import GuidesIndex from './guides/+page.svelte';
 import RoutineGuide from './guides/comment-review-routine/+page.svelte';
 import ModerationGuide from './guides/youtube-comment-moderation/+page.svelte';
 import SettingsGuide from './guides/youtube-comment-moderation-settings/+page.svelte';
+import CommentSharkComparison from './moderaty-vs-commentshark/+page.svelte';
+import TermsPage from './terms/+page.svelte';
+import DpaPage from './dpa/+page.svelte';
+import PrivacyPage from './privacy/+page.svelte';
 import Terms from '$lib/components/landing/legal/Terms.svelte';
 import { HOMEPAGE_FAQ_ENTRIES } from '$lib/landing/faq';
 import { PRICING_FAQ_ENTRIES } from '$lib/landing/pricing-faq';
@@ -19,6 +23,7 @@ import { SPAM_COMMENTS, SPAM_COMMENTS_EDITION } from '$lib/blogs/spam-comments';
 import { COMMENT_REVIEW_ROUTINE, COMMENT_REVIEW_ROUTINE_EDITION } from '$lib/blogs/comment-review-routine';
 import { MODERATION_GUIDE, MODERATION_GUIDE_EDITION } from '$lib/blogs/moderation-guide';
 import { COMMENT_SETTINGS_GUIDE, COMMENT_SETTINGS_GUIDE_EDITION } from '$lib/blogs/comment-settings-guide';
+import { COMMENTSHARK_COMPARISON, COMMENTSHARK_COMPARISON_EDITION } from '$lib/blogs/commentshark-comparison';
 import { GUIDES_INDEX } from '$lib/blogs/guides-index';
 import { BLOG_AUTHOR } from '$lib/blogs/author';
 import { PUBLIC_BLOG_ROUTE_IDS, llmsTxt, sitemapXml } from '$lib/server/siteIndex';
@@ -66,16 +71,41 @@ const PAGES = [
 	{ name: 'guides index', path: '/guides/', render: () => render(GuidesIndex, { props: { data: articleData } }) },
 	{ name: 'comment review routine guide', path: COMMENT_REVIEW_ROUTINE.path, render: () => render(RoutineGuide, { props: { data: articleData } }) },
 	{ name: 'moderation guide', path: MODERATION_GUIDE.path, render: () => render(ModerationGuide, { props: { data: articleData } }) },
-	{ name: 'comment settings guide', path: COMMENT_SETTINGS_GUIDE.path, render: () => render(SettingsGuide, { props: { data: articleData } }) }
+	{ name: 'comment settings guide', path: COMMENT_SETTINGS_GUIDE.path, render: () => render(SettingsGuide, { props: { data: articleData } }) },
+	{ name: 'CommentShark comparison', path: COMMENTSHARK_COMPARISON.path, render: () => render(CommentSharkComparison, { props: { data: articleData } }) }
 ] as const;
+
+const LEGAL_PAGES = [
+	{ name: 'terms', render: () => render(TermsPage) },
+	{ name: 'DPA', render: () => render(DpaPage) },
+	{ name: 'privacy', render: () => render(PrivacyPage) }
+] as const;
+
+// Search results cut a longer title or snippet off mid-phrase.
+const MAX_TITLE_LENGTH = 60;
+const MAX_DESCRIPTION_LENGTH = 160;
+
+function expectSearchResultLengths(head: string) {
+	const title = head.match(/<title>(.*?)<\/title>/)?.[1];
+	const description = attribute(head, 'name', 'description', 'content');
+	expect(title, 'missing <title>').toBeDefined();
+	expect(description, 'missing meta description').toBeDefined();
+	expect((title ?? '').length, `title is ${(title ?? '').length} characters: ${title}`).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+	expect((description ?? '').length, `description is ${(description ?? '').length} characters: ${description}`).toBeLessThanOrEqual(MAX_DESCRIPTION_LENGTH);
+}
+
+test.each([...PAGES, ...LEGAL_PAGES])(
+	'$name keeps its title and meta description inside search-result limits',
+	({ render: renderPage }) => expectSearchResultLengths(renderPage().head)
+);
 
 // These pages leave the canonical tag to the root layout (see how-it-works
 // /page.test history); their social URL must still match the address they serve.
 const LAYOUT_CANONICAL = new Set<string>(['/how-it-works/', '/pricing']);
 // Pages that must contain at least one link of the given kind, so an empty
 // loop cannot pass silently.
-const EXTERNAL_LINK_PATHS = new Set<string>(['/', '/how-it-works/', '/pricing', HATE_COMMENTS.path, SPAM_COMMENTS.path, COMMENT_REVIEW_ROUTINE.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path]);
-const IN_PAGE_ANCHOR_PATHS = new Set<string>(['/how-it-works/', HATE_COMMENTS.path, SPAM_COMMENTS.path, COMMENT_REVIEW_ROUTINE.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path]);
+const EXTERNAL_LINK_PATHS = new Set<string>(['/', '/how-it-works/', '/pricing', HATE_COMMENTS.path, SPAM_COMMENTS.path, COMMENT_REVIEW_ROUTINE.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path, COMMENTSHARK_COMPARISON.path]);
+const IN_PAGE_ANCHOR_PATHS = new Set<string>(['/how-it-works/', HATE_COMMENTS.path, SPAM_COMMENTS.path, COMMENT_REVIEW_ROUTINE.path, MODERATION_GUIDE.path, COMMENT_SETTINGS_GUIDE.path, COMMENTSHARK_COMPARISON.path]);
 
 test.each(PAGES)('$name declares its canonical address and matching social URL', ({ path, render: renderPage }) => {
 	const { head } = renderPage();
@@ -186,7 +216,8 @@ const ARTICLES = [
 	{ name: 'spam comments', body: () => render(SpamArticle, { props: { data: articleData } }).body, path: SPAM_COMMENTS.path, edition: SPAM_COMMENTS_EDITION },
 	{ name: 'comment review routine', body: () => render(RoutineGuide, { props: { data: articleData } }).body, path: COMMENT_REVIEW_ROUTINE.path, edition: COMMENT_REVIEW_ROUTINE_EDITION },
 	{ name: 'moderation guide', body: () => render(ModerationGuide, { props: { data: articleData } }).body, path: MODERATION_GUIDE.path, edition: MODERATION_GUIDE_EDITION },
-	{ name: 'comment settings guide', body: () => render(SettingsGuide, { props: { data: articleData } }).body, path: COMMENT_SETTINGS_GUIDE.path, edition: COMMENT_SETTINGS_GUIDE_EDITION }
+	{ name: 'comment settings guide', body: () => render(SettingsGuide, { props: { data: articleData } }).body, path: COMMENT_SETTINGS_GUIDE.path, edition: COMMENT_SETTINGS_GUIDE_EDITION },
+	{ name: 'CommentShark comparison', body: () => render(CommentSharkComparison, { props: { data: articleData } }).body, path: COMMENTSHARK_COMPARISON.path, edition: COMMENTSHARK_COMPARISON_EDITION }
 ] as const;
 
 const ARTICLE_RENDERS = [
@@ -194,7 +225,8 @@ const ARTICLE_RENDERS = [
 	{ title: SPAM_COMMENTS.title, path: SPAM_COMMENTS.path, render: () => render(SpamArticle, { props: { data: articleData } }) },
 	{ title: COMMENT_REVIEW_ROUTINE.title, path: COMMENT_REVIEW_ROUTINE.path, render: () => render(RoutineGuide, { props: { data: articleData } }) },
 	{ title: MODERATION_GUIDE.title, path: MODERATION_GUIDE.path, render: () => render(ModerationGuide, { props: { data: articleData } }) },
-	{ title: COMMENT_SETTINGS_GUIDE.title, path: COMMENT_SETTINGS_GUIDE.path, render: () => render(SettingsGuide, { props: { data: articleData } }) }
+	{ title: COMMENT_SETTINGS_GUIDE.title, path: COMMENT_SETTINGS_GUIDE.path, render: () => render(SettingsGuide, { props: { data: articleData } }) },
+	{ title: COMMENTSHARK_COMPARISON.title, path: COMMENTSHARK_COMPARISON.path, render: () => render(CommentSharkComparison, { props: { data: articleData } }) }
 ] as const;
 
 const jsonLdBlocks = (head: string) =>

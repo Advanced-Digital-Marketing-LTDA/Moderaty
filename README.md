@@ -92,7 +92,7 @@ on the public pricing page:
   top-up is opt-in and off by default: it charges your saved card for the chosen
   bundle when the balance drops below your threshold
   ([docs/stripe-auto-topup.md](docs/stripe-auto-topup.md)).
-- **Hosted monthly plan.** $5 a month with 100 AI classifications shared by
+- **Hosted monthly plan.** $9 a month with 900 AI classifications shared by
   moderation scoring and feedback digests.
 - **Lifetime.** $49 once, capped at 1,000 places, using your own OpenAI key
   stored per organization on the Team page.
@@ -127,7 +127,7 @@ server-only.
 | `netlify/functions/cron.mjs` | Scheduled Netlify function that invokes the cron endpoint |
 | `Dockerfile` | Coolify image: migrate+verify gate, node build, non-root runtime (see `docs/COOLIFY.md`) |
 | `src/routes/demo/` | Screenshot-only pages that render the real dashboard and channel UI with fictional data; off unless `DEMO_PAGES_ENABLED=true`, always noindex, never in the sitemap |
-| `src/routes/tools/` | Public tools, currently the YouTube money calculator |
+| `src/routes/tools/` | Public tools, currently the YouTube income estimator |
 | `scripts/dev-cron.mjs` | Cron ticker: local dev loop, or Coolify's in-container scheduled task (`--once`) |
 | `scripts/` | Local demo-data seeding, live tone calibration, and deploy helpers |
 | `docs/` | Manual end-to-end verification notes and the Coolify runbook (`docs/COOLIFY.md`) |
@@ -303,7 +303,7 @@ Also in the codebase:
 - **Contact and welcome e-mail.** Verified contact messages with inbox delivery,
   and the first hosted welcome e-mail ([docs/hosted-welcome-email.md](docs/hosted-welcome-email.md)).
 - **Public content.** Blog articles at `/blogs`, creator guides at `/guides`, and
-  the YouTube money calculator at `/tools/youtube-money-calculator`.
+  the YouTube income estimator at `/tools/youtube-income-estimator`.
 
 The `/demo` pages are for screenshots only: no database, sign-in, consent, cron,
 YouTube or OpenAI call. They return 404 unless `DEMO_PAGES_ENABLED=true`, and
