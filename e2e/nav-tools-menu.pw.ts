@@ -1,6 +1,6 @@
 import { test, expect } from './support/fixture';
 
-const toolHref = '/tools/youtube-money-calculator/';
+const toolHref = '/tools/youtube-income-estimator/';
 
 test('the Tools menu opens on desktop, reaches the calculator, and closes on Escape', async ({ app, page }) => {
 	await page.setViewportSize({ width: 1280, height: 900 });
@@ -12,7 +12,7 @@ test('the Tools menu opens on desktop, reaches the calculator, and closes on Esc
 	await expect(toggle).toHaveAttribute('aria-expanded', 'true');
 	await page.getByRole('link', { name: 'YouTube money calculator', exact: true }).click();
 	await expect(page).toHaveURL(new RegExp(`${toolHref}$`));
-	await expect(page.getByRole('heading', { name: 'YouTube Money Calculator', level: 1, exact: true })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'YouTube Income Estimator', level: 1, exact: true })).toBeVisible();
 });
 
 test('the Tools menu closes on Escape and on an outside click', async ({ app, page }) => {

@@ -18,7 +18,11 @@ test('the FAQ has the eight spec questions, each phrased as a question and answe
 });
 
 test('the calculator path is a site-relative path with a trailing slash', () => {
-	expect(YOUTUBE_MONEY_CALCULATOR.path).toBe('/tools/youtube-money-calculator/');
+	expect(YOUTUBE_MONEY_CALCULATOR.path).toBe('/tools/youtube-income-estimator/');
+});
+
+test('the page title is YouTube Income Estimator', () => {
+	expect(YOUTUBE_MONEY_CALCULATOR.title).toBe('YouTube Income Estimator');
 });
 
 test('every cited source is an https link', () => {

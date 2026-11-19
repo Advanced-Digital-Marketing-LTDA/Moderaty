@@ -303,7 +303,7 @@ Also in the codebase:
 - **Contact and welcome e-mail.** Verified contact messages with inbox delivery,
   and the first hosted welcome e-mail ([docs/hosted-welcome-email.md](docs/hosted-welcome-email.md)).
 - **Public content.** Blog articles at `/blogs`, creator guides at `/guides`, and
-  the YouTube money calculator at `/tools/youtube-money-calculator`.
+  the YouTube money calculator at `/tools/youtube-income-estimator`.
 
 The `/demo` pages are for screenshots only: no database, sign-in, consent, cron,
 YouTube or OpenAI call. They return 404 unless `DEMO_PAGES_ENABLED=true`, and

@@ -135,9 +135,9 @@
 	<ol><li><a href="/">Home</a></li><li aria-current="page">YouTube money calculator</li></ol>
 </nav>
 
-<h1>YouTube Money Calculator</h1>
+<h1>YouTube Income Estimator</h1>
 <p>
-	Enter your monthly views and your RPM from YouTube Studio, and the YouTube Money Calculator returns daily, monthly and yearly earnings plus the views you need for an income goal. If a required number is missing or wrong, you get a message instead of a result.
+	The YouTube Income Estimator turns your monthly views and your RPM from YouTube Studio into daily, monthly and yearly earnings, plus the views you need for an income goal. If a required number is missing or wrong, you get a message instead of a result.
 </p>
 <p class="updated">Last updated <time datetime={YOUTUBE_MONEY_EDITION.updated}>{updatedLabel}</time>.</p>
 

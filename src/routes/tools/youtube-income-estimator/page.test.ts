@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { render } from 'svelte/server';
 import { expect, test, vi } from 'vitest';
 import Page from './+page.svelte';
+import Footer from '$lib/components/landing/Footer.svelte';
 import { NICHE_CPM_NOTE, YOUTUBE_MONEY_CALCULATOR, YOUTUBE_MONEY_EDITION, YOUTUBE_MONEY_FAQ, YOUTUBE_MONEY_SECTIONS, YOUTUBE_MONEY_SOURCES, NICHE_CPM_ROWS } from '$lib/tools/youtube-money-content';
 import { PUBLIC_BLOG_ROUTE_IDS, llmsTxt, sitemapXml } from '$lib/server/siteIndex';
 
@@ -93,7 +94,17 @@ test('the copy keeps the sourced meaning of the Shorts pool and the entry thresh
 test('the calculator is listed in the sitemap, llms.txt and the blog route list', () => {
 	expect(sitemapXml()).toContain(`<loc>${articleUrl}</loc>`);
 	expect(llmsTxt()).toContain(`](${articleUrl})`);
+	expect(PUBLIC_BLOG_ROUTE_IDS).toContain('/tools/youtube-income-estimator');
+});
+
+test('the old calculator path stays reachable during a database outage but is not advertised', () => {
 	expect(PUBLIC_BLOG_ROUTE_IDS).toContain('/tools/youtube-money-calculator');
+	expect(sitemapXml()).not.toContain('youtube-money-calculator');
+	expect(llmsTxt()).not.toContain('youtube-money-calculator');
+});
+
+test('the footer links to the income estimator', () => {
+	expect(render(Footer).body).toMatch(/<a href="\/tools\/youtube-income-estimator\/" class="footer-link[^"]*">YouTube Income Estimator<\/a>/);
 });
 
 test('the page source makes no network calls and has no placeholder copy', () => {
@@ -197,10 +208,16 @@ test('the FAQ paragraph rule sets the answer spacing', () => {
 	expect(pageSource()).toMatch(/details\.faq-item > p \{[^}]*margin: 12px 0 0/);
 });
 
-test('the H1 and the title tag are exactly YouTube Money Calculator', () => {
+test('the H1 and the title tag are exactly YouTube Income Estimator', () => {
 	const { head, body } = rendered();
-	expect(body).toMatch(/<h1>YouTube Money Calculator<\/h1>/);
-	expect(head).toContain('<title>YouTube Money Calculator | Moderaty</title>');
+	expect(body).toMatch(/<h1>YouTube Income Estimator<\/h1>/);
+	expect(head).toContain('<title>YouTube Income Estimator | Moderaty</title>');
+});
+
+test('YouTube Income Estimator appears within the first 100 characters of the page text', () => {
+	const afterH1 = rendered().body.split('</h1>')[1] ?? '';
+	const text = afterH1.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+	expect(text.slice(0, 100)).toContain('YouTube Income Estimator');
 });
 
 test('the last-updated date sits once, above the calculator', () => {
@@ -258,7 +275,7 @@ const JOKE = 'Views are free. Here is what they pay. Then there are the comments
 
 test('the lead states the task and the answer', () => {
 	expect(bodyText()).toContain(
-		'and the YouTube Money Calculator returns daily, monthly and yearly earnings plus the views you need for an income goal. If a required number is missing or wrong, you get a message instead of a result.'
+		'turns your monthly views and your RPM from YouTube Studio into daily, monthly and yearly earnings, plus the views you need for an income goal. If a required number is missing or wrong, you get a message instead of a result.'
 	);
 });
 

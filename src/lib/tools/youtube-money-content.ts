@@ -1,8 +1,8 @@
 import type { FaqEntry } from '$lib/landing/faq';
 
 export const YOUTUBE_MONEY_CALCULATOR = {
-	path: '/tools/youtube-money-calculator/',
-	title: 'YouTube Money Calculator',
+	path: '/tools/youtube-income-estimator/',
+	title: 'YouTube Income Estimator',
 	description:
 		'Free YouTube money calculator. Enter your monthly views and Studio RPM to see daily, monthly and yearly earnings and the views you need for an income goal.'
 } as const;
