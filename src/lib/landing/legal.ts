@@ -16,6 +16,18 @@ export type LegalDoc = {
 };
 
 export const LEGAL_EFFECTIVE_DATE = '11 October 2026';
+// 1.22: HOSTED PRICE — Terms §6.1(b) now offers the hosted subscription at
+// USD 9.00 per month including 900 AI-scored comments per billing month
+// (previously USD 5.00 and 100). Material change: users without a 1.22
+// consent row are routed back through /consent. Terms §6.3 requires 30 days'
+// notice before it applies to existing subscribers. The effective date
+// constant is unchanged pending the owner's publication date.
+// 1.21: NEVER-PURCHASED RETENTION — Terms §17.3 and Privacy §7.1 extend the
+// zero-credit deletion to accounts that never purchased: 30 days from account
+// creation to make a first purchase, then the 30-day countdown with warnings
+// every 7 days. DPA §17.2 already references §17.3. Material change: users
+// without a 1.21 consent row are routed back through /consent. The effective
+// date constant is unchanged pending the owner's publication date.
 // 1.20: LIFETIME PLACES — Terms §6.1(c) corrected to match the billing
 // implementation: the US$49 offer caps a pool of 1,000 reusable lifetime
 // places (a place released by a refund may be sold again), not the first
@@ -48,7 +60,7 @@ export const LEGAL_EFFECTIVE_DATE = '11 October 2026';
 // 1.14: ZERO-CREDIT RETENTION — Terms §17.3 (new) adds dormant-account
 // deletion: a billing-engaged account whose organizations all stay out of
 // credits is warned every 7 days and deleted after 30 days; never-purchased
-// and lifetime accounts are exempt. Privacy §7.1 and DPA §17.2 name the same
+// and lifetime accounts were exempt (1.21 changes this). Privacy §7.1 and DPA §17.2 name the same
 // rule. Material change: users without a 1.14 consent row are routed back
 // through /consent.
 // 1.13: OPERATOR IDENTITY — the legal operator's company name, CNPJ, address,
@@ -96,12 +108,7 @@ export const LEGAL_EFFECTIVE_DATE = '11 October 2026';
 // previously named only name, e-mail, purchase history, and tax ID.
 // Material change: users without a 1.17 consent row are routed back
 // through /consent.
-// 1.21: HOSTED PRICE — Terms §6.1(b) now offers the hosted subscription at
-// USD 9.00 per month including 900 AI-scored comments per billing month
-// (previously USD 5.00 and 100). Material change: users without a 1.21
-// consent row are routed back through /consent. Terms §6.3 requires 30 days'
-// notice before it applies to existing subscribers.
-export const LEGAL_VERSION = '1.21';
+export const LEGAL_VERSION = '1.22';
 export const LEGAL_KICKER = 'YouTube Comment Moderation Service';
 
 /**
@@ -132,7 +139,7 @@ export const TERMS_DOC: LegalDoc = defineDoc(
 	'terms',
 	'Terms',
 	'Terms of Service',
-	'The binding contract for using Moderaty: eligibility, the service, YouTube API terms, plans, billing and auto top-up, refunds, acceptable use, liability, and governing law (Brazil).',
+	'The binding contract for using Moderaty: eligibility, the service, YouTube API terms, plans, billing, refunds, acceptable use, liability and governing law.',
 	[
 		{ id: 's1', label: '1. Agreement and Acceptance' },
 		{ id: 's2', label: '2. Definitions' },
@@ -185,7 +192,7 @@ export const DPA_DOC: LegalDoc = defineDoc(
 	'dpa',
 	'DPA',
 	'Data Processing Agreement',
-	'The LGPD data processing agreement between you (controller) and Moderaty (processor) for YouTube comment data: comment-data minimization (commenter handles appear in the activity log for up to 30 days, then are erased automatically, and can be erased on demand; no other author identifiers stored), sub-processors, and ANPD transfer clauses.',
+	'The LGPD data processing agreement between you (controller) and Moderaty (processor) for YouTube comment data, with sub-processors and ANPD transfer clauses.',
 	[
 		{ id: 's1', label: '1. Purpose and Scope' },
 		{ id: 's2', label: '2. Definitions' },

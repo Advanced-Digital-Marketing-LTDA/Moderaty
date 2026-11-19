@@ -1,6 +1,6 @@
 import { test, expect } from './support/fixture';
 
-const path = '/tools/youtube-money-calculator/';
+const path = '/tools/youtube-income-estimator/';
 
 test.beforeEach(async ({ app, page }) => {
 	await page.goto(`${app.baseURL}${path}`);
@@ -71,4 +71,25 @@ test('on a phone the result panel sits under the form', async ({ page }) => {
 	const results = await page.locator('.results').boundingBox();
 	if (!form || !results) throw new Error('form or results panel has no box');
 	expect(results.y).toBeGreaterThanOrEqual(form.y + form.height - 1);
+});
+
+test.describe('the retired calculator path', () => {
+	// The shared beforeEach loads the estimator, so these requests use the request context directly.
+	// Without the trailing slash SvelteKit first adds it with a 308; the slashed URL then answers the 301.
+	const cases = [
+		{ oldPath: '/tools/youtube-money-calculator/', firstStatus: 301, firstLocation: '/tools/youtube-income-estimator/?utm_source=newsletter' },
+		{ oldPath: '/tools/youtube-money-calculator', firstStatus: 308, firstLocation: 'youtube-money-calculator/?utm_source=newsletter' }
+	];
+	for (const { oldPath, firstStatus, firstLocation } of cases) {
+		test(`${oldPath} permanently redirects and lands on the estimator`, async ({ app, request, page }) => {
+			const first = await request.get(`${app.baseURL}${oldPath}?utm_source=newsletter`, { maxRedirects: 0 });
+			expect(first.status()).toBe(firstStatus);
+			expect(first.headers()['location']).toContain(firstLocation);
+			const slashed = await request.get(`${app.baseURL}/tools/youtube-money-calculator/?utm_source=newsletter`, { maxRedirects: 0 });
+			expect(slashed.status()).toBe(301);
+			await page.goto(`${app.baseURL}${oldPath}`);
+			await expect(page).toHaveURL(new RegExp('/tools/youtube-income-estimator/$'));
+			await expect(page.getByRole('heading', { name: 'YouTube Income Estimator', level: 1, exact: true })).toBeVisible();
+		});
+	}
 });

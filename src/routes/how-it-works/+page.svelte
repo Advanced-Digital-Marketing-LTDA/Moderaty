@@ -10,7 +10,7 @@
 	let { data }: { data: PageData } = $props();
 
 	const description =
-		'Learn how Moderaty checks published YouTube comments with AI scoring, optional rules, human review, moderation history, optional feedback digests, and hosted or self-hosted plans.';
+		'Learn how Moderaty checks published YouTube comments with AI scoring, optional rules, human review, moderation history, feedback digests and plans.';
 	const sourceReadme =
 		'https://github.com/Advanced-Digital-Marketing-LTDA/Moderaty/blob/main/README.md#what-it-does';
 
