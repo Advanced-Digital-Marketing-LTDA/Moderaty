@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { compile, parse } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import { ModuleKind, transpileModule } from 'typescript';
+import { withoutHtmlComments } from '../../../../routes/blogs/article-text';
 import { expect, it } from 'vitest';
 import Reveal from '../Reveal.svelte';
 import type CostMath from './CostMath.svelte';
@@ -62,7 +63,7 @@ it.each(MONTHLY_CASES)('identifies the full monthly total for $moderation modera
 });
 
 it.each(MONTHLY_CASES)('shows subscription separately from top-up for $moderation moderation / $digest digest classifications', ({ moderation, digest, credits, topup }) => {
-	const body = renderEstimate(moderation, digest).replace(/<!--[\s\S]*?-->/g, '');
+	const body = withoutHtmlComments(renderEstimate(moderation, digest));
 	expect(body).toMatch(/<dt\b[^>]*>Subscription<\/dt>\s*<dd\b[^>]*>\$9\.00<\/dd>/);
 	expect(body).toContain(`${credits} credits (${topup})`);
 });
